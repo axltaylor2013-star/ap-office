@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>AP Technologies — The Office</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:#0b0e14;color:#e8ecf1;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;height:100%;width:100%;touch-action:none}
+.topbar{background:linear-gradient(135deg,#0f1318,#161b25);border-bottom:2px solid #d4a843;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;z-index:10;position:relative}
+.topbar h1{font-size:.85rem;font-weight:700;display:flex;align-items:center;gap:6px}
+.topbar h1 span{color:#d4a843}
+.clock{font-variant-numeric:tabular-nums;font-weight:600;color:#e8ecf1;font-size:.8rem}
+canvas{display:block;width:100%;height:calc(100% - 44px)}
+.status-bar{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(135deg,#0f1318,#161b25);border-top:1px solid #252b3b;padding:8px 12px;display:flex;gap:8px;overflow-x:auto;z-index:10;-webkit-overflow-scrolling:touch}
+.agent-pill{flex-shrink:0;background:#1a1f2e;border:1px solid #252b3b;border-radius:20px;padding:6px 14px;font-size:.7rem;display:flex;align-items:center;gap:6px;transition:all .3s}
+.agent-pill.active{border-color:#d4a843;background:#1a1f2e}
+.agent-pill .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.agent-pill .name{font-weight:600;white-space:nowrap}
+.agent-pill .task{color:#8892a4;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.notif{position:fixed;top:54px;left:50%;transform:translateX(-50%);background:#1a1f2e;border:1px solid #d4a843;border-radius:10px;padding:10px 18px;font-size:.75rem;opacity:0;transition:all .5s;z-index:20;pointer-events:none;text-align:center;max-width:90vw}
+.notif.show{opacity:1;transform:translateX(-50%) translateY(8px)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⚡ <span>AP Tech</span> — Office</h1>
+  <div class="clock" id="clock">--:--</div>
+</div>
+
+<canvas id="office"></canvas>
+
+<div class="status-bar" id="statusBar"></div>
+<div class="notif" id="notif"></div>
+
+<script>
+const canvas=document.getElementById('office');
+const ctx=canvas.getContext('2d');
+const notifEl=document.getElementById('notif');
+const statusBar=document.getElementById('statusBar');
+
+let W,H;
+function resize(){
+  const bar=document.querySelector('.status-bar');
+  const barH=bar?bar.offsetHeight:44;
+  W=canvas.width=window.innerWidth;
+  H=canvas.height=window.innerHeight-44-barH;
+}
+resize();
+window.addEventListener('resize',resize);
+
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}
+setInterval(tick,1000);tick();
+
+// Notification system
+const notifications=[
+  '🫏 Mule tripped over the server rack again...',
+  '🔨 Forge just deployed a hotfix',
+  '🤖 Jarvis is reviewing Mule\'s work',
+  '🫏 Mule is at the snack table... again',
+  '🔨 Forge found a bug. Forge fixed the bug.',
+  '🤖 Jarvis: "Everyone back to work"',
+  '🫏 Mule spilled water on the keyboard',
+  '🐕 The dog stole Mule\'s pizza slice',
+  '🔨 Forge is refactoring... everything',
+  '🤖 Jarvis just automated another task',
+  '🫏 Mule walked into the whiteboard',
+  '💡 New idea on the whiteboard!',
+  '☕ Fresh coffee in the break area',
+  '🔨 Forge: "Works on my machine"',
+  '🤖 Jarvis scheduled 3 new tasks for Mule',
+];
+let lastNotif=0;
+function showNotif(){
+  const msg=notifications[Math.floor(Math.random()*notifications.length)];
+  notifEl.textContent=msg;
+  notifEl.classList.add('show');
+  setTimeout(()=>notifEl.classList.remove('show'),4000);
+}
+setInterval(()=>{if(Math.random()<0.4)showNotif()},12000);
+setTimeout(showNotif,3000);
+
+// Scale helpers
+function sx(x){return x*W/800}
+function sy(y){return y*H/600}
+
+// Furniture (scaled for portrait mobile)
+const desks=[
+  {x:50,y:180,w:150,h:75,label:'JARVIS',color:'#d4a843'},
+  {x:320,y:180,w:150,h:75,label:'MULE',color:'#22c55e'},
+  {x:580,y:180,w:150,h:75,label:'FORGE',color:'#a855f7'},
+];
+
+const waterCooler={x:370,y:400,w:50,h:65};
+const couch={x:50,y:400,w:140,h:55};
+const serverRack={x:680,y:380,w:60,h:100};
+const whiteboard={x:250,y:20,w:200,h:15};
+const snackTable={x:540,y:420,w:80,h:40};
+
+// Agents
+const agents=[
+  {id:'jarvis',name:'Jarvis',emoji:'🤖',color:'#d4a843',bodyColor:'#2a2520',headColor:'#d4a843',
+   x:0,y:0,targetX:0,targetY:0,homeX:0,homeY:0,desk:0,
+   status:'Managing',task:'Running the show',speed:1.2,state:'working',stateTimer:5,bobOffset:0},
+  {id:'mule',name:'Mule',emoji:'🫏',color:'#22c55e',bodyColor:'#1a2a1e',headColor:'#22c55e',
+   x:0,y:0,targetX:0,targetY:0,homeX:0,homeY:0,desk:1,
+   status:'Creating',task:'Social media content',speed:0.8,state:'working',stateTimer:3,bobOffset:Math.PI/3},
+  {id:'forge',name:'Forge',emoji:'🔨',color:'#a855f7',bodyColor:'#1e1a2a',headColor:'#a855f7',
+   x:0,y:0,targetX:0,targetY:0,homeX:0,homeY:0,desk:2,
+   status:'Building',task:'Kermicle logo intro',speed:1.0,state:'working',stateTimer:4,bobOffset:Math.PI*2/3},
+];
+
+// Set home positions
+function initPositions(){
+  agents.forEach(a=>{
+    const d=desks[a.desk];
+    a.homeX=sx(d.x+d.w/2);
+    a.homeY=sy(d.y+d.h+30);
+    a.x=a.homeX;a.y=a.homeY;
+    a.targetX=a.homeX;a.targetY=a.homeY;
+  });
+}
+initPositions();
+window.addEventListener('resize',()=>{resize();initPositions()});
+
+let particles=[];
+
+function pickBehavior(a){
+  if(a.id==='mule'){
+    const r=Math.random();
+    if(r<0.35)return'working';if(r<0.55)return'walking_to_water';
+    if(r<0.7)return'walking_to_snack';if(r<0.82)return'walking_to_whiteboard';
+    return'wander';
+  }
+  if(a.id==='forge'){
+    const r=Math.random();
+    if(r<0.65)return'working';if(r<0.8)return'walking_to_water';return'walking_to_snack';
+  }
+  const r=Math.random();
+  if(r<0.45)return'working';if(r<0.65)return'walking_to_whiteboard';
+  if(r<0.8)return'walking_to_water';return'walking_to_snack';
+}
+
+function updateAgent(a,dt){
+  a.stateTimer-=dt;
+  a.bobOffset+=dt*3;
+  if(a.stateTimer<=0){
+    switch(a.state){
+      case'working':
+        a.state=pickBehavior(a);
+        if(a.state==='working'){a.stateTimer=4+Math.random()*8;a.targetX=a.homeX;a.targetY=a.homeY;break}
+        if(a.state==='walking_to_water'){a.targetX=sx(waterCooler.x+25);a.targetY=sy(waterCooler.y+waterCooler.h+15);a.stateTimer=20;break}
+        if(a.state==='walking_to_snack'){a.targetX=sx(snackTable.x+40);a.targetY=sy(snackTable.y+snackTable.h+15);a.stateTimer=20;break}
+        if(a.state==='walking_to_whiteboard'){a.targetX=sx(whiteboard.x+100);a.targetY=sy(whiteboard.y+50);a.stateTimer=20;break}
+        if(a.state==='wander'){a.targetX=sx(50+Math.random()*700);a.targetY=sy(300+Math.random()*200);a.stateTimer=15;break}
+        break;
+      case'walking_to_water':a.state='drinking';a.stateTimer=2+Math.random()*2;break;
+      case'drinking':a.state='walking_home';a.targetX=a.homeX;a.targetY=a.homeY;a.stateTimer=20;break;
+      case'walking_to_snack':a.state='snacking';a.stateTimer=2+Math.random()*3;break;
+      case'snacking':a.state='walking_home';a.targetX=a.homeX;a.targetY=a.homeY;a.stateTimer=20;break;
+      case'walking_to_whiteboard':a.state='thinking';a.stateTimer=3+Math.random()*4;break;
+      case'thinking':a.state='walking_home';a.targetX=a.homeX;a.targetY=a.homeY;a.stateTimer=20;break;
+      case'wander':a.state='walking_home';a.targetX=a.homeX;a.targetY=a.homeY;a.stateTimer=20;break;
+      case'walking_home':a.state='working';a.stateTimer=5+Math.random()*10;a.targetX=a.homeX;a.targetY=a.homeY;break;
+      default:a.state='working';a.stateTimer=5;
+    }
+  }
+  const dx=a.targetX-a.x,dy=a.targetY-a.y,dist=Math.sqrt(dx*dx+dy*dy);
+  if(dist>2){const spd=a.speed*60*dt;a.x+=dx/dist*Math.min(spd,dist);a.y+=dy/dist*Math.min(spd,dist)}
+  if(a.state==='working'&&dist<10&&Math.random()<0.12){
+    particles.push({x:a.x+(-8+Math.random()*16),y:a.y-sy(35),vx:(Math.random()-.5)*15,vy:-15-Math.random()*20,life:.5+Math.random()*.5,maxLife:1,color:a.color,size:2,type:'code'});
+  }
+  // Mule wall bumps
+  if(a.id==='mule'&&a.state==='wander'){
+    if(a.x<sx(20)){a.x=sx(20);a.targetX=sx(100+Math.random()*300);
+      for(let i=0;i<4;i++)particles.push({x:a.x,y:a.y-15,vx:8+Math.random()*15,vy:-8-Math.random()*15,life:.5,maxLife:.5,color:'#fff',size:2,type:'bump'});
+    }
+    if(a.x>sx(780)){a.x=sx(780);a.targetX=sx(400+Math.random()*300);
+      for(let i=0;i<4;i++)particles.push({x:a.x,y:a.y-15,vx:-8-Math.random()*15,vy:-8-Math.random()*15,life:.5,maxLife:.5,color:'#fff',size:2,type:'bump'});
+    }
+  }
+}
+
+function drawFloor(){
+  ctx.fillStyle='#171c28';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#1e2435';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=sx(50)){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=sy(50)){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  ctx.fillStyle='#1a1525';ctx.globalAlpha=0.3;ctx.fillRect(sx(30),sy(150),sx(740),sy(160));ctx.globalAlpha=1;
+}
+
+function drawWalls(){
+  ctx.fillStyle='#1a1f2e';ctx.fillRect(0,0,W,sy(80));
+  ctx.fillStyle='#252b3b';ctx.fillRect(0,sy(78),W,sy(3));
+  ctx.fillStyle='#d4a843';ctx.font=`bold ${sy(18)}px 'Segoe UI',sans-serif`;ctx.textAlign='center';
+  ctx.fillText('AP TECHNOLOGIES',W/2,sy(40));
+  ctx.font=`${sy(9)}px 'Segoe UI',sans-serif`;ctx.fillStyle='#505a6e';
+  ctx.fillText('"Taking over the world... eventually"',W/2,sy(60));
+  ctx.textAlign='left';
+}
+
+function drawDesk(d){
+  const x=sx(d.x),y=sy(d.y),w=sx(d.w),h=sy(d.h);
+  ctx.fillStyle='rgba(0,0,0,.3)';ctx.fillRect(x+3,y+3,w,h);
+  ctx.fillStyle='#2a3040';ctx.fillRect(x,y,w,h);
+  ctx.fillStyle='#343b4e';ctx.fillRect(x,y,w,sy(4));
+  ctx.fillStyle='#1a1e28';ctx.fillRect(x+sx(8),y+h,sx(5),sy(15));ctx.fillRect(x+w-sx(13),y+h,sx(5),sy(15));
+  const mx=x+w/2-sx(30),my=y+sy(8);
+  ctx.fillStyle='#0d1117';ctx.fillRect(mx,my,sx(60),sy(38));
+  ctx.fillStyle=d.color+'33';ctx.fillRect(mx+2,my+2,sx(60)-4,sy(38)-4);
+  ctx.fillStyle=d.color+'88';ctx.font=`${sy(6)}px monospace`;
+  const lines=['fn main()','  deploy()','  loop {','    go()'];
+  const off=Math.floor(Date.now()/500)%lines.length;
+  for(let i=0;i<3;i++)ctx.fillText(lines[(off+i)%lines.length],mx+sx(4),my+sy(12)+i*sy(9));
+  ctx.fillStyle=d.color;ctx.font=`bold ${sy(9)}px 'Segoe UI',sans-serif`;ctx.textAlign='center';
+  ctx.fillText(d.label,x+w/2,y+h+sy(28));ctx.textAlign='left';
+  ctx.fillStyle='#1e2430';ctx.beginPath();ctx.arc(x+w/2,y+h+sy(5),sy(10),0,Math.PI*2);ctx.fill();
+}
+
+function drawFurniture(){
+  // Water cooler
+  let x=sx(waterCooler.x),y=sy(waterCooler.y),w=sx(waterCooler.w),h=sy(waterCooler.h);
+  ctx.fillStyle='#2a2a3a';ctx.fillRect(x+sx(8),y+h-sy(8),sx(34),sy(8));
+  ctx.fillRect(x+sx(15),y+sy(15),sx(20),h-sy(23));
+  ctx.fillStyle='#1565C0';ctx.globalAlpha=0.6;ctx.beginPath();ctx.arc(x+w/2,y+sy(12),sy(14),0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  if(Math.random()<0.03)particles.push({x:x+w/2,y:y+sy(16),vx:0,vy:-6,life:.8,maxLife:.8,color:'#64B5F6',size:2,type:'bubble'});
+  ctx.fillStyle='#505a6e';ctx.font=`${sy(7)}px sans-serif`;ctx.textAlign='center';ctx.fillText('💧',x+w/2,y+h+sy(14));ctx.textAlign='left';
+
+  // Snack table
+  x=sx(snackTable.x);y=sy(snackTable.y);w=sx(snackTable.w);h=sy(snackTable.h);
+  ctx.fillStyle='#2a2520';ctx.fillRect(x,y,w,h);ctx.fillStyle='#3a3530';ctx.fillRect(x,y,w,sy(3));
+  ctx.font=`${sy(13)}px serif`;ctx.fillText('🍕',x+sx(5),y+sy(28));ctx.fillText('☕',x+sx(28),y+sy(28));ctx.fillText('🍩',x+sx(52),y+sy(28));
+
+  // Server rack
+  x=sx(serverRack.x);y=sy(serverRack.y);w=sx(serverRack.w);h=sy(serverRack.h);
+  ctx.fillStyle='#1a1e28';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#252b3b';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h);
+  for(let i=0;i<5;i++){
+    const on=Math.sin(Date.now()/300+i*1.5)>0;
+    ctx.fillStyle=on?'#22c55e':'#1a2a1e';ctx.fillRect(x+sx(5),y+sy(8)+i*sy(16),sx(5),sy(5));
+    ctx.fillStyle=on?'#ef4444':'#2a1a1a';ctx.fillRect(x+sx(14),y+sy(8)+i*sy(16),sx(5),sy(5));
+    ctx.fillStyle='#252b3b';ctx.fillRect(x+sx(24),y+sy(7)+i*sy(16),sx(28),sy(8));
+  }
+
+  // Couch + dog
+  x=sx(couch.x);y=sy(couch.y);w=sx(couch.w);h=sy(couch.h);
+  ctx.fillStyle='#2a1a1a';ctx.fillRect(x,y,w,h);ctx.fillStyle='#3a2525';ctx.fillRect(x+sx(4),y+sy(4),w-sx(8),h-sy(12));
+  ctx.fillStyle='#4a3030';
+  ctx.fillRect(x+sx(8),y+sy(8),sx(38),sy(30));ctx.fillRect(x+sx(52),y+sy(8),sx(38),sy(30));ctx.fillRect(x+sx(96),y+sy(8),sx(30),sy(30));
+  ctx.font=`${sy(18)}px serif`;ctx.fillText('🐕',x+sx(60),y+sy(32));
+  const zOff=Math.sin(Date.now()/800)*4;
+  ctx.fillStyle='#505a6e';ctx.font=`${sy(8)}px sans-serif`;
+  ctx.fillText('z',x+sx(82),y+sy(6)+zOff);ctx.font=`${sy(11)}px sans-serif`;
+  ctx.fillText('z',x+sx(90),y-sy(2)+zOff*1.2);ctx.font=`${sy(14)}px sans-serif`;
+  ctx.fillText('Z',x+sx(100),y-sy(10)+zOff*1.5);
+
+  // Whiteboard
+  x=sx(whiteboard.x);y=sy(whiteboard.y);w=sx(whiteboard.w);h=sy(50);
+  ctx.fillStyle='#f5f5f5';ctx.fillRect(x,y+sy(80),w,h);ctx.strokeStyle='#ccc';ctx.lineWidth=1;ctx.strokeRect(x,y+sy(80),w,h);
+  ctx.fillStyle='#e53935';ctx.font=`${sy(8)}px sans-serif`;ctx.fillText('PHASE 7 ???',x+sx(8),y+sy(96));
+  ctx.fillStyle='#1565C0';ctx.fillText('Kermicle Media 🚀',x+sx(8),y+sy(110));
+  ctx.fillStyle='#2E7D32';ctx.fillText('🐕 Snack budget: over',x+sx(8),y+sy(124));
+}
+
+function drawAgent(a){
+  const bob=Math.sin(a.bobOffset)*2;
+  const moving=Math.abs(a.x-a.targetX)>3||Math.abs(a.y-a.targetY)>3;
+  const leg=moving?Math.sin(a.bobOffset*2)*6:0;
+  ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(a.x,a.y+sy(2),sy(10),sy(4),0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=a.bodyColor;ctx.lineWidth=sy(3);
+  ctx.beginPath();ctx.moveTo(a.x-sy(4),a.y-sy(4));ctx.lineTo(a.x-sy(4)+leg,a.y);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(a.x+sy(4),a.y-sy(4));ctx.lineTo(a.x+sy(4)-leg,a.y);ctx.stroke();
+  ctx.fillStyle=a.bodyColor;ctx.beginPath();ctx.roundRect(a.x-sy(8),a.y-sy(22)+bob,sy(16),sy(19),sy(3));ctx.fill();
+  ctx.fillStyle=a.headColor;ctx.beginPath();ctx.arc(a.x,a.y-sy(28)+bob,sy(9),0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(a.x-sy(3),a.y-sy(30)+bob,sy(2.5),0,Math.PI*2);ctx.arc(a.x+sy(3),a.y-sy(30)+bob,sy(2.5),0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#111';ctx.beginPath();ctx.arc(a.x-sy(3),a.y-sy(30)+bob,sy(1.2),0,Math.PI*2);ctx.arc(a.x+sy(3),a.y-sy(30)+bob,sy(1.2),0,Math.PI*2);ctx.fill();
+  let bubble='';
+  if(a.state==='working')bubble='💻';else if(a.state==='drinking')bubble='💧';
+  else if(a.state==='snacking')bubble='🍕';else if(a.state==='thinking')bubble='💭';
+  else if(a.state.includes('walking'))bubble='🚶';
+  if(bubble){ctx.font=`${sy(11)}px serif`;ctx.fillText(bubble,a.x+sy(10),a.y-sy(36)+bob)}
+}
+
+function updateParticles(dt){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;
+    if(p.life<=0){particles.splice(i,1);continue}
+    ctx.globalAlpha=p.life/p.maxLife;
+    if(p.type==='code'){ctx.fillStyle=p.color;ctx.font=`${p.size*2.5}px monospace`;ctx.fillText('01{}<>'[Math.floor(Math.random()*6)],p.x,p.y)}
+    else if(p.type==='bubble'){ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill()}
+    else{ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size)}
+    ctx.globalAlpha=1;
+  }
+}
+
+// Status bar
+function updateStatusBar(){
+  statusBar.innerHTML=agents.map(a=>{
+    const stateLabel=a.state==='working'?'Working':a.state==='drinking'?'Water break':a.state==='snacking'?'Snacking':a.state==='thinking'?'Thinking':a.state.includes('walk')?'Walking':'Idle';
+    const dotColor=a.state==='working'?'#22c55e':a.state.includes('walk')?'#eab308':'#8892a4';
+    return`<div class="agent-pill ${a.state==='working'?'active':''}"><span class="dot" style="background:${dotColor}"></span><span class="name" style="color:${a.color}">${a.emoji} ${a.name}</span><span class="task">${stateLabel}</span></div>`;
+  }).join('');
+}
+setInterval(updateStatusBar,1000);
+updateStatusBar();
+
+// Touch to tap agent
+canvas.addEventListener('click',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  for(const a of agents){
+    if(Math.abs(mx-a.x)<sy(25)&&Math.abs(my-a.y+sy(15))<sy(30)){
+      const msgs={jarvis:['On it, boss.','Delegating...','Checking on the team.','Already done.'],mule:['*chewing noises*','Huh? Oh yeah, working!','Almost there...','Can I take a break?'],forge:['Compiling...','Fixed it.','Refactoring.','Ship it! 🚀']};
+      const m=msgs[a.id];
+      notifEl.textContent=`${a.emoji} ${a.name}: "${m[Math.floor(Math.random()*m.length)]}"`;
+      notifEl.classList.add('show');
+      setTimeout(()=>notifEl.classList.remove('show'),3000);
+      break;
+    }
+  }
+});
+
+let last=performance.now();
+function frame(now){
+  const dt=(now-last)/1000;last=now;
+  drawFloor();drawWalls();drawFurniture();
+  desks.forEach(drawDesk);
+  agents.forEach(a=>{updateAgent(a,dt);drawAgent(a)});
+  updateParticles(dt);
+  const days=Math.max(1,Math.floor((Date.now()-new Date(2026,1,13))/864e5));
+  ctx.fillStyle='#d4a84366';ctx.font=`${sy(8)}px 'Segoe UI',sans-serif`;ctx.textAlign='right';
+  ctx.fillText(`Day ${days}`,W-sx(10),H-sy(8));ctx.textAlign='left';
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

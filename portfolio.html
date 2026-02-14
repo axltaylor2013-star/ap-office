@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kermicle Crypto Command</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #0d0d0d; --bg2: #141414; --bg3: #1a1a1a; --bg4: #222;
+    --gold: #d4a843; --gold-dim: #b8922e; --gold-glow: rgba(212,168,67,0.15);
+    --green: #00e676; --red: #ff1744; --cyan: #00e5ff; --white: #f0f0f0;
+    --gray: #888; --gray-dim: #555; --border: #2a2a2a;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--white); font-family:'Inter',sans-serif; overflow-x:hidden; }
+
+  /* Scanline overlay */
+  body::after {
+    content:''; position:fixed; top:0;left:0;right:0;bottom:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
+    pointer-events:none; z-index:9999;
+  }
+
+  /* Header */
+  .header {
+    padding:20px 24px; border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg,#141414 0%,#0d0d0d 100%);
+    position:sticky; top:0; z-index:100; backdrop-filter:blur(20px);
+  }
+  .header-inner { max-width:1400px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-icon {
+    width:40px; height:40px; border-radius:10px; background:linear-gradient(135deg,var(--gold),#f5d678);
+    display:flex; align-items:center; justify-content:center; font-size:20px;
+    box-shadow:0 0 20px var(--gold-glow);
+  }
+  .logo h1 { font-size:20px; font-weight:800; letter-spacing:-0.5px; }
+  .logo h1 span { color:var(--gold); }
+  .logo-sub { font-size:11px; color:var(--gray); font-weight:400; letter-spacing:2px; text-transform:uppercase; }
+  .header-right { display:flex; align-items:center; gap:16px; }
+  .live-dot { width:8px;height:8px;border-radius:50%;background:var(--green); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,230,118,0.4)} 50%{opacity:0.8;box-shadow:0 0 0 8px rgba(0,230,118,0)} }
+  .last-update { font-size:12px; color:var(--gray); font-family:'JetBrains Mono',monospace; }
+
+  /* Main grid */
+  .main { max-width:1400px; margin:0 auto; padding:20px 24px; }
+  .top-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:20px; }
+  .cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; margin-bottom:20px; }
+  .bottom-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+  /* Stat boxes */
+  .stat-box {
+    background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px;
+    position:relative; overflow:hidden; transition:border-color 0.3s;
+  }
+  .stat-box:hover { border-color:var(--gold-dim); }
+  .stat-box::before {
+    content:''; position:absolute; top:0;left:0;right:0;height:2px;
+    background:linear-gradient(90deg,transparent,var(--gold),transparent); opacity:0.5;
+  }
+  .stat-label { font-size:11px; color:var(--gray); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px; }
+  .stat-value { font-size:32px; font-weight:800; font-family:'JetBrains Mono',monospace; letter-spacing:-1px; }
+  .stat-value.gold { color:var(--gold); }
+  .stat-sub { font-size:13px; margin-top:4px; font-family:'JetBrains Mono',monospace; }
+  .up { color:var(--green); } .down { color:var(--red); }
+
+  /* Token cards */
+  .token-card {
+    background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px;
+    transition:all 0.3s; cursor:default; position:relative; overflow:hidden;
+  }
+  .token-card:hover { border-color:var(--gold-dim); transform:translateY(-2px); box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+  .token-card .alert-badge {
+    position:absolute; top:12px; right:12px; width:10px; height:10px; border-radius:50%;
+    background:var(--red); animation:pulse 1.5s infinite; display:none;
+  }
+  .token-card .alert-badge.active { display:block; }
+  .token-top { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .token-icon {
+    width:40px; height:40px; border-radius:50%; background:var(--bg4);
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px; font-weight:700; color:var(--gold); border:1px solid var(--border);
+  }
+  .token-name { font-size:16px; font-weight:700; }
+  .token-symbol { font-size:12px; color:var(--gray); font-family:'JetBrains Mono',monospace; }
+  .token-rows { display:flex; flex-direction:column; gap:8px; }
+  .token-row { display:flex; justify-content:space-between; align-items:center; }
+  .token-row-label { font-size:12px; color:var(--gray); }
+  .token-row-value { font-size:14px; font-weight:600; font-family:'JetBrains Mono',monospace; }
+  .token-row-value.sm { font-size:12px; }
+  .change-pill {
+    display:inline-flex; align-items:center; gap:4px; padding:3px 8px;
+    border-radius:6px; font-size:12px; font-weight:600;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .change-pill.up { background:rgba(0,230,118,0.1); color:var(--green); }
+  .change-pill.down { background:rgba(255,23,68,0.1); color:var(--red); }
+  .change-pill.neutral { background:rgba(136,136,136,0.1); color:var(--gray); }
+  .alloc-bar { height:4px; background:var(--bg4); border-radius:2px; margin-top:12px; overflow:hidden; }
+  .alloc-fill { height:100%; background:linear-gradient(90deg,var(--gold-dim),var(--gold)); border-radius:2px; transition:width 0.6s ease; }
+
+  /* Pie chart */
+  .chart-box {
+    background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px;
+    display:flex; flex-direction:column;
+  }
+  .chart-box h3 { font-size:13px; color:var(--gray); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:16px; }
+  .chart-container { display:flex; align-items:center; justify-content:center; gap:24px; flex:1; flex-wrap:wrap; }
+  .chart-canvas-wrap { position:relative; }
+  #pieChart { width:180px; height:180px; }
+  .chart-center {
+    position:absolute; top:50%;left:50%;transform:translate(-50%,-50%);
+    text-align:center;
+  }
+  .chart-center .val { font-size:18px; font-weight:800; color:var(--gold); font-family:'JetBrains Mono',monospace; }
+  .chart-center .lbl { font-size:10px; color:var(--gray); text-transform:uppercase; letter-spacing:1px; }
+  .legend { display:flex; flex-direction:column; gap:8px; }
+  .legend-item { display:flex; align-items:center; gap:8px; font-size:13px; }
+  .legend-dot { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+
+  /* Sentiment */
+  .sentiment-box { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .sentiment-box h3 { font-size:13px; color:var(--gray); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:16px; }
+  .sentiment-meter { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .sentiment-bar { flex:1; height:8px; background:var(--bg4); border-radius:4px; overflow:hidden; position:relative; }
+  .sentiment-fill { height:100%; border-radius:4px; transition:width 0.6s,background 0.6s; }
+  .sentiment-label { font-size:24px; font-weight:800; }
+  .sentiment-detail { font-size:13px; color:var(--gray); font-family:'JetBrains Mono',monospace; }
+
+  /* P&L tracker */
+  .pnl-box { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .pnl-box h3 { font-size:13px; color:var(--gray); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:16px; }
+  .pnl-big { font-size:36px; font-weight:800; font-family:'JetBrains Mono',monospace; }
+  .pnl-pct { font-size:18px; font-weight:600; margin-top:4px; font-family:'JetBrains Mono',monospace; }
+  .pnl-since { font-size:12px; color:var(--gray); margin-top:8px; }
+
+  /* Alert log */
+  .alert-log { margin-top:20px; }
+  .alert-log h3 { font-size:13px; color:var(--gray); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:12px; }
+  .alert-item {
+    background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:12px 16px;
+    margin-bottom:8px; display:flex; align-items:center; gap:12px; font-size:13px;
+  }
+  .alert-icon { font-size:16px; }
+  .alert-sev { font-size:10px; padding:2px 6px; border-radius:4px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+  .alert-sev.CRITICAL { background:rgba(255,23,68,0.2); color:var(--red); }
+  .alert-sev.HIGH { background:rgba(255,152,0,0.2); color:#ff9800; }
+  .alert-sev.MEDIUM { background:rgba(212,168,67,0.2); color:var(--gold); }
+
+  /* Loading */
+  .loading-overlay {
+    position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    z-index:10000; transition:opacity 0.5s;
+  }
+  .loading-overlay.hidden { opacity:0; pointer-events:none; }
+  .loading-spinner {
+    width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--gold);
+    border-radius:50%;animation:spin 1s linear infinite;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .loading-text { margin-top:16px;font-size:14px;color:var(--gray);letter-spacing:2px;text-transform:uppercase; }
+
+  /* Footer */
+  .footer { text-align:center; padding:32px 24px; font-size:11px; color:var(--gray-dim); border-top:1px solid var(--border); margin-top:32px; }
+
+  /* Responsive */
+  @media(max-width:900px) {
+    .top-row { grid-template-columns:1fr; }
+    .bottom-row { grid-template-columns:1fr; }
+    .stat-value { font-size:24px; }
+    .pnl-big { font-size:28px; }
+  }
+  @media(max-width:600px) {
+    .header-inner { flex-direction:column; align-items:flex-start; }
+    .cards-grid { grid-template-columns:1fr; }
+    .main { padding:12px; }
+  }
+
+  /* Glow effect on gold elements */
+  .glow { text-shadow:0 0 20px var(--gold-glow),0 0 40px rgba(212,168,67,0.08); }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Initializing Command Center</div>
+</div>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div>
+        <h1>Kermicle <span>Crypto</span> Command</h1>
+        <div class="logo-sub">Portfolio Intelligence System</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-dot"></div>
+      <div class="last-update" id="lastUpdate">Connecting...</div>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+  <!-- Top stats -->
+  <div class="top-row">
+    <div class="stat-box">
+      <div class="stat-label">Total Portfolio Value</div>
+      <div class="stat-value gold glow" id="totalValue">—</div>
+      <div class="stat-sub" id="totalChange"></div>
+    </div>
+    <div class="stat-box" id="pnlBox">
+      <div class="stat-label">P&L Since Tracking</div>
+      <div class="pnl-big" id="pnlValue">—</div>
+      <div class="pnl-pct" id="pnlPct"></div>
+      <div class="pnl-since" id="pnlSince"></div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Market Sentiment</div>
+      <div class="sentiment-meter">
+        <div class="sentiment-bar"><div class="sentiment-fill" id="sentimentFill"></div></div>
+        <div class="sentiment-label" id="sentimentEmoji">—</div>
+      </div>
+      <div class="sentiment-detail" id="sentimentDetail"></div>
+    </div>
+  </div>
+
+  <!-- Token cards -->
+  <div class="cards-grid" id="cardsGrid"></div>
+
+  <!-- Bottom row: chart + alerts -->
+  <div class="bottom-row">
+    <div class="chart-box">
+      <h3>Portfolio Allocation</h3>
+      <div class="chart-container">
+        <div class="chart-canvas-wrap">
+          <canvas id="pieChart" width="180" height="180"></canvas>
+          <div class="chart-center">
+            <div class="val" id="pieTotal">—</div>
+            <div class="lbl">Total</div>
+          </div>
+        </div>
+        <div class="legend" id="pieLegend"></div>
+      </div>
+    </div>
+    <div class="sentiment-box" id="alertSection">
+      <h3>Active Alerts</h3>
+      <div id="alertList"><div style="color:var(--gray);font-size:13px;">Loading alerts...</div></div>
+    </div>
+  </div>
+</main>
+
+<footer class="footer">
+  Kermicle Crypto Command v1.0 · Built for Jeremy · Data from CoinGecko & DexScreener · Auto-refreshes every 60s
+</footer>
+
+<script>
+const PORTFOLIO_CONFIG = {
+  holdings: [
+    { symbol:'USDC', name:'USD Coin', quantity:0.17, costBasis:1.00, source:'coingecko', coingeckoId:'usd-coin', icon:'$' },
+    { symbol:'MOLT', name:'Moltbook', quantity:6362004, costBasis:0.00004216, source:'dexscreener', query:'MOLT moltbook', icon:'M' },
+    { symbol:'UXRP', name:'XRP Universal', quantity:152.8, costBasis:1.4625, source:'dexscreener', query:'UXRP', icon:'X' },
+    { symbol:'CLAWD', name:'clawd.atg.eth', quantity:2313906, costBasis:0.00004860, source:'dexscreener', query:'CLAWD', icon:'C' },
+    { symbol:'RIPS', name:'RIPS', quantity:20318120, costBasis:0.00000458, source:'dexscreener', query:'RIPS', icon:'R' },
+    { symbol:'ETH', name:'Ethereum', quantity:0.01, costBasis:2790.00, source:'coingecko', coingeckoId:'ethereum', icon:'Ξ' },
+  ],
+  startValue: 755.42,
+  startDate: '2026-02-14',
+  alerts: { priceChange:10, bigMove:25, rugThreshold:-50 }
+};
+
+const COLORS = ['#d4a843','#00e676','#00e5ff','#ff9800','#e040fb','#ff1744'];
+
+function fmt(n,d=2){ return n?.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}) ?? '—'; }
+function fmtUSD(n){ return n!=null ? '$'+fmt(n) : '—'; }
+function fmtPrice(n){
+  if(n==null) return '—';
+  if(n<0.001) return '$'+n.toFixed(8);
+  if(n<1) return '$'+n.toFixed(6);
+  return fmtUSD(n);
+}
+function pctClass(v){ return v>0?'up':v<0?'down':'neutral'; }
+function pctStr(v){ return v!=null ? (v>0?'+':'')+v.toFixed(2)+'%' : '—'; }
+
+async function fetchCoinGecko(){
+  try {
+    const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum,usd-coin&vs_currencies=usd&include_24hr_change=true');
+    return r.ok ? await r.json() : null;
+  } catch{ return null; }
+}
+
+async function fetchDexScreener(query){
+  try {
+    const r=await fetch('https://api.dexscreener.com/latest/dex/search?q='+encodeURIComponent(query));
+    if(!r.ok) return null;
+    const d=await r.json();
+    if(d.pairs?.length){
+      const p=d.pairs.sort((a,b)=>(b.liquidity?.usd||0)-(a.liquidity?.usd||0))[0];
+      return { price:parseFloat(p.priceUsd||0), change24h:p.priceChange?.h24||0, vol:p.volume?.h24||0, liq:p.liquidity?.usd||0 };
+    }
+    return null;
+  } catch{ return null; }
+}
+
+function drawPie(holdings, total){
+  const canvas=document.getElementById('pieChart');
+  const ctx=canvas.getContext('2d');
+  const cx=90,cy=90,r=80,ir=55;
+  ctx.clearRect(0,0,180,180);
+  let angle=-Math.PI/2;
+  holdings.forEach((h,i)=>{
+    const slice=(h.value/total)*Math.PI*2;
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,angle,angle+slice);
+    ctx.arc(cx,cy,ir,angle+slice,angle,true);
+    ctx.closePath();
+    ctx.fillStyle=COLORS[i%COLORS.length];
+    ctx.fill();
+    angle+=slice;
+  });
+  document.getElementById('pieTotal').textContent=fmtUSD(total);
+
+  const legend=document.getElementById('pieLegend');
+  legend.innerHTML=holdings.map((h,i)=>`
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${COLORS[i%COLORS.length]}"></div>
+      <span>${h.symbol} — ${(h.value/total*100).toFixed(1)}%</span>
+    </div>
+  `).join('');
+}
+
+function renderCards(holdings){
+  const grid=document.getElementById('cardsGrid');
+  const total=holdings.reduce((s,h)=>s+h.value,0);
+  grid.innerHTML=holdings.map((h,i)=>{
+    const chg=h.change24h;
+    const cls=pctClass(chg);
+    const allocPct=(h.value/total*100).toFixed(1);
+    const hasAlert=Math.abs(((h.price-h.costBasis)/h.costBasis)*100)>=PORTFOLIO_CONFIG.alerts.priceChange;
+    return `
+    <div class="token-card">
+      <div class="alert-badge ${hasAlert?'active':''}"></div>
+      <div class="token-top">
+        <div class="token-icon">${h.icon}</div>
+        <div>
+          <div class="token-name">${h.name}</div>
+          <div class="token-symbol">${h.symbol}</div>
+        </div>
+      </div>
+      <div class="token-rows">
+        <div class="token-row">
+          <span class="token-row-label">Price</span>
+          <span class="token-row-value">${fmtPrice(h.price)}</span>
+        </div>
+        <div class="token-row">
+          <span class="token-row-label">Holdings</span>
+          <span class="token-row-value sm">${h.quantity.toLocaleString()} ${h.symbol}</span>
+        </div>
+        <div class="token-row">
+          <span class="token-row-label">Value</span>
+          <span class="token-row-value">${fmtUSD(h.value)}</span>
+        </div>
+        <div class="token-row">
+          <span class="token-row-label">24h</span>
+          <span class="change-pill ${cls}">${chg!=null?(chg>0?'▲':'▼'):''} ${pctStr(chg)}</span>
+        </div>
+        <div class="token-row">
+          <span class="token-row-label">Allocation</span>
+          <span class="token-row-value sm">${allocPct}%</span>
+        </div>
+      </div>
+      <div class="alloc-bar"><div class="alloc-fill" style="width:${allocPct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderAlerts(holdings){
+  const list=document.getElementById('alertList');
+  const alerts=[];
+  holdings.forEach(h=>{
+    if(h.price==null) return;
+    const pct=((h.price-h.costBasis)/h.costBasis)*100;
+    if(Math.abs(pct)>=PORTFOLIO_CONFIG.alerts.bigMove){
+      alerts.push({ icon:'🚨', msg:`${h.symbol} moved ${pct>0?'+':''}${pct.toFixed(1)}% from baseline`, sev:'HIGH' });
+    } else if(Math.abs(pct)>=PORTFOLIO_CONFIG.alerts.priceChange){
+      alerts.push({ icon:'⚠️', msg:`${h.symbol} ${pct>0?'up':'down'} ${Math.abs(pct).toFixed(1)}% from baseline`, sev:'MEDIUM' });
+    }
+    if(pct<=PORTFOLIO_CONFIG.alerts.rugThreshold){
+      alerts.push({ icon:'💀', msg:`${h.symbol} down ${pct.toFixed(1)}% — RUG WARNING`, sev:'CRITICAL' });
+    }
+  });
+  if(!alerts.length){
+    list.innerHTML='<div style="color:var(--green);font-size:13px;">✅ All clear — no alerts triggered</div>';
+    return;
+  }
+  list.innerHTML=alerts.map(a=>`
+    <div class="alert-item">
+      <span class="alert-icon">${a.icon}</span>
+      <span style="flex:1">${a.msg}</span>
+      <span class="alert-sev ${a.sev}">${a.sev}</span>
+    </div>
+  `).join('');
+}
+
+function renderSentiment(holdings){
+  const changes=holdings.filter(h=>h.change24h!=null).map(h=>h.change24h);
+  const avg=changes.length ? changes.reduce((s,v)=>s+v,0)/changes.length : 0;
+  const pct=Math.min(100,Math.max(0,(avg+50)));
+  const fill=document.getElementById('sentimentFill');
+  fill.style.width=pct+'%';
+  fill.style.background=avg>0?'var(--green)':avg<-5?'var(--red)':'var(--gold)';
+  document.getElementById('sentimentEmoji').textContent=avg>5?'🚀':avg>0?'📈':avg>-5?'😐':avg>-15?'📉':'💀';
+  document.getElementById('sentimentDetail').textContent=`Average 24h change: ${avg>0?'+':''}${avg.toFixed(2)}% across ${changes.length} tokens`;
+}
+
+function renderPnL(total){
+  const pnl=total-PORTFOLIO_CONFIG.startValue;
+  const pct=(pnl/PORTFOLIO_CONFIG.startValue)*100;
+  const cls=pctClass(pnl);
+  document.getElementById('pnlValue').className='pnl-big '+cls;
+  document.getElementById('pnlValue').textContent=(pnl>=0?'+':'')+fmtUSD(pnl);
+  document.getElementById('pnlPct').className='pnl-pct '+cls;
+  document.getElementById('pnlPct').textContent=pctStr(pct);
+  document.getElementById('pnlSince').textContent='Since '+PORTFOLIO_CONFIG.startDate;
+}
+
+async function refresh(){
+  const gecko=await fetchCoinGecko();
+  const results=[];
+
+  for(const h of PORTFOLIO_CONFIG.holdings){
+    let price=null, change24h=null;
+    if(h.source==='coingecko' && gecko?.[h.coingeckoId]){
+      price=gecko[h.coingeckoId].usd;
+      change24h=gecko[h.coingeckoId].usd_24h_change;
+    } else if(h.source==='dexscreener'){
+      const d=await fetchDexScreener(h.query);
+      if(d){ price=d.price; change24h=d.change24h; }
+    }
+    const value=price!=null ? h.quantity*price : h.quantity*h.costBasis;
+    results.push({ ...h, price, change24h, value });
+  }
+
+  const total=results.reduce((s,h)=>s+h.value,0);
+
+  document.getElementById('totalValue').textContent=fmtUSD(total);
+  const totalChg=results.filter(h=>h.change24h!=null);
+  if(totalChg.length){
+    const wtdAvg=totalChg.reduce((s,h)=>s+(h.change24h*(h.value/total)),0);
+    const el=document.getElementById('totalChange');
+    el.className='stat-sub '+pctClass(wtdAvg);
+    el.textContent='24h: '+pctStr(wtdAvg);
+  }
+
+  renderCards(results);
+  drawPie(results,total);
+  renderSentiment(results);
+  renderPnL(total);
+  renderAlerts(results);
+
+  document.getElementById('lastUpdate').textContent='Updated '+new Date().toLocaleTimeString();
+  document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+// Initial load + auto-refresh
+refresh();
+setInterval(refresh, 60000);
+</script>
+</body>
+</html>
