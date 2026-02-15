@@ -1,0 +1,11 @@
+{
+  "entries": [],
+  "goals": {
+    "monthly": 5000,
+    "quarterly": 15000,
+    "yearly": 60000
+  },
+  "projections": {
+    "method": "3-month-average"
+  }
+}

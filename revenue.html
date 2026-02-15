@@ -1,0 +1,291 @@
+<!-- Tab: Revenue | Link from hub.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kermicle Media — Revenue Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1a1a2e;--card:#16213e;--card2:#1a2747;--gold:#d4a843;--gold2:#f0c966;--text:#e0e0e0;--dim:#8892a4;--border:#253255;--green:#4ade80;--red:#f87171;--orange:#fbbf24}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:0}
+
+.header{background:linear-gradient(135deg,#0f1b38,#16213e);border-bottom:3px solid var(--gold);padding:24px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header h1{font-size:1.4rem;font-weight:700;color:var(--gold);letter-spacing:.5px}
+.header h1 span{color:var(--text);font-weight:300}
+.header-right{font-size:.8rem;color:var(--dim)}
+
+.grid{padding:24px 32px;display:grid;gap:20px}
+
+/* KPI Cards */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;text-align:center;transition:border-color .2s}
+.kpi:hover{border-color:var(--gold)}
+.kpi .value{font-size:2rem;font-weight:700;color:var(--gold);margin:4px 0}
+.kpi .label{font-size:.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim)}
+.kpi .sub{font-size:.75rem;color:var(--dim);margin-top:4px}
+
+/* Sections */
+.section{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;overflow:hidden}
+.section h2{font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.section h2 span{font-size:1.1rem}
+
+/* Bar Chart */
+.bar-chart{display:flex;align-items:flex-end;gap:12px;height:200px;padding-top:10px;border-bottom:1px solid var(--border)}
+.bar-col{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;min-width:50px}
+.bar{background:linear-gradient(180deg,var(--gold),var(--gold2));border-radius:4px 4px 0 0;width:100%;max-width:60px;min-height:2px;transition:height .5s ease;position:relative}
+.bar:hover{filter:brightness(1.2)}
+.bar-val{font-size:.7rem;font-weight:600;color:var(--gold);text-align:center}
+.bar-label{font-size:.7rem;color:var(--dim);text-align:center;margin-top:8px}
+
+/* Horizontal bars */
+.h-bars{display:flex;flex-direction:column;gap:12px}
+.h-bar-row{display:flex;align-items:center;gap:12px}
+.h-bar-label{width:120px;font-size:.8rem;color:var(--text);text-align:right;flex-shrink:0}
+.h-bar-track{flex:1;background:#0f3460;border-radius:8px;overflow:hidden;height:28px;position:relative}
+.h-bar-fill{background:linear-gradient(90deg,var(--gold),var(--gold2));height:100%;border-radius:8px;transition:width .5s ease;display:flex;align-items:center;padding-left:10px}
+.h-bar-fill span{font-size:.7rem;font-weight:600;color:#000;white-space:nowrap}
+
+/* Progress bars */
+.goal-row{display:flex;flex-direction:column;gap:16px}
+.goal-item{display:flex;flex-direction:column;gap:6px}
+.goal-header{display:flex;justify-content:space-between;font-size:.8rem}
+.goal-header .g-label{color:var(--text);font-weight:600}
+.goal-header .g-vals{color:var(--dim)}
+.progress-track{background:#0f3460;border-radius:8px;overflow:hidden;height:24px}
+.progress-fill{background:linear-gradient(90deg,var(--gold),var(--gold2));height:100%;border-radius:8px;transition:width .5s ease;display:flex;align-items:center;justify-content:center}
+.progress-fill span{font-size:.7rem;font-weight:700;color:#000}
+
+/* Client list */
+.client-list{display:flex;flex-direction:column;gap:8px}
+.client-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--card2);border-radius:6px;border:1px solid var(--border)}
+.client-row:hover{border-color:var(--gold)}
+.client-name{font-weight:600;font-size:.85rem}
+.client-amount{color:var(--gold);font-weight:700;font-size:.9rem}
+.client-count{color:var(--dim);font-size:.7rem}
+
+/* Projection */
+.proj-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.proj{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center}
+.proj .p-val{font-size:1.5rem;font-weight:700;color:var(--gold2);margin:4px 0}
+.proj .p-label{font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
+
+/* Empty state */
+.empty{text-align:center;padding:40px 20px;color:var(--dim)}
+.empty .emoji{font-size:3rem;margin-bottom:12px}
+.empty p{font-size:.9rem;max-width:400px;margin:0 auto}
+.empty .cta{color:var(--gold);font-weight:600}
+
+/* Two col layout */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:768px){.two-col{grid-template-columns:1fr}}
+
+/* Add entry form */
+.add-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:16px 32px;background:var(--card);border-bottom:1px solid var(--border)}
+.add-bar input,.add-bar select{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:.8rem;outline:none}
+.add-bar input:focus,.add-bar select:focus{border-color:var(--gold)}
+.add-bar button{background:var(--gold);color:#000;border:none;padding:8px 18px;border-radius:6px;font-weight:700;font-size:.8rem;cursor:pointer;transition:background .2s}
+.add-bar button:hover{background:var(--gold2)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>💰 <span>Kermicle Media</span> — Revenue Dashboard</h1>
+  <div class="header-right" id="lastUpdated">Last updated: —</div>
+</div>
+
+<div class="add-bar">
+  <input id="addClient" placeholder="Client name" style="width:140px">
+  <select id="addService">
+    <option value="photo-editing">Photo Editing</option>
+    <option value="video-editing">Video Editing</option>
+    <option value="social-media">Social Media</option>
+    <option value="full-package">Full Package</option>
+    <option value="ai-tools">AI Tools</option>
+    <option value="other">Other</option>
+  </select>
+  <input id="addAmount" type="number" placeholder="$ Amount" style="width:100px">
+  <input id="addDesc" placeholder="Description" style="width:200px">
+  <select id="addStatus">
+    <option value="paid">Paid</option>
+    <option value="pending">Pending</option>
+  </select>
+  <button onclick="addEntry()">+ Log Revenue</button>
+</div>
+
+<div class="grid">
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpis"></div>
+
+  <!-- Monthly Chart + Goals -->
+  <div class="two-col">
+    <div class="section">
+      <h2><span>📊</span> Monthly Revenue</h2>
+      <div id="monthlyChart" class="bar-chart"></div>
+    </div>
+    <div class="section">
+      <h2><span>🎯</span> Goal Tracking</h2>
+      <div id="goals" class="goal-row"></div>
+    </div>
+  </div>
+
+  <!-- By Service + Top Clients -->
+  <div class="two-col">
+    <div class="section">
+      <h2><span>🛠️</span> Revenue by Service</h2>
+      <div id="byService" class="h-bars"></div>
+    </div>
+    <div class="section">
+      <h2><span>👥</span> Top Clients</h2>
+      <div id="topClients" class="client-list"></div>
+    </div>
+  </div>
+
+  <!-- Projections -->
+  <div class="section">
+    <h2><span>🔮</span> Projections (3-Month Average)</h2>
+    <div id="projections" class="proj-cards"></div>
+  </div>
+</div>
+
+<script>
+// Load data from revenue.json or localStorage
+let data={entries:[],goals:{monthly:5000,quarterly:15000,yearly:60000},projections:{method:"3-month-average"}};
+
+function loadData(){
+  fetch('revenue.json?_='+Date.now()).then(r=>r.json()).then(d=>{
+    data=d;
+    localStorage.setItem('kermicle-revenue',JSON.stringify(data));
+    render();
+  }).catch(()=>{
+    const s=localStorage.getItem('kermicle-revenue');
+    if(s){try{data=JSON.parse(s)}catch(e){}}
+    render();
+  });
+}
+
+function saveData(){
+  localStorage.setItem('kermicle-revenue',JSON.stringify(data));
+}
+
+function nextId(){return data.entries.length?Math.max(...data.entries.map(e=>e.id))+1:1}
+
+function addEntry(){
+  const client=document.getElementById('addClient').value.trim();
+  const service=document.getElementById('addService').value;
+  const amount=parseFloat(document.getElementById('addAmount').value);
+  const desc=document.getElementById('addDesc').value.trim();
+  const status=document.getElementById('addStatus').value;
+  if(!client||!amount)return alert('Client and amount required');
+  data.entries.push({id:nextId(),date:new Date().toISOString().slice(0,10),client,service,amount,description:desc||service,status});
+  saveData();render();
+  document.getElementById('addClient').value='';
+  document.getElementById('addAmount').value='';
+  document.getElementById('addDesc').value='';
+}
+
+function fmt(n){return'$'+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}
+
+function render(){
+  const entries=data.entries.filter(e=>e.status!=='refunded');
+  const paid=entries.filter(e=>e.status==='paid');
+  const pending=entries.filter(e=>e.status==='pending');
+  const now=new Date();
+  const thisMonth=paid.filter(e=>{const d=new Date(e.date);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()});
+  const thisYear=paid.filter(e=>new Date(e.date).getFullYear()===now.getFullYear());
+  const monthTotal=thisMonth.reduce((s,e)=>s+e.amount,0);
+  const ytdTotal=thisYear.reduce((s,e)=>s+e.amount,0);
+  const pendingTotal=pending.reduce((s,e)=>s+e.amount,0);
+  const clients=[...new Set(paid.map(e=>e.client))];
+  const avgPerClient=clients.length?ytdTotal/clients.length:0;
+
+  document.getElementById('lastUpdated').textContent='Last updated: '+now.toLocaleString();
+
+  // KPIs
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi"><div class="label">This Month</div><div class="value">${fmt(monthTotal)}</div><div class="sub">${thisMonth.length} transactions</div></div>
+    <div class="kpi"><div class="label">Year to Date</div><div class="value">${fmt(ytdTotal)}</div><div class="sub">${thisYear.length} transactions</div></div>
+    <div class="kpi"><div class="label">Outstanding</div><div class="value" style="color:${pendingTotal>0?'var(--orange)':'var(--green)'}">${fmt(pendingTotal)}</div><div class="sub">${pending.length} pending</div></div>
+    <div class="kpi"><div class="label">Avg / Client</div><div class="value">${fmt(Math.round(avgPerClient))}</div><div class="sub">${clients.length} clients</div></div>
+  `;
+
+  // Monthly chart (last 6 months)
+  const months=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const label=d.toLocaleDateString('en-US',{month:'short'});
+    const total=paid.filter(e=>e.date.startsWith(key)).reduce((s,e)=>s+e.amount,0);
+    months.push({key,label,total});
+  }
+  const maxMonth=Math.max(...months.map(m=>m.total),1);
+  const chartEl=document.getElementById('monthlyChart');
+  if(paid.length===0){
+    chartEl.innerHTML='<div class="empty" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="emoji">📊</div><p>No revenue logged yet.<br><span class="cta">Use the bar above to log your first entry!</span></p></div>';
+    chartEl.style.height='200px';
+  }else{
+    chartEl.style.height='';
+    chartEl.innerHTML=months.map(m=>`<div class="bar-col"><div class="bar-val">${m.total>0?fmt(m.total):''}</div><div class="bar" style="height:${Math.max(m.total/maxMonth*160,2)}px"></div><div class="bar-label">${m.label}</div></div>`).join('');
+  }
+
+  // Goals
+  const goalData=[
+    {label:'Monthly',actual:monthTotal,target:data.goals.monthly},
+    {label:'Quarterly',actual:paid.filter(e=>{const d=new Date(e.date);return Math.floor(d.getMonth()/3)===Math.floor(now.getMonth()/3)&&d.getFullYear()===now.getFullYear()}).reduce((s,e)=>s+e.amount,0),target:data.goals.quarterly},
+    {label:'Yearly',actual:ytdTotal,target:data.goals.yearly}
+  ];
+  document.getElementById('goals').innerHTML=goalData.map(g=>{
+    const pct=Math.min(g.target>0?(g.actual/g.target)*100:0,150);
+    const color=pct>=100?'var(--green)':pct>=60?'var(--gold)':'var(--red)';
+    return `<div class="goal-item"><div class="goal-header"><span class="g-label">${g.label}</span><span class="g-vals">${fmt(g.actual)} / ${fmt(g.target)}</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:linear-gradient(90deg,${color},${color}cc)"><span>${Math.round(pct)}%</span></div></div></div>`;
+  }).join('');
+
+  // By service
+  const services={};
+  paid.forEach(e=>{services[e.service]=(services[e.service]||0)+e.amount});
+  const svcArr=Object.entries(services).sort((a,b)=>b[1]-a[1]);
+  const maxSvc=svcArr.length?svcArr[0][1]:1;
+  const svcEl=document.getElementById('byService');
+  if(svcArr.length===0){
+    svcEl.innerHTML='<div class="empty"><p>No data yet</p></div>';
+  }else{
+    svcEl.innerHTML=svcArr.map(([name,amt])=>`<div class="h-bar-row"><div class="h-bar-label">${name.replace(/-/g,' ')}</div><div class="h-bar-track"><div class="h-bar-fill" style="width:${(amt/maxSvc)*100}%"><span>${fmt(amt)}</span></div></div></div>`).join('');
+  }
+
+  // Top clients
+  const clientTotals={};
+  paid.forEach(e=>{
+    if(!clientTotals[e.client])clientTotals[e.client]={amount:0,count:0};
+    clientTotals[e.client].amount+=e.amount;
+    clientTotals[e.client].count++;
+  });
+  const clientArr=Object.entries(clientTotals).sort((a,b)=>b[1].amount-a[1].amount).slice(0,8);
+  const cEl=document.getElementById('topClients');
+  if(clientArr.length===0){
+    cEl.innerHTML='<div class="empty"><p>No clients yet</p></div>';
+  }else{
+    cEl.innerHTML=clientArr.map(([name,d])=>`<div class="client-row"><div><div class="client-name">${name}</div><div class="client-count">${d.count} project${d.count>1?'s':''}</div></div><div class="client-amount">${fmt(d.amount)}</div></div>`).join('');
+  }
+
+  // Projections
+  const monthTotals=[];
+  for(let i=1;i<=3;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    monthTotals.push(paid.filter(e=>e.date.startsWith(key)).reduce((s,e)=>s+e.amount,0));
+  }
+  const avg3=monthTotals.length?monthTotals.reduce((a,b)=>a+b,0)/monthTotals.filter(m=>m>0).length||0:0;
+  document.getElementById('projections').innerHTML=`
+    <div class="proj"><div class="p-label">Avg Monthly (3mo)</div><div class="p-val">${fmt(Math.round(avg3))}</div></div>
+    <div class="proj"><div class="p-label">Projected Quarterly</div><div class="p-val">${fmt(Math.round(avg3*3))}</div></div>
+    <div class="proj"><div class="p-label">Projected Yearly</div><div class="p-val">${fmt(Math.round(avg3*12))}</div></div>
+    <div class="proj"><div class="p-label">To Hit Monthly Goal</div><div class="p-val" style="color:${monthTotal>=data.goals.monthly?'var(--green)':'var(--orange)'}">${monthTotal>=data.goals.monthly?'✅ Hit!':fmt(data.goals.monthly-monthTotal)+' left'}</div></div>
+  `;
+}
+
+loadData();
+setInterval(loadData,60000);
+</script>
+</body>
+</html>
