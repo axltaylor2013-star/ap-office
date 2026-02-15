@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kermicle Command Center — Task Board</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d0d0d;--card:#1a1a1a;--card2:#222;--gold:#d4a843;--gold2:#b8912e;--text:#e0e0e0;--dim:#888;--green:#4ade80;--blue:#60a5fa;--orange:#fbbf24;--red:#f87171;--border:#333}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.header{background:linear-gradient(135deg,#111 0%,#1a1a1a 100%);border-bottom:2px solid var(--gold);padding:20px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header h1{font-size:1.6rem;font-weight:700;color:var(--gold);letter-spacing:1px}
+.header h1 span{color:var(--text);font-weight:300}
+.stats{display:flex;gap:20px;flex-wrap:wrap}
+.stat{text-align:center}
+.stat .num{font-size:1.8rem;font-weight:700;color:var(--gold)}
+.stat .lbl{font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
+.toolbar{padding:16px 32px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border)}
+.toolbar select,.toolbar input,.toolbar button{background:var(--card);color:var(--text);border:1px solid var(--border);padding:8px 14px;border-radius:6px;font-size:.85rem;outline:none}
+.toolbar select:focus,.toolbar input:focus{border-color:var(--gold)}
+.toolbar button{background:var(--gold);color:#000;font-weight:600;cursor:pointer;border:none;transition:background .2s}
+.toolbar button:hover{background:var(--gold2)}
+.btn-sm{padding:4px 10px!important;font-size:.75rem!important;border-radius:4px!important}
+.btn-danger{background:var(--red)!important;color:#fff!important}
+.btn-green{background:var(--green)!important;color:#000!important}
+.board{padding:24px 32px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px}
+.column{background:var(--card);border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.col-header{padding:14px 18px;font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
+.col-header .count{background:var(--border);padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:400;color:var(--dim)}
+.col-completed .col-header{border-left:3px solid var(--green)}
+.col-inprogress .col-header{border-left:3px solid var(--blue)}
+.col-queued .col-header{border-left:3px solid var(--orange)}
+.col-body{padding:10px;max-height:60vh;overflow-y:auto}
+.col-body::-webkit-scrollbar{width:4px}
+.col-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.task-card{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;transition:border-color .2s,transform .15s;cursor:default}
+.task-card:hover{border-color:var(--gold);transform:translateY(-1px)}
+.task-title{font-weight:600;font-size:.88rem;margin-bottom:6px}
+.task-meta{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
+.agent-badge{padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.agent-jarvis{background:#d4a84333;color:var(--gold)}
+.agent-mule{background:#60a5fa33;color:var(--blue)}
+.agent-forge{background:#4ade8033;color:var(--green)}
+.cat-badge{font-size:.7rem;color:var(--dim);background:var(--border);padding:2px 6px;border-radius:3px}
+.date-text{font-size:.7rem;color:var(--dim)}
+.task-path{margin-top:6px;display:flex;align-items:center;gap:4px;background:#111;border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:'Cascadia Code','Fira Code',monospace;font-size:.7rem;color:var(--gold);cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;transition:border-color .2s}
+.task-path:hover{border-color:var(--gold)}
+.task-path .copy-icon{flex-shrink:0;opacity:.5;transition:opacity .2s}
+.task-path:hover .copy-icon{opacity:1}
+.task-path.copied{border-color:var(--green);color:var(--green)}
+.task-actions{margin-top:8px;display:flex;gap:6px}
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal{background:var(--card);border:1px solid var(--gold);border-radius:12px;padding:28px;width:90%;max-width:420px}
+.modal h2{color:var(--gold);margin-bottom:16px;font-size:1.1rem}
+.modal label{display:block;font-size:.8rem;color:var(--dim);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.5px}
+.modal input,.modal select,.modal textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:6px;font-size:.85rem;outline:none}
+.modal input:focus,.modal select:focus,.modal textarea:focus{border-color:var(--gold)}
+.modal-btns{margin-top:18px;display:flex;gap:10px;justify-content:flex-end}
+.agents-row{display:flex;gap:16px;padding:16px 32px;flex-wrap:wrap}
+.agent-card{flex:1;min-width:200px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;align-items:center;gap:14px}
+.agent-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700}
+.agent-icon.jarvis{background:#d4a84333;color:var(--gold)}
+.agent-icon.mule{background:#60a5fa33;color:var(--blue)}
+.agent-icon.forge{background:#4ade8033;color:var(--green)}
+.agent-info .name{font-weight:700;font-size:.95rem}
+.agent-info .role{font-size:.75rem;color:var(--dim)}
+.agent-info .count-line{font-size:.75rem;color:var(--gold);margin-top:2px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ KERMICLE <span>COMMAND CENTER</span></h1>
+  <div class="stats">
+    <div class="stat"><div class="num" id="statTotal">0</div><div class="lbl">Total Tasks</div></div>
+    <div class="stat"><div class="num" id="statDone">0</div><div class="lbl">Completed</div></div>
+    <div class="stat"><div class="num" id="statActive">0</div><div class="lbl">Active</div></div>
+    <div class="stat"><div class="num" id="statQueued">0</div><div class="lbl">Queued</div></div>
+  </div>
+</div>
+
+<div class="agents-row">
+  <div class="agent-card"><div class="agent-icon jarvis">J</div><div class="agent-info"><div class="name">Jarvis</div><div class="role">Lead Agent · Claude Opus</div><div class="count-line" id="jarvisCount"></div></div></div>
+  <div class="agent-card"><div class="agent-icon mule">M</div><div class="agent-info"><div class="name">Mule</div><div class="role">Research Worker · Llama 3.1 8B</div><div class="count-line" id="muleCount"></div></div></div>
+  <div class="agent-card"><div class="agent-icon forge">F</div><div class="agent-info"><div class="name">Forge</div><div class="role">Code Specialist · Qwen2.5-Coder 7B</div><div class="count-line" id="forgeCount"></div></div></div>
+</div>
+
+<div class="toolbar">
+  <select id="filterAgent"><option value="all">All Agents</option><option value="Jarvis">Jarvis</option><option value="Mule">Mule</option><option value="Forge">Forge</option></select>
+  <select id="filterStatus"><option value="all">All Status</option><option value="completed">✅ Completed</option><option value="in-progress">🔄 In Progress</option><option value="queued">⏳ Queued</option></select>
+  <input type="text" id="searchBox" placeholder="Search tasks...">
+  <button onclick="openModal()">+ New Task</button>
+</div>
+
+<div class="board">
+  <div class="column col-inprogress"><div class="col-header">🔄 In Progress <span class="count" id="countActive">0</span></div><div class="col-body" id="colActive"></div></div>
+  <div class="column col-queued"><div class="col-header">⏳ Queued <span class="count" id="countQueued">0</span></div><div class="col-body" id="colQueued"></div></div>
+  <div class="column col-completed"><div class="col-header">✅ Completed <span class="count" id="countDone">0</span></div><div class="col-body" id="colDone"></div></div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">New Task</h2>
+    <label>Task Name</label><input id="mTask" placeholder="What needs to be done?">
+    <label>Assign To</label><select id="mAgent"><option>Jarvis</option><option>Mule</option><option>Forge</option></select>
+    <label>Status</label><select id="mStatus"><option value="queued">⏳ Queued</option><option value="in-progress">🔄 In Progress</option><option value="completed">✅ Completed</option></select>
+    <label>Category</label><input id="mCat" placeholder="e.g. Tools, Marketing, Research">
+    <label>Date</label><input id="mDate" type="date">
+    <label>File Path</label><input id="mPath" placeholder="e.g. mule-output/report.md">
+    <div class="modal-btns">
+      <button class="btn-sm" style="background:var(--border);color:var(--text)" onclick="closeModal()">Cancel</button>
+      <button class="btn-sm" onclick="saveTask()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let tasks=[];let editId=null;
+const defaultTasks=[{"id":1,"agent":"Forge","task":"Image Optimizer CLI","status":"completed","date":"2026-02-14","category":"Tools","path":"C:\\Users\\alfre\\bin\\optimize.bat"},{"id":2,"agent":"Forge","task":"FastAPI AI Template","status":"completed","date":"2026-02-14","category":"Templates","path":""},{"id":3,"agent":"Forge","task":"Telegram Bot Framework Template","status":"completed","date":"2026-02-14","category":"Templates","path":""},{"id":4,"agent":"Forge","task":"Lead Scraper","status":"completed","date":"2026-02-14","category":"Tools","path":""},{"id":5,"agent":"Forge","task":"Invoice Generator","status":"completed","date":"2026-02-14","category":"Tools","path":""},{"id":6,"agent":"Forge","task":"Markdown Converter","status":"completed","date":"2026-02-14","category":"Tools","path":""},{"id":7,"agent":"Forge","task":"File Organizer","status":"completed","date":"2026-02-14","category":"Tools","path":""},{"id":8,"agent":"Forge","task":"URL Shortener","status":"completed","date":"2026-02-14","category":"Tools","path":""},{"id":9,"agent":"Forge","task":"CSV Dashboard","status":"completed","date":"2026-02-14","category":"Tools","path":""},{"id":10,"agent":"Mule","task":"Daily Research Scan — Trending Topics","status":"completed","date":"2026-02-14","category":"Research","path":"mule-output/daily-research-2026-02-14.md"},{"id":11,"agent":"Mule","task":"Cold Outreach DM Templates (5 niches)","status":"completed","date":"2026-02-14","category":"Marketing","path":"mule-output/cold-outreach-templates-2026-02-14.md"},{"id":12,"agent":"Mule","task":"Services & Pricing Page — Tiered Pricing","status":"completed","date":"2026-02-14","category":"Marketing","path":"mule-output/services-pricing-2026-02-14.md"},{"id":13,"agent":"Mule","task":"Social Media Captions (3 posts)","status":"completed","date":"2026-02-14","category":"Marketing","path":"mule-output/"},{"id":14,"agent":"Mule","task":"Morning Research Scan (Daily Cron)","status":"in-progress","date":"2026-02-15","category":"Research","path":"mule-output/"},{"id":15,"agent":"Mule","task":"Email Digest (Daily Cron)","status":"in-progress","date":"2026-02-15","category":"Operations","path":""},{"id":16,"agent":"Mule","task":"Competitor Watch (Weekly Monday)","status":"queued","date":"2026-02-16","category":"Research","path":"mule-output/"},{"id":17,"agent":"Jarvis","task":"Built kermiclemedia.com Website","status":"completed","date":"2026-02-13","category":"Website","path":"website/index.html"},{"id":18,"agent":"Jarvis","task":"Multi-Agent Telegram Setup (3 bots)","status":"completed","date":"2026-02-14","category":"Infrastructure","path":""},{"id":19,"agent":"Jarvis","task":"AP Technologies Investment Proposal","status":"completed","date":"2026-02-13","category":"Business","path":"website/ap-technologies.html"},{"id":20,"agent":"Jarvis","task":"Office Dashboard — GitHub Pages","status":"completed","date":"2026-02-14","category":"Dashboard","path":"dashboard/office.html"},{"id":21,"agent":"Jarvis","task":"Gateway Watchdog Script","status":"completed","date":"2026-02-14","category":"Infrastructure","path":"C:\\Users\\alfre\\bin\\gateway-watchdog.ps1"},{"id":22,"agent":"Jarvis","task":"Morning Report Cron (8AM Daily)","status":"in-progress","date":"2026-02-13","category":"Operations","path":""},{"id":23,"agent":"Jarvis","task":"Cartoon Script — EP01","status":"completed","date":"2026-02-14","category":"Content","path":"EP01-The-Algorithm.md"},{"id":24,"agent":"Jarvis","task":"Cartoon Script — EP02","status":"completed","date":"2026-02-14","category":"Content","path":""},{"id":25,"agent":"Jarvis","task":"Cartoon Script — EP03","status":"completed","date":"2026-02-14","category":"Content","path":""},{"id":26,"agent":"Jarvis","task":"Kermicle Command Center Dashboard","status":"completed","date":"2026-02-13","category":"Dashboard","path":"dashboard/"},{"id":27,"agent":"Jarvis","task":"DNS Configuration (Namecheap → GitHub Pages)","status":"completed","date":"2026-02-13","category":"Infrastructure","path":""},{"id":28,"agent":"Jarvis","task":"Task Board Web App","status":"completed","date":"2026-02-15","category":"Dashboard","path":"dashboard/taskboard.html"},{"id":29,"agent":"Forge","task":"Awaiting Next Task Assignment","status":"queued","date":"2026-02-15","category":"General","path":""},{"id":30,"agent":"Mule","task":"Draft Social Media Posts (On-Demand)","status":"queued","date":"","category":"Marketing","path":"mule-output/"},{"id":31,"agent":"Jarvis","task":"Office Dashboard — Mobile Version","status":"completed","date":"2026-02-14","category":"Dashboard","path":"dashboard/office-mobile.html"},{"id":32,"agent":"Jarvis","task":"Rate Sheet Page","status":"completed","date":"2026-02-14","category":"Website","path":"website/rate-sheet.html"},{"id":33,"agent":"Mule","task":"Price History Tracking","status":"completed","date":"2026-02-14","category":"Research","path":"mule-output/price-history.json"}];
+
+function load(){const s=localStorage.getItem('kermicle-tasks');if(s){try{tasks=JSON.parse(s)}catch(e){tasks=[...defaultTasks]}}else{tasks=[...defaultTasks]}render()}
+function save(){localStorage.setItem('kermicle-tasks',JSON.stringify(tasks))}
+function nextId(){return tasks.length?Math.max(...tasks.map(t=>t.id))+1:1}
+function render(){
+  const fa=document.getElementById('filterAgent').value;
+  const fs=document.getElementById('filterStatus').value;
+  const q=document.getElementById('searchBox').value.toLowerCase();
+  const filtered=tasks.filter(t=>(fa==='all'||t.agent===fa)&&(fs==='all'||t.status===fs)&&(!q||t.task.toLowerCase().includes(q)||t.category.toLowerCase().includes(q)));
+  const done=filtered.filter(t=>t.status==='completed');
+  const active=filtered.filter(t=>t.status==='in-progress');
+  const queued=filtered.filter(t=>t.status==='queued');
+  document.getElementById('colDone').innerHTML=done.map(cardHTML).join('');
+  document.getElementById('colActive').innerHTML=active.map(cardHTML).join('');
+  document.getElementById('colQueued').innerHTML=queued.map(cardHTML).join('');
+  document.getElementById('countDone').textContent=done.length;
+  document.getElementById('countActive').textContent=active.length;
+  document.getElementById('countQueued').textContent=queued.length;
+  // global stats (unfiltered)
+  document.getElementById('statTotal').textContent=tasks.length;
+  document.getElementById('statDone').textContent=tasks.filter(t=>t.status==='completed').length;
+  document.getElementById('statActive').textContent=tasks.filter(t=>t.status==='in-progress').length;
+  document.getElementById('statQueued').textContent=tasks.filter(t=>t.status==='queued').length;
+  ['Jarvis','Mule','Forge'].forEach(a=>{const c=tasks.filter(t=>t.agent===a);const d=c.filter(t=>t.status==='completed').length;document.getElementById(a.toLowerCase()+'Count').textContent=d+'/'+c.length+' completed'});
+}
+function cardHTML(t){
+  const ac=t.agent.toLowerCase();
+  const statusBtns=t.status==='completed'?`<button class="btn-sm" onclick="setStatus(${t.id},'in-progress')">↩ Reopen</button>`
+    :t.status==='in-progress'?`<button class="btn-sm btn-green" onclick="setStatus(${t.id},'completed')">✓ Done</button>`
+    :`<button class="btn-sm" style="background:var(--blue);color:#000" onclick="setStatus(${t.id},'in-progress')">▶ Start</button>`;
+  const pathHtml=t.path?`<div class="task-path" onclick="copyPath(this,'${esc(t.path.replace(/\\/g,'\\\\'))}')" title="Click to copy path"><span class="copy-icon">📋</span><span>${esc(t.path)}</span></div>`:'';
+  return `<div class="task-card"><div class="task-title">${esc(t.task)}</div><div class="task-meta"><span class="agent-badge agent-${ac}">${esc(t.agent)}</span><span class="cat-badge">${esc(t.category)}</span><span class="date-text">${t.date||'—'}</span></div>${pathHtml}<div class="task-actions">${statusBtns}<button class="btn-sm" style="background:var(--border);color:var(--text)" onclick="editTask(${t.id})">✎</button><button class="btn-sm btn-danger" onclick="delTask(${t.id})">✕</button></div></div>`;
+}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function setStatus(id,s){const t=tasks.find(x=>x.id===id);if(t){t.status=s;if(s==='completed')t.date=new Date().toISOString().slice(0,10);save();render()}}
+function delTask(id){if(confirm('Delete this task?')){tasks=tasks.filter(t=>t.id!==id);save();render()}}
+function copyPath(el,p){navigator.clipboard.writeText(p).then(()=>{el.classList.add('copied');el.querySelector('.copy-icon').textContent='✅';setTimeout(()=>{el.classList.remove('copied');el.querySelector('.copy-icon').textContent='📋'},1500)})}
+function openModal(){editId=null;document.getElementById('modalTitle').textContent='New Task';document.getElementById('mTask').value='';document.getElementById('mAgent').value='Jarvis';document.getElementById('mStatus').value='queued';document.getElementById('mCat').value='';document.getElementById('mDate').value=new Date().toISOString().slice(0,10);document.getElementById('mPath').value='';document.getElementById('modalOverlay').classList.add('active')}
+function editTask(id){const t=tasks.find(x=>x.id===id);if(!t)return;editId=id;document.getElementById('modalTitle').textContent='Edit Task';document.getElementById('mTask').value=t.task;document.getElementById('mAgent').value=t.agent;document.getElementById('mStatus').value=t.status;document.getElementById('mCat').value=t.category;document.getElementById('mDate').value=t.date;document.getElementById('mPath').value=t.path||'';document.getElementById('modalOverlay').classList.add('active')}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('active')}
+function saveTask(){const name=document.getElementById('mTask').value.trim();if(!name)return alert('Task name required');const obj={id:editId||nextId(),agent:document.getElementById('mAgent').value,task:name,status:document.getElementById('mStatus').value,date:document.getElementById('mDate').value,category:document.getElementById('mCat').value||'General',path:document.getElementById('mPath').value};if(editId){const i=tasks.findIndex(t=>t.id===editId);if(i>=0)tasks[i]=obj}else{tasks.push(obj)}save();closeModal();render()}
+document.getElementById('filterAgent').addEventListener('change',render);
+document.getElementById('filterStatus').addEventListener('change',render);
+document.getElementById('searchBox').addEventListener('input',render);
+load();
+</script>
+</body>
+</html>
