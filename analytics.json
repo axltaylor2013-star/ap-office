@@ -1,6 +1,7 @@
 {
   "snapshots": [],
   "goals": [],
+  "creators": [],
   "config": {
     "platforms": ["instagram", "tiktok", "youtube", "twitter"]
   }

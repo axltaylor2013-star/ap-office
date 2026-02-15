@@ -16,23 +16,44 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
 a{color:var(--gold);text-decoration:none}
 
-/* Header */
 .header{background:linear-gradient(135deg,#16213e 0%,#1a1a2e 100%);padding:28px 32px 20px;border-bottom:3px solid var(--gold);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
 .header h1{font-size:1.6rem;font-weight:700;letter-spacing:-.5px}
 .header h1 span{color:var(--gold)}
 .header-sub{font-size:.85rem;color:var(--text-dim);margin-top:2px}
 .header-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
-.export-btn{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .2s}
-.export-btn:hover{background:var(--gold);color:#1a1a2e}
+.header-btns{display:flex;gap:8px}
+.hdr-btn{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .2s}
+.hdr-btn:hover{background:var(--gold);color:#1a1a2e}
+.hdr-btn.active{background:var(--gold);color:#1a1a2e}
 
-/* Container */
 .container{max-width:1200px;margin:0 auto;padding:24px 20px 60px}
+
+/* Creator Management */
+.creators-panel{background:var(--card);border-radius:var(--radius);padding:24px;margin-bottom:28px;border:1px solid rgba(212,168,67,.2);box-shadow:var(--shadow);display:none}
+.creators-panel.show{display:block}
+.creators-panel h2{font-size:1.1rem;color:var(--gold);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.creator-add-row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:20px}
+.creator-add-row .form-group{display:flex;flex-direction:column;gap:4px;min-width:140px}
+.creator-add-row .form-group label{font-size:.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.creator-add-row input,.creator-add-row select{background:#0f1a2e;border:1px solid #2a3a5c;color:var(--text);padding:10px 12px;border-radius:8px;font-size:.9rem;transition:border-color .2s}
+.creator-add-row input:focus,.creator-add-row select:focus{outline:none;border-color:var(--gold)}
+.creator-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.creator-card{background:#0f1a2e;border:1px solid #2a3a5c;border-radius:10px;padding:16px;display:flex;align-items:center;gap:14px;transition:border-color .2s}
+.creator-card:hover{border-color:var(--gold)}
+.creator-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;flex-shrink:0}
+.creator-info{flex:1;min-width:0}
+.creator-name{font-weight:700;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.creator-handle{font-size:.8rem;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.creator-platforms{display:flex;gap:4px;margin-top:4px}
+.creator-plat-dot{width:8px;height:8px;border-radius:50%}
+.creator-remove{background:none;border:none;color:#f87171;cursor:pointer;font-size:1rem;padding:4px 8px;border-radius:6px;transition:background .2s}
+.creator-remove:hover{background:rgba(248,113,113,.15)}
 
 /* Quick Add Form */
 .quick-add{background:var(--card);border-radius:var(--radius);padding:24px;margin-bottom:28px;border:1px solid rgba(212,168,67,.2);box-shadow:var(--shadow)}
 .quick-add h2{font-size:1.1rem;color:var(--gold);margin-bottom:16px;display:flex;align-items:center;gap:8px}
 .form-row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
-.form-group{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px}
+.form-group{display:flex;flex-direction:column;gap:4px;flex:1;min-width:120px}
 .form-group label{font-size:.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
 .form-group select,.form-group input{background:#0f1a2e;border:1px solid #2a3a5c;color:var(--text);padding:10px 12px;border-radius:8px;font-size:.9rem;transition:border-color .2s}
 .form-group select:focus,.form-group input:focus{outline:none;border-color:var(--gold)}
@@ -50,6 +71,12 @@ a{color:var(--gold);text-decoration:none}
 .tab[data-p="tiktok"] .dot{background:var(--tt)}
 .tab[data-p="youtube"] .dot{background:var(--yt)}
 .tab[data-p="twitter"] .dot{background:var(--tw)}
+
+/* Creator filter tabs */
+.creator-tabs{display:flex;gap:4px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px}
+.ctab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .2s;border:1px solid #2a3a5c;white-space:nowrap;user-select:none;color:var(--text-dim)}
+.ctab:hover{background:var(--gold-dim);color:var(--text)}
+.ctab.active{background:var(--gold-dim);color:var(--gold);border-color:var(--gold)}
 
 /* KPI Cards */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:28px}
@@ -118,22 +145,20 @@ svg.line-chart{width:100%;height:280px;display:block}
 .empty-text{color:var(--text-dim);max-width:500px;margin:0 auto;line-height:1.8}
 .empty-text code{background:#0f1a2e;padding:2px 8px;border-radius:4px;font-size:.85rem;color:var(--gold)}
 
-/* Animations */
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .section-animate{animation:fadeUp .5s ease both}
 .section-animate:nth-child(2){animation-delay:.1s}
 .section-animate:nth-child(3){animation-delay:.2s}
-.section-animate:nth-child(4){animation-delay:.3s}
 
-/* Responsive */
 @media(max-width:600px){
   .header{padding:20px 16px 14px}
   .header h1{font-size:1.2rem}
   .container{padding:16px 12px 40px}
-  .form-row{flex-direction:column}
-  .form-group{min-width:100%}
+  .form-row,.creator-add-row{flex-direction:column}
+  .form-group{min-width:100%!important}
   .kpi-value{font-size:1.4rem}
   svg.line-chart{height:200px}
+  .creator-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -145,23 +170,56 @@ svg.line-chart{width:100%;height:280px;display:block}
       <h1>Kermicle Media — <span>Analytics Tracker</span></h1>
       <div class="header-sub">Social media growth & performance dashboard</div>
     </div>
-    <button class="export-btn" onclick="exportData()">⬇ Export JSON</button>
+    <div class="header-btns">
+      <button class="hdr-btn" id="toggleCreators" onclick="toggleCreatorsPanel()">👤 Creators</button>
+      <button class="hdr-btn" onclick="exportData()">⬇ Export</button>
+    </div>
   </div>
 </div>
 
 <div class="container">
-  <!-- Quick Add -->
-  <div class="quick-add section-animate">
-    <h2>📊 Log Snapshot</h2>
-    <div class="form-row">
-      <div class="form-group">
+
+  <!-- Creator Management Panel -->
+  <div class="creators-panel" id="creatorsPanel">
+    <h2>👤 Manage Creators</h2>
+    <div class="creator-add-row">
+      <div class="form-group" style="min-width:160px">
+        <label>Creator Name</label>
+        <input id="c-name" placeholder="e.g. Jeremy Kermicle">
+      </div>
+      <div class="form-group" style="min-width:160px">
+        <label>Handle</label>
+        <input id="c-handle" placeholder="e.g. @kermiclemedia">
+      </div>
+      <div class="form-group" style="min-width:140px">
         <label>Platform</label>
-        <select id="f-platform">
+        <select id="c-platform">
           <option value="instagram">Instagram</option>
           <option value="tiktok">TikTok</option>
           <option value="youtube">YouTube</option>
           <option value="twitter">X / Twitter</option>
         </select>
+      </div>
+      <div class="form-group" style="min-width:120px">
+        <label>Category</label>
+        <input id="c-category" placeholder="e.g. Client, Own, Competitor">
+      </div>
+      <button class="add-btn" onclick="addCreator()">+ Add Creator</button>
+    </div>
+    <div class="creator-grid" id="creatorGrid"></div>
+  </div>
+
+  <!-- Quick Add Snapshot -->
+  <div class="quick-add section-animate">
+    <h2>📊 Log Snapshot</h2>
+    <div class="form-row">
+      <div class="form-group" style="min-width:160px">
+        <label>Creator</label>
+        <select id="f-creator"></select>
+      </div>
+      <div class="form-group">
+        <label>Platform</label>
+        <select id="f-platform" onchange="updateFormLabels()"></select>
       </div>
       <div class="form-group">
         <label id="m1-label">Followers</label>
@@ -183,7 +241,10 @@ svg.line-chart{width:100%;height:280px;display:block}
     </div>
   </div>
 
-  <!-- Tabs -->
+  <!-- Creator Filter -->
+  <div class="creator-tabs" id="creatorTabs"></div>
+
+  <!-- Platform Tabs -->
   <div class="tabs section-animate">
     <div class="tab active" data-p="all" onclick="setTab('all')"><span class="dot"></span>All</div>
     <div class="tab" data-p="instagram" onclick="setTab('instagram')"><span class="dot"></span>Instagram</div>
@@ -199,275 +260,331 @@ svg.line-chart{width:100%;height:280px;display:block}
 
 <script>
 // ── Data ──
-const analyticsData = {"snapshots":[],"goals":[],"config":{"platforms":["instagram","tiktok","youtube","twitter"]}};
+let data = {snapshots:[],goals:[],creators:[],config:{platforms:["instagram","tiktok","youtube","twitter"]}};
 
 const PLATFORMS = {
-  instagram: { name:'Instagram', color:'#E1306C', m:['followers','engagementRate','reach','impressions'], labels:['Followers','Engagement %','Reach','Impressions'] },
-  tiktok:    { name:'TikTok',    color:'#00f2ea', m:['followers','views','likes','comments'],             labels:['Followers','Views','Likes','Comments'] },
-  youtube:   { name:'YouTube',   color:'#FF0000', m:['subscribers','views','watchTimeHours','likes'],     labels:['Subscribers','Views','Watch Hours','Likes'] },
-  twitter:   { name:'X/Twitter', color:'#9ca3af', m:['followers','impressions','engagementRate','retweets'], labels:['Followers','Impressions','Engagement %','Retweets'] }
+  instagram:{name:'Instagram',color:'#E1306C',icon:'📸',m:['followers','engagementRate','reach','impressions'],labels:['Followers','Engagement %','Reach','Impressions']},
+  tiktok:{name:'TikTok',color:'#00f2ea',icon:'🎵',m:['followers','views','likes','comments'],labels:['Followers','Views','Likes','Comments']},
+  youtube:{name:'YouTube',color:'#FF0000',icon:'▶️',m:['subscribers','views','watchTimeHours','likes'],labels:['Subscribers','Views','Watch Hours','Likes']},
+  twitter:{name:'X/Twitter',color:'#9ca3af',icon:'𝕏',m:['followers','impressions','engagementRate','retweets'],labels:['Followers','Impressions','Engagement %','Retweets']}
 };
 
-let currentTab = 'all';
+let currentTab='all';
+let currentCreator='all';
+
+// ── Storage ──
+function loadData(){
+  fetch('analytics.json?_='+Date.now()).then(r=>r.json()).then(d=>{
+    data=d;if(!data.creators)data.creators=[];
+    localStorage.setItem('kermicle-analytics',JSON.stringify(data));
+    init();
+  }).catch(()=>{
+    const s=localStorage.getItem('kermicle-analytics');
+    if(s)try{data=JSON.parse(s);if(!data.creators)data.creators=[]}catch(e){}
+    init();
+  });
+}
+function saveData(){localStorage.setItem('kermicle-analytics',JSON.stringify(data))}
 
 // ── Helpers ──
-const fmt = n => n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String(n);
-const pct = n => (n>=0?'+':'')+n.toFixed(1)+'%';
-const platformColor = p => PLATFORMS[p]?.color||'#d4a843';
+const fmt=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String(n);
+const pct=n=>(n>=0?'+':'')+n.toFixed(1)+'%';
+const platformColor=p=>PLATFORMS[p]?.color||'#d4a843';
 
-function getLatest(platform) {
-  const snaps = analyticsData.snapshots.filter(s=>s.platform===platform).sort((a,b)=>b.date.localeCompare(a.date));
-  return snaps[0]||null;
+function getSnaps(){
+  let s=data.snapshots;
+  if(currentCreator!=='all')s=s.filter(x=>x.creatorId===currentCreator);
+  return s;
 }
-function getPrevious(platform) {
-  const snaps = analyticsData.snapshots.filter(s=>s.platform===platform).sort((a,b)=>b.date.localeCompare(a.date));
-  return snaps[1]||null;
+function getLatest(platform){
+  return getSnaps().filter(s=>s.platform===platform).sort((a,b)=>b.date.localeCompare(a.date))[0]||null;
 }
-function getHistory(platform,metric) {
-  return analyticsData.snapshots.filter(s=>s.platform===platform&&s.metrics[metric]!=null).sort((a,b)=>a.date.localeCompare(b.date)).map(s=>({date:s.date,value:s.metrics[metric]}));
+function getPrevious(platform){
+  return getSnaps().filter(s=>s.platform===platform).sort((a,b)=>b.date.localeCompare(a.date))[1]||null;
 }
-function calcDelta(curr,prev,key) {
-  if(!prev||!prev.metrics[key]||!curr.metrics[key]) return null;
-  return ((curr.metrics[key]-prev.metrics[key])/prev.metrics[key])*100;
+function getHistory(platform,metric){
+  return getSnaps().filter(s=>s.platform===platform&&s.metrics[metric]!=null).sort((a,b)=>a.date.localeCompare(b.date)).map(s=>({date:s.date,value:s.metrics[metric]}));
 }
-function projectGrowth(platform,metric,months) {
-  const hist = getHistory(platform,metric);
-  if(hist.length<2) return null;
-  const recent = hist.slice(-6);
-  let totalGrowth=0;
-  for(let i=1;i<recent.length;i++) totalGrowth+=(recent[i].value-recent[i-1].value);
-  const avgGrowth = totalGrowth/(recent.length-1);
-  return Math.round(recent[recent.length-1].value + avgGrowth*months);
+function calcDelta(curr,prev,key){
+  if(!prev||!prev.metrics[key]||!curr.metrics[key])return null;
+  return((curr.metrics[key]-prev.metrics[key])/prev.metrics[key])*100;
+}
+function projectGrowth(platform,metric,months){
+  const hist=getHistory(platform,metric);
+  if(hist.length<2)return null;
+  const recent=hist.slice(-6);
+  let total=0;for(let i=1;i<recent.length;i++)total+=(recent[i].value-recent[i-1].value);
+  return Math.round(recent[recent.length-1].value+(total/(recent.length-1))*months);
+}
+function creatorName(id){const c=data.creators.find(x=>x.id===id);return c?c.name:'Unknown'}
+function creatorColor(id){const c=data.creators.find(x=>x.id===id);return c&&c.platforms.length?PLATFORMS[c.platforms[0]]?.color:'var(--gold)'}
+
+// ── Creator Management ──
+function toggleCreatorsPanel(){
+  const p=document.getElementById('creatorsPanel');
+  const b=document.getElementById('toggleCreators');
+  p.classList.toggle('show');
+  b.classList.toggle('active');
 }
 
-// ── Form labels ──
-document.getElementById('f-platform').addEventListener('change', function() {
-  const p = PLATFORMS[this.value];
+function addCreator(){
+  const name=document.getElementById('c-name').value.trim();
+  const handle=document.getElementById('c-handle').value.trim();
+  const platform=document.getElementById('c-platform').value;
+  const category=document.getElementById('c-category').value.trim()||'General';
+  if(!name)return alert('Creator name required');
+  const id='cr_'+Date.now();
+  // Check if creator already exists, add platform
+  const existing=data.creators.find(c=>c.name.toLowerCase()===name.toLowerCase());
+  if(existing){
+    if(!existing.platforms.includes(platform))existing.platforms.push(platform);
+    if(handle&&!existing.handles[platform])existing.handles[platform]=handle;
+  }else{
+    data.creators.push({id,name,handles:{[platform]:handle},platforms:[platform],category,added:new Date().toISOString().slice(0,10)});
+  }
+  document.getElementById('c-name').value='';
+  document.getElementById('c-handle').value='';
+  document.getElementById('c-category').value='';
+  saveData();renderCreators();renderCreatorTabs();updateCreatorSelect();
+}
+
+function removeCreator(id){
+  if(!confirm('Remove this creator? Their snapshots will be kept.'))return;
+  data.creators=data.creators.filter(c=>c.id!==id);
+  if(currentCreator===id){currentCreator='all'}
+  saveData();renderCreators();renderCreatorTabs();updateCreatorSelect();render();
+}
+
+function renderCreators(){
+  const grid=document.getElementById('creatorGrid');
+  if(!data.creators.length){grid.innerHTML='<div style="color:var(--text-dim);padding:20px;text-align:center;grid-column:1/-1">No creators yet. Add your accounts, clients, or competitors above.</div>';return}
+  grid.innerHTML=data.creators.map(c=>{
+    const initials=c.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const mainColor=c.platforms.length?PLATFORMS[c.platforms[0]]?.color:'var(--gold)';
+    const platDots=c.platforms.map(p=>`<div class="creator-plat-dot" style="background:${PLATFORMS[p]?.color}" title="${PLATFORMS[p]?.name}"></div>`).join('');
+    const handle=Object.values(c.handles).filter(Boolean)[0]||'';
+    const snapCount=data.snapshots.filter(s=>s.creatorId===c.id).length;
+    return `<div class="creator-card">
+      <div class="creator-avatar" style="background:${mainColor}22;color:${mainColor}">${initials}</div>
+      <div class="creator-info">
+        <div class="creator-name">${c.name}</div>
+        <div class="creator-handle">${handle} · ${c.category} · ${snapCount} snapshots</div>
+        <div class="creator-platforms">${platDots}</div>
+      </div>
+      <button class="creator-remove" onclick="removeCreator('${c.id}')" title="Remove">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function renderCreatorTabs(){
+  const el=document.getElementById('creatorTabs');
+  if(!data.creators.length){el.innerHTML='';return}
+  let html=`<div class="ctab ${currentCreator==='all'?'active':''}" onclick="setCreator('all')">All Creators</div>`;
+  data.creators.forEach(c=>{
+    const color=c.platforms.length?PLATFORMS[c.platforms[0]]?.color:'var(--gold)';
+    html+=`<div class="ctab ${currentCreator===c.id?'active':''}" onclick="setCreator('${c.id}')" style="${currentCreator===c.id?'border-color:'+color:''}">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px"></span>${c.name}
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+function setCreator(id){currentCreator=id;renderCreatorTabs();render()}
+
+function updateCreatorSelect(){
+  const sel=document.getElementById('f-creator');
+  sel.innerHTML='<option value="">— No creator —</option>'+data.creators.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  // Also update platform select based on selected creator
+  sel.onchange=function(){
+    const c=data.creators.find(x=>x.id===this.value);
+    const pSel=document.getElementById('f-platform');
+    if(c&&c.platforms.length){
+      pSel.innerHTML=c.platforms.map(p=>`<option value="${p}">${PLATFORMS[p].name}</option>`).join('');
+    }else{
+      pSel.innerHTML=Object.keys(PLATFORMS).map(p=>`<option value="${p}">${PLATFORMS[p].name}</option>`).join('');
+    }
+    updateFormLabels();
+  };
+  // Init platform dropdown
+  const pSel=document.getElementById('f-platform');
+  pSel.innerHTML=Object.keys(PLATFORMS).map(p=>`<option value="${p}">${PLATFORMS[p].name}</option>`).join('');
+}
+
+function updateFormLabels(){
+  const p=PLATFORMS[document.getElementById('f-platform').value];
+  if(!p)return;
   document.getElementById('m1-label').textContent=p.labels[0];
   document.getElementById('m2-label').textContent=p.labels[1];
   document.getElementById('m3-label').textContent=p.labels[2];
   document.getElementById('m4-label').textContent=p.labels[3];
-});
+}
 
 // ── Add Snapshot ──
-function addSnapshot() {
-  const p = document.getElementById('f-platform').value;
-  const pm = PLATFORMS[p].m;
-  const vals = [
+function addSnapshot(){
+  const creatorId=document.getElementById('f-creator').value;
+  const p=document.getElementById('f-platform').value;
+  const pm=PLATFORMS[p].m;
+  const vals=[
     parseFloat(document.getElementById('f-m1').value)||0,
     parseFloat(document.getElementById('f-m2').value)||0,
     parseFloat(document.getElementById('f-m3').value)||0,
     parseFloat(document.getElementById('f-m4').value)||0
   ];
-  const maxId = analyticsData.snapshots.reduce((mx,s)=>Math.max(mx,s.id||0),0);
-  const snap = {
-    id: maxId+1,
-    date: new Date().toISOString().slice(0,10),
-    platform: p,
-    metrics: {},
-    topContent: [],
-    notes: ''
-  };
+  if(!vals.some(v=>v>0))return alert('Enter at least one metric');
+  const maxId=data.snapshots.reduce((mx,s)=>Math.max(mx,s.id||0),0);
+  const snap={id:maxId+1,date:new Date().toISOString().slice(0,10),platform:p,creatorId:creatorId||null,metrics:{},topContent:[],notes:''};
   pm.forEach((k,i)=>snap.metrics[k]=vals[i]);
-  analyticsData.snapshots.push(snap);
+  data.snapshots.push(snap);
   ['f-m1','f-m2','f-m3','f-m4'].forEach(id=>document.getElementById(id).value='');
-  render();
+  saveData();render();
 }
 
 // ── Export ──
-function exportData() {
-  const blob = new Blob([JSON.stringify(analyticsData,null,2)],{type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'analytics.json';
-  a.click();
+function exportData(){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='analytics-export.json';a.click();
 }
 
 // ── Tabs ──
-function setTab(t) {
-  currentTab=t;
-  document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.p===t));
-  render();
-}
+function setTab(t){currentTab=t;document.querySelectorAll('.tabs .tab').forEach(el=>el.classList.toggle('active',el.dataset.p===t));render()}
 
 // ── SVG Chart ──
-function buildChart(datasets, width, height) {
-  if(!datasets.length||datasets.every(d=>d.points.length<2)) return '<div style="text-align:center;padding:40px;color:var(--text-dim)">Need at least 2 snapshots to show chart</div>';
+function buildChart(datasets,width,height){
+  if(!datasets.length||datasets.every(d=>d.points.length<2))return'<div style="text-align:center;padding:40px;color:var(--text-dim)">Need at least 2 snapshots to show chart</div>';
   const pad={t:20,r:20,b:40,l:60};
-  const w=width-pad.l-pad.r, h=height-pad.t-pad.b;
-  let allPts=[];
-  datasets.forEach(d=>allPts.push(...d.points));
+  const w=width-pad.l-pad.r,h=height-pad.t-pad.b;
+  let allPts=[];datasets.forEach(d=>allPts.push(...d.points));
   const minV=Math.min(...allPts.map(p=>p.value))*0.9;
   const maxV=Math.max(...allPts.map(p=>p.value))*1.1||1;
   const allDates=[...new Set(allPts.map(p=>p.date))].sort();
-  const x=i=>(pad.l + (i/(Math.max(allDates.length-1,1)))*w);
-  const y=v=>(pad.t + h - ((v-minV)/(maxV-minV))*h);
+  const x=i=>(pad.l+(i/(Math.max(allDates.length-1,1)))*w);
+  const y=v=>(pad.t+h-((v-minV)/(maxV-minV))*h);
 
   let svg=`<svg class="line-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">`;
-  // Grid
   svg+=`<g class="chart-grid">`;
   for(let i=0;i<=4;i++){
-    const gy=pad.t+(h/4)*i;
-    const val=maxV-((maxV-minV)/4)*i;
+    const gy=pad.t+(h/4)*i;const val=maxV-((maxV-minV)/4)*i;
     svg+=`<line x1="${pad.l}" y1="${gy}" x2="${width-pad.r}" y2="${gy}"/>`;
     svg+=`<text class="chart-label" x="${pad.l-8}" y="${gy+4}" text-anchor="end">${fmt(Math.round(val))}</text>`;
   }
-  // Date labels
   const step=Math.max(1,Math.floor(allDates.length/6));
-  allDates.forEach((d,i)=>{
-    if(i%step===0||i===allDates.length-1)
-      svg+=`<text class="chart-label" x="${x(i)}" y="${height-8}" text-anchor="middle">${d.slice(5)}</text>`;
-  });
+  allDates.forEach((d,i)=>{if(i%step===0||i===allDates.length-1)svg+=`<text class="chart-label" x="${x(i)}" y="${height-8}" text-anchor="middle">${d.slice(5)}</text>`;});
   svg+=`</g>`;
-
-  // Lines
   datasets.forEach(ds=>{
     const pts=ds.points.map(p=>({x:x(allDates.indexOf(p.date)),y:y(p.value),v:p.value,d:p.date}));
     if(pts.length<2)return;
     const pathD=pts.map((p,i)=>(i===0?'M':'L')+`${p.x},${p.y}`).join(' ');
-    // Area
     svg+=`<path class="chart-area" d="${pathD} L${pts[pts.length-1].x},${pad.t+h} L${pts[0].x},${pad.t+h} Z" fill="${ds.color}"/>`;
-    // Line
     svg+=`<path class="chart-line" d="${pathD}" stroke="${ds.color}" style="stroke-dasharray:${w*3};stroke-dashoffset:${w*3};animation:drawLine 1.5s ease forwards"/>`;
-    // Dots
     pts.forEach(p=>{
-      svg+=`<circle class="chart-dot" cx="${p.x}" cy="${p.y}" r="4" fill="${ds.color}" stroke="var(--card)" stroke-width="2" `+
-        `onmouseenter="showTip(evt,'${ds.label}: ${fmt(p.v)} on ${p.d}')" onmouseleave="hideTip()"/>`;
+      svg+=`<circle class="chart-dot" cx="${p.x}" cy="${p.y}" r="4" fill="${ds.color}" stroke="var(--card)" stroke-width="2" onmouseenter="showTip(evt,'${ds.label}: ${fmt(p.v)} on ${p.d}')" onmouseleave="hideTip()"/>`;
     });
   });
-
   svg+=`</svg><style>@keyframes drawLine{to{stroke-dashoffset:0}}</style>`;
   return svg;
 }
 
-// ── Tooltip ──
-function showTip(e,text){
-  const t=document.getElementById('tooltip');
-  t.textContent=text;t.style.opacity='1';
-  t.style.left=(e.pageX+12)+'px';t.style.top=(e.pageY-30)+'px';
-}
-function hideTip(){document.getElementById('tooltip').style.opacity='0';}
+function showTip(e,text){const t=document.getElementById('tooltip');t.textContent=text;t.style.opacity='1';t.style.left=(e.pageX+12)+'px';t.style.top=(e.pageY-30)+'px'}
+function hideTip(){document.getElementById('tooltip').style.opacity='0'}
 
-// ── Render ──
-function render() {
+// ── Main Render ──
+function render(){
   const el=document.getElementById('dashboard-content');
-  const snaps=analyticsData.snapshots;
+  const snaps=getSnaps();
 
   if(!snaps.length){
+    const hasCreators=data.creators.length>0;
     el.innerHTML=`<div class="empty-state">
       <div class="empty-icon">📈</div>
       <div class="empty-title">No Analytics Data Yet</div>
       <div class="empty-text">
-        Use the form above to log your first snapshot, or tell your assistant:<br><br>
-        <code>Log analytics: Instagram — 1,250 followers, 4.2% engagement, 15,000 reach</code><br><br>
-        Supported platforms: Instagram, TikTok, YouTube, X/Twitter<br>
-        Each snapshot tracks followers, engagement, reach, and top content.
+        ${hasCreators?'Select a creator above and log their first snapshot.':'Start by adding creators (click <b>👤 Creators</b> above), then log snapshots.'}<br><br>
+        Or tell your assistant:<br>
+        <code>Track @kermiclemedia on Instagram</code><br>
+        <code>Log analytics for @kermiclemedia: 1,250 followers, 4.2% engagement</code>
       </div>
     </div>`;
     return;
   }
 
   let html='';
-  const platforms = currentTab==='all' ? ['instagram','tiktok','youtube','twitter'] : [currentTab];
-  const activePlatforms = platforms.filter(p=>snaps.some(s=>s.platform===p));
+  const platforms=currentTab==='all'?['instagram','tiktok','youtube','twitter']:[currentTab];
+  const activePlatforms=platforms.filter(p=>snaps.some(s=>s.platform===p));
 
-  // KPI Cards
+  // KPIs
   html+='<div class="kpi-grid">';
   if(currentTab==='all'){
-    const totalFollowers = ['instagram','tiktok','youtube','twitter'].reduce((sum,p)=>{
-      const l=getLatest(p); return sum+(l?l.metrics[PLATFORMS[p].m[0]]||0:0);
-    },0);
-    html+=`<div class="kpi"><div class="kpi-label">Total Followers</div><div class="kpi-value">${fmt(totalFollowers)}</div><div class="kpi-delta neutral">${activePlatforms.length} platforms tracked</div></div>`;
+    const totalFollowers=['instagram','tiktok','youtube','twitter'].reduce((sum,p)=>{const l=getLatest(p);return sum+(l?l.metrics[PLATFORMS[p].m[0]]||0:0)},0);
+    html+=`<div class="kpi"><div class="kpi-label">Total Followers</div><div class="kpi-value">${fmt(totalFollowers)}</div><div class="kpi-delta neutral">${activePlatforms.length} platforms · ${currentCreator!=='all'?creatorName(currentCreator):'All creators'}</div></div>`;
     activePlatforms.forEach(p=>{
-      const l=getLatest(p), pr=getPrevious(p), pk=PLATFORMS[p].m[0];
-      const v=l?l.metrics[pk]||0:0;
-      const d=l&&pr?calcDelta(l,pr,pk):null;
+      const l=getLatest(p),pr=getPrevious(p),pk=PLATFORMS[p].m[0];
+      const v=l?l.metrics[pk]||0:0;const d=l&&pr?calcDelta(l,pr,pk):null;
       html+=`<div class="kpi" style="border-left-color:${platformColor(p)}"><div class="kpi-label">${PLATFORMS[p].name}</div><div class="kpi-value">${fmt(v)}</div>`;
       html+=d!=null?`<div class="kpi-delta ${d>=0?'up':'down'}">${pct(d)} growth</div>`:`<div class="kpi-delta neutral">First snapshot</div>`;
       html+=`</div>`;
     });
-  } else {
-    const p=currentTab, pm=PLATFORMS[p], l=getLatest(p), pr=getPrevious(p);
-    if(l){
-      pm.m.forEach((k,i)=>{
-        const v=l.metrics[k]||0;
-        const d=pr?calcDelta(l,pr,k):null;
-        html+=`<div class="kpi" style="border-left-color:${pm.color}"><div class="kpi-label">${pm.labels[i]}</div><div class="kpi-value">${k.includes('Rate')?v.toFixed(1)+'%':fmt(v)}</div>`;
-        html+=d!=null?`<div class="kpi-delta ${d>=0?'up':'down'}">${pct(d)}</div>`:`<div class="kpi-delta neutral">—</div>`;
-        html+=`</div>`;
-      });
-    }
+  }else{
+    const p=currentTab,pm=PLATFORMS[p],l=getLatest(p),pr=getPrevious(p);
+    if(l){pm.m.forEach((k,i)=>{
+      const v=l.metrics[k]||0;const d=pr?calcDelta(l,pr,k):null;
+      html+=`<div class="kpi" style="border-left-color:${pm.color}"><div class="kpi-label">${pm.labels[i]}</div><div class="kpi-value">${k.includes('Rate')?v.toFixed(1)+'%':fmt(v)}</div>`;
+      html+=d!=null?`<div class="kpi-delta ${d>=0?'up':'down'}">${pct(d)}</div>`:`<div class="kpi-delta neutral">—</div>`;
+      html+=`</div>`;
+    })}
   }
   html+='</div>';
 
-  // Growth Chart
+  // Chart
   html+='<div class="chart-section section-animate"><h2>📈 Growth Over Time</h2><div class="chart-container">';
   const datasets=[];
   activePlatforms.forEach(p=>{
-    const key=PLATFORMS[p].m[0];
-    const pts=getHistory(p,key);
-    if(pts.length) datasets.push({label:PLATFORMS[p].name,color:PLATFORMS[p].color,points:pts});
+    const key=PLATFORMS[p].m[0];const pts=getHistory(p,key);
+    if(pts.length)datasets.push({label:PLATFORMS[p].name,color:PLATFORMS[p].color,points:pts});
   });
   html+=buildChart(datasets,900,280);
   html+='</div></div>';
 
-  // Cross-platform Summary (all tab)
-  if(currentTab==='all'&&activePlatforms.length>1){
-    html+='<div class="content-section section-animate"><h2>🔄 Cross-Platform Summary</h2><div style="overflow-x:auto"><table class="summary-table"><thead><tr><th>Platform</th><th>Followers</th><th>Growth</th><th>Engagement</th><th>Last Updated</th></tr></thead><tbody>';
-    activePlatforms.forEach(p=>{
-      const l=getLatest(p), pr=getPrevious(p), pm=PLATFORMS[p];
-      const fk=pm.m[0], ek=pm.m[1];
-      const fv=l?l.metrics[fk]||0:0;
-      const ev=l?l.metrics[ek]||0:0;
-      const d=l&&pr?calcDelta(l,pr,fk):null;
-      html+=`<tr><td><span class="platform-badge"><span class="dot" style="background:${pm.color}"></span>${pm.name}</span></td>`;
-      html+=`<td>${fmt(fv)}</td>`;
-      html+=`<td>${d!=null?`<span class="kpi-delta ${d>=0?'up':'down'}">${pct(d)}</span>`:'—'}</td>`;
-      html+=`<td>${ek.includes('Rate')?ev.toFixed(1)+'%':fmt(ev)}</td>`;
-      html+=`<td>${l?l.date:'—'}</td></tr>`;
+  // Creator comparison table (when viewing all creators)
+  if(currentCreator==='all'&&data.creators.length>1){
+    html+='<div class="content-section section-animate"><h2>👥 Creator Comparison</h2><div style="overflow-x:auto"><table class="summary-table"><thead><tr><th>Creator</th><th>Platform</th><th>Followers</th><th>Growth</th><th>Last Updated</th></tr></thead><tbody>';
+    data.creators.forEach(c=>{
+      c.platforms.forEach(p=>{
+        const cSnaps=data.snapshots.filter(s=>s.creatorId===c.id&&s.platform===p).sort((a,b)=>b.date.localeCompare(a.date));
+        const l=cSnaps[0],pr=cSnaps[1];
+        const fk=PLATFORMS[p].m[0];
+        const fv=l?l.metrics[fk]||0:0;
+        const d=l&&pr?calcDelta(l,pr,fk):null;
+        html+=`<tr><td><strong>${c.name}</strong></td>`;
+        html+=`<td><span class="platform-badge"><span class="dot" style="background:${PLATFORMS[p].color}"></span>${PLATFORMS[p].name}</span></td>`;
+        html+=`<td>${fmt(fv)}</td>`;
+        html+=`<td>${d!=null?`<span class="kpi-delta ${d>=0?'up':'down'}">${pct(d)}</span>`:'—'}</td>`;
+        html+=`<td>${l?l.date:'—'}</td></tr>`;
+      });
     });
     html+='</tbody></table></div></div>';
   }
 
-  // Best Performing Content
-  const allContent=[];
-  const relevantSnaps = currentTab==='all'?snaps:snaps.filter(s=>s.platform===currentTab);
-  relevantSnaps.forEach(s=>{
-    (s.topContent||[]).forEach(c=>allContent.push({...c,platform:s.platform,date:s.date}));
-  });
-  if(allContent.length){
-    allContent.sort((a,b)=>b.value-a.value);
-    html+='<div class="content-section section-animate"><h2>🏆 Best Performing Content</h2>';
-    allContent.slice(0,8).forEach((c,i)=>{
-      html+=`<div class="content-item"><div class="content-rank">${i+1}</div><div class="content-info"><div class="content-title">${c.title||'Untitled'}</div><div class="content-meta"><span class="platform-badge"><span class="dot" style="background:${platformColor(c.platform)};width:6px;height:6px"></span>${PLATFORMS[c.platform]?.name}</span> · ${c.date}</div></div><div class="content-value">${fmt(c.value)} ${c.metric||''}</div></div>`;
+  // Cross-platform summary
+  if(currentTab==='all'&&activePlatforms.length>1){
+    html+='<div class="content-section section-animate"><h2>🔄 Platform Summary</h2><div style="overflow-x:auto"><table class="summary-table"><thead><tr><th>Platform</th><th>Followers</th><th>Growth</th><th>Engagement</th><th>Last Updated</th></tr></thead><tbody>';
+    activePlatforms.forEach(p=>{
+      const l=getLatest(p),pr=getPrevious(p),pm=PLATFORMS[p];
+      const fk=pm.m[0],ek=pm.m[1];
+      const fv=l?l.metrics[fk]||0:0;const ev=l?l.metrics[ek]||0:0;const d=l&&pr?calcDelta(l,pr,fk):null;
+      html+=`<tr><td><span class="platform-badge"><span class="dot" style="background:${pm.color}"></span>${pm.name}</span></td>`;
+      html+=`<td>${fmt(fv)}</td><td>${d!=null?`<span class="kpi-delta ${d>=0?'up':'down'}">${pct(d)}</span>`:'—'}</td>`;
+      html+=`<td>${ek.includes('Rate')?ev.toFixed(1)+'%':fmt(ev)}</td><td>${l?l.date:'—'}</td></tr>`;
     });
-    html+='</div>';
-  }
-
-  // Goals
-  const goals = currentTab==='all'?analyticsData.goals:analyticsData.goals.filter(g=>g.platform===currentTab);
-  if(goals.length){
-    html+='<div class="section-animate" style="margin-bottom:28px"><h2 style="color:var(--gold);margin-bottom:16px">🎯 Goals</h2>';
-    goals.forEach(g=>{
-      const l=getLatest(g.platform);
-      const curr=l?l.metrics[g.metric]||0:0;
-      const prog=Math.min((curr/g.target)*100,150);
-      html+=`<div class="goal-card"><div class="goal-header"><div class="goal-title"><span class="platform-badge"><span class="dot" style="background:${platformColor(g.platform)}"></span>${PLATFORMS[g.platform]?.name}</span> — ${fmt(g.target)} ${g.metric}</div><div class="goal-deadline">by ${g.deadline}</div></div>`;
-      html+=`<div class="progress-track"><div class="progress-fill" style="width:${Math.min(prog,100)}%" data-pct="${prog.toFixed(0)}%"></div></div>`;
-      html+=`<div class="goal-stats"><span>${fmt(curr)} current</span><span>${fmt(g.target-curr)} to go</span></div></div>`;
-    });
-    html+='</div>';
+    html+='</tbody></table></div></div>';
   }
 
   // Projections
   if(activePlatforms.some(p=>getHistory(p,PLATFORMS[p].m[0]).length>=2)){
     html+='<div class="section-animate" style="margin-bottom:28px"><h2 style="color:var(--gold);margin-bottom:16px">🔮 Growth Projections (3 months)</h2><div class="proj-grid">';
     activePlatforms.forEach(p=>{
-      const key=PLATFORMS[p].m[0];
-      const proj=projectGrowth(p,key,3);
-      if(proj==null)return;
+      const key=PLATFORMS[p].m[0];const proj=projectGrowth(p,key,3);if(proj==null)return;
       const curr=getLatest(p)?.metrics[key]||0;
-      html+=`<div class="proj-card"><div class="proj-platform"><span class="dot" style="background:${PLATFORMS[p].color};display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px"></span>${PLATFORMS[p].name}</div><div class="proj-value">${fmt(proj)}</div><div class="proj-label">${PLATFORMS[p].labels[0]} in 3 months (currently ${fmt(curr)})</div></div>`;
+      html+=`<div class="proj-card"><div class="proj-platform"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${PLATFORMS[p].color};margin-right:6px"></span>${PLATFORMS[p].name}</div><div class="proj-value">${fmt(proj)}</div><div class="proj-label">${PLATFORMS[p].labels[0]} in 3 months (currently ${fmt(curr)})</div></div>`;
     });
     html+='</div></div>';
   }
@@ -475,8 +592,11 @@ function render() {
   el.innerHTML=html;
 }
 
-// Initial render
-render();
+// ── Init ──
+function init(){
+  renderCreators();renderCreatorTabs();updateCreatorSelect();updateFormLabels();render();
+}
+loadData();
 </script>
 </body>
 </html>
