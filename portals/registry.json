@@ -1,0 +1,14 @@
+{
+  "portals": [
+    {
+      "client": "Sample Client",
+      "slug": "sample",
+      "project": "Brand Video Package",
+      "service": "video-editing",
+      "currentPhase": "Editing",
+      "created": "2026-02-15",
+      "lastUpdated": "2026-02-15",
+      "url": "portals/sample/index.html"
+    }
+  ]
+}
