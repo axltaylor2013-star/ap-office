@@ -191,9 +191,13 @@ const aEmo={jarvis:'🤖',mule:'🫏',forge:'🔨'};
 const tIco={learned:'📚',taught:'🎓',improved:'⬆️',experiment:'🧪',note:'📝',skill:'⚡',script:'📺'};
 
 function loadLog(){
-  const s=localStorage.getItem('ap_training_log');
-  if(s)try{tData=JSON.parse(s)}catch(e){tData=[]}
-  renderLog();
+  fetch('training.json?_='+Date.now()).then(r=>r.json()).then(data=>{
+    tData=data;localStorage.setItem('ap_training_log',JSON.stringify(tData));renderLog();
+  }).catch(()=>{
+    const s=localStorage.getItem('ap_training_log');
+    if(s)try{tData=JSON.parse(s)}catch(e){tData=[]}
+    renderLog();
+  });
 }
 function filterLog(f,btn){
   cFilter=f;
