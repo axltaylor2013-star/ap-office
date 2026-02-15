@@ -101,6 +101,15 @@ nav{flex:1;padding:12px 0;display:flex;flex-direction:column;gap:2px}
       <div class="nav-item" data-screen="inbox" onclick="switchScreen(this)">
         <span class="nav-icon">🔔</span><span class="nav-label">Inbox</span>
       </div>
+      <div class="nav-item" data-screen="invoices" onclick="switchScreen(this)">
+        <span class="nav-icon">🧾</span><span class="nav-label">Invoices</span>
+      </div>
+      <div class="nav-item" data-screen="goals" onclick="switchScreen(this)">
+        <span class="nav-icon">🏆</span><span class="nav-label">Goals</span>
+      </div>
+      <div class="nav-item" data-screen="tools" onclick="switchScreen(this)">
+        <span class="nav-icon">🛠️</span><span class="nav-label">Quick Tools</span>
+      </div>
     </nav>
     <button class="toggle-btn" onclick="toggleSidebar()" title="Collapse sidebar">◀ <span class="nav-label">Collapse</span></button>
     <div class="sidebar-footer">
@@ -117,6 +126,9 @@ nav{flex:1;padding:12px 0;display:flex;flex-direction:column;gap:2px}
     <iframe id="frame-calendar" src="calendar.html" loading="lazy"></iframe>
     <iframe id="frame-leads" src="leads.html" loading="lazy"></iframe>
     <iframe id="frame-inbox" src="inbox.html" loading="lazy"></iframe>
+    <iframe id="frame-invoices" src="invoices.html" loading="lazy"></iframe>
+    <iframe id="frame-goals" src="goals.html" loading="lazy"></iframe>
+    <iframe id="frame-tools" src="tools.html" loading="lazy"></iframe>
   </main>
 </div>
 

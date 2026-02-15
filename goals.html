@@ -1,0 +1,309 @@
+<!-- Tab: Goals | Link from hub.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kermicle Media — Goals & Milestones</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0b0e14;--bg2:#1a1a2e;--card:#16213e;--card2:#1a2747;--gold:#d4a843;--gold2:#f0c966;--text:#e0e0e0;--dim:#8892a4;--border:#253255;--green:#4ade80;--red:#f87171;--orange:#fbbf24}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* Header */
+.header{background:linear-gradient(135deg,#0a0d12,#16213e);border-bottom:3px solid var(--gold);padding:24px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header h1{font-size:1.4rem;font-weight:700;color:var(--gold);letter-spacing:.5px}
+.header h1 span{color:var(--text);font-weight:300}
+.header-right{font-size:.8rem;color:var(--dim)}
+
+/* Stats row */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;padding:24px 32px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;text-align:center;transition:border-color .2s}
+.stat:hover{border-color:var(--gold)}
+.stat .value{font-size:2rem;font-weight:700;color:var(--gold);margin:4px 0}
+.stat .label{font-size:.72rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim)}
+.stat .sub{font-size:.75rem;color:var(--dim);margin-top:4px}
+
+/* Milestone Timeline */
+.timeline-section{padding:24px 32px;overflow:hidden}
+.timeline-section h2{font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.timeline-wrap{overflow-x:auto;padding-bottom:12px;-webkit-overflow-scrolling:touch}
+.timeline-wrap::-webkit-scrollbar{height:6px}
+.timeline-wrap::-webkit-scrollbar-track{background:var(--bg2);border-radius:3px}
+.timeline-wrap::-webkit-scrollbar-thumb{background:var(--gold);border-radius:3px}
+.timeline{display:flex;align-items:flex-start;gap:0;position:relative;min-width:max-content;padding:16px 0 8px}
+.timeline::before{content:'';position:absolute;top:38px;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold2),var(--border));border-radius:2px}
+.tl-item{display:flex;flex-direction:column;align-items:center;min-width:180px;position:relative;padding:0 12px}
+.tl-dot{width:16px;height:16px;border-radius:50%;background:var(--gold);border:3px solid var(--bg);position:relative;z-index:2;box-shadow:0 0 12px rgba(212,168,67,.5);margin-bottom:14px;transition:transform .2s}
+.tl-item:hover .tl-dot{transform:scale(1.3)}
+.tl-item.upcoming .tl-dot{background:var(--border);box-shadow:none}
+.tl-icon{font-size:1.6rem;margin-bottom:6px}
+.tl-date{font-size:.7rem;color:var(--gold);font-weight:600;margin-bottom:4px}
+.tl-text{font-size:.78rem;color:var(--text);text-align:center;max-width:160px;line-height:1.3}
+.tl-item.upcoming .tl-date,.tl-item.upcoming .tl-text{color:var(--dim);opacity:.5}
+.tl-item.upcoming .tl-icon{opacity:.4}
+
+/* Filter tabs */
+.filter-bar{padding:16px 32px;display:flex;gap:8px;flex-wrap:wrap}
+.filter-btn{background:var(--card);border:1px solid var(--border);color:var(--dim);padding:8px 18px;border-radius:20px;font-size:.78rem;cursor:pointer;transition:all .2s;font-family:inherit}
+.filter-btn:hover,.filter-btn.active{background:var(--gold);color:#000;border-color:var(--gold);font-weight:600}
+
+/* Goals grid */
+.goals-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:20px;padding:0 32px 24px}
+
+/* Goal card */
+.goal-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;transition:border-color .2s,transform .2s;position:relative;overflow:hidden}
+.goal-card:hover{border-color:var(--gold);transform:translateY(-2px)}
+.goal-card.achieved{border-color:var(--gold)}
+.goal-card.achieved::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.trophy-badge{position:absolute;top:12px;right:12px;font-size:1.8rem;filter:drop-shadow(0 0 8px rgba(212,168,67,.6));animation:trophyPulse 2s infinite}
+@keyframes trophyPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.goal-cat{display:inline-block;font-size:.65rem;text-transform:uppercase;letter-spacing:1.5px;padding:3px 10px;border-radius:10px;margin-bottom:10px;font-weight:600}
+.cat-Revenue{background:#2d1f0e;color:var(--gold)}
+.cat-Clients{background:#0e2d1f;color:var(--green)}
+.cat-Content{background:#2d0e2a;color:#e879f9}
+.cat-Growth{background:#0e1f2d;color:#60a5fa}
+.cat-Infrastructure{background:#1f2d0e;color:#a3e635}
+.goal-title{font-size:1.05rem;font-weight:700;margin-bottom:6px}
+.goal-meta{display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:var(--dim);margin-bottom:12px}
+.goal-status{padding:2px 8px;border-radius:8px;font-size:.7rem;font-weight:600}
+.status-in-progress{background:#1a2747;color:var(--gold)}
+.status-achieved{background:#0e2d1f;color:var(--green)}
+.status-behind{background:#2d1a0e;color:var(--orange)}
+.goal-progress{margin:12px 0}
+.progress-track{background:#0f1b2e;border-radius:8px;overflow:hidden;height:26px;position:relative}
+.progress-fill{height:100%;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:width 1s ease;background:linear-gradient(90deg,var(--gold),var(--gold2));position:relative}
+.progress-fill.achieved-fill{background:linear-gradient(90deg,var(--green),#22c55e)}
+.progress-fill span{font-size:.72rem;font-weight:700;color:#000;white-space:nowrap}
+.progress-vals{display:flex;justify-content:space-between;font-size:.72rem;color:var(--dim);margin-top:4px}
+.goal-deadline{font-size:.75rem;color:var(--dim);margin-top:8px}
+.goal-deadline b{color:var(--text)}
+
+/* Subtasks */
+.subtasks{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}
+.subtasks summary{font-size:.78rem;color:var(--gold);cursor:pointer;font-weight:600;user-select:none}
+.subtask-list{list-style:none;margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.subtask-list li{font-size:.78rem;color:var(--dim);display:flex;align-items:center;gap:8px;cursor:pointer;transition:color .2s}
+.subtask-list li:hover{color:var(--text)}
+.subtask-list li.done{color:var(--dim);text-decoration:line-through}
+.st-check{width:16px;height:16px;border:2px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.6rem;transition:all .2s}
+.subtask-list li.done .st-check{background:var(--gold);border-color:var(--gold);color:#000}
+
+/* Add goal form */
+.add-section{padding:0 32px 32px}
+.add-form{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px}
+.add-form h2{font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-grid.full{grid-template-columns:1fr}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
+.form-group input,.form-group select,.form-group textarea{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:.85rem;font-family:inherit;outline:none;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold)}
+.form-group textarea{resize:vertical;min-height:60px}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000;border:none;padding:12px 28px;border-radius:8px;font-weight:700;font-size:.85rem;cursor:pointer;transition:filter .2s;font-family:inherit;margin-top:12px}
+.btn-gold:hover{filter:brightness(1.15)}
+
+/* Confetti */
+.confetti-piece{position:fixed;width:8px;height:8px;z-index:9999;pointer-events:none;animation:confettiFall linear forwards}
+@keyframes confettiFall{0%{opacity:1;transform:translateY(0) rotate(0deg)}100%{opacity:0;transform:translateY(100vh) rotate(720deg)}}
+
+@media(max-width:768px){
+  .goals-grid{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .header,.stats-row,.filter-bar,.goals-grid,.timeline-section,.add-section{padding-left:16px;padding-right:16px}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎯 <span>Kermicle Media</span> — Goals & Milestones</h1>
+  <div class="header-right" id="lastUpdated">Last updated: —</div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row" id="stats"></div>
+
+<!-- Milestone Timeline -->
+<div class="timeline-section">
+  <h2>⚡ Origin Story — The First 72 Hours</h2>
+  <div class="timeline-wrap">
+    <div class="timeline" id="timeline"></div>
+  </div>
+</div>
+
+<!-- Filter Tabs -->
+<div class="filter-bar" id="filters"></div>
+
+<!-- Goals Grid -->
+<div class="goals-grid" id="goalsGrid"></div>
+
+<!-- Add Goal Form -->
+<div class="add-section">
+  <div class="add-form">
+    <h2>➕ Add New Goal</h2>
+    <div class="form-grid">
+      <div class="form-group"><label>Title</label><input id="fTitle" placeholder="e.g. Land 10 clients"></div>
+      <div class="form-group"><label>Category</label>
+        <select id="fCat"><option>Revenue</option><option>Clients</option><option>Content</option><option>Growth</option><option>Infrastructure</option></select>
+      </div>
+      <div class="form-group"><label>Target Value</label><input id="fTarget" type="number" placeholder="e.g. 5000"></div>
+      <div class="form-group"><label>Unit</label><input id="fUnit" placeholder="e.g. $, clients, %"></div>
+      <div class="form-group"><label>Deadline</label><input id="fDeadline" type="date"></div>
+      <div class="form-group"><label>Current Value</label><input id="fCurrent" type="number" placeholder="0" value="0"></div>
+    </div>
+    <div class="form-grid full" style="margin-top:12px">
+      <div class="form-group"><label>Sub-tasks (one per line)</label><textarea id="fSubs" placeholder="Define pricing&#10;Reach out to leads&#10;Close first deal"></textarea></div>
+    </div>
+    <button class="btn-gold" onclick="addGoal()">🚀 Add Goal</button>
+  </div>
+</div>
+
+<script>
+const LAUNCH=new Date('2026-02-13');
+let data={goals:[],milestones:[]};
+let activeFilter='All';
+
+function loadData(){
+  fetch('goals.json?_='+Date.now()).then(r=>r.json()).then(d=>{
+    data=d;localStorage.setItem('kermicle-goals',JSON.stringify(data));render();
+  }).catch(()=>{
+    const s=localStorage.getItem('kermicle-goals');
+    if(s)try{data=JSON.parse(s)}catch(e){}
+    render();
+  });
+}
+
+function save(){localStorage.setItem('kermicle-goals',JSON.stringify(data))}
+
+function daysSince(d){return Math.max(0,Math.floor((new Date()-new Date(d))/(1000*60*60*24)))}
+function fmtDate(d){const dt=new Date(d+'T12:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+function pct(c,t){return t>0?Math.min(Math.round(c/t*100),100):0}
+function fmtVal(v,u){return u==='$'?'$'+Number(v).toLocaleString():Number(v).toLocaleString()}
+
+function statusLabel(g){
+  const p=pct(g.current,g.target);
+  if(p>=100)return{text:'Achieved 🏆',cls:'status-achieved'};
+  const deadline=new Date(g.deadline+'T23:59:59');
+  const now=new Date();
+  const totalDays=(deadline-LAUNCH)/(1000*60*60*24);
+  const elapsed=(now-LAUNCH)/(1000*60*60*24);
+  const expectedPct=totalDays>0?(elapsed/totalDays)*100:100;
+  if(p<expectedPct*0.6&&g.status!=='achieved')return{text:'Behind Schedule ⚠️',cls:'status-behind'};
+  return{text:'In Progress',cls:'status-in-progress'};
+}
+
+function render(){
+  document.getElementById('lastUpdated').textContent='Last updated: '+new Date().toLocaleString();
+
+  // Stats
+  const achieved=data.goals.filter(g=>pct(g.current,g.target)>=100).length;
+  const total=data.goals.length;
+  const days=daysSince('2026-02-13');
+  const bigMilestone=data.milestones.filter(m=>!m.upcoming).slice(-1)[0];
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="label">Goals Achieved</div><div class="value">${achieved} / ${total}</div><div class="sub">${total-achieved} remaining</div></div>
+    <div class="stat"><div class="label">Days Since Launch</div><div class="value">${days}</div><div class="sub">Feb 13, 2026</div></div>
+    <div class="stat"><div class="label">Current Streak</div><div class="value">3 🔥</div><div class="sub">days with progress</div></div>
+    <div class="stat"><div class="label">Top Milestone</div><div class="value" style="font-size:1.1rem">${bigMilestone?bigMilestone.icon:''}</div><div class="sub">${bigMilestone?bigMilestone.text:'None yet'}</div></div>
+  `;
+
+  // Timeline
+  document.getElementById('timeline').innerHTML=data.milestones.map(m=>`
+    <div class="tl-item${m.upcoming?' upcoming':''}">
+      <div class="tl-icon">${m.icon}</div>
+      <div class="tl-dot"></div>
+      <div class="tl-date">${fmtDate(m.date)}</div>
+      <div class="tl-text">${m.text}</div>
+    </div>
+  `).join('');
+
+  // Filters
+  const cats=['All',...new Set(data.goals.map(g=>g.category))];
+  document.getElementById('filters').innerHTML=cats.map(c=>`<button class="filter-btn${c===activeFilter?' active':''}" onclick="setFilter('${c}')">${c==='All'?'🎯 All':c} ${c!=='All'?'('+data.goals.filter(g=>g.category===c).length+')':''}</button>`).join('');
+
+  // Goals
+  const filtered=activeFilter==='All'?data.goals:data.goals.filter(g=>g.category===activeFilter);
+  document.getElementById('goalsGrid').innerHTML=filtered.map((g,i)=>{
+    const p=pct(g.current,g.target);
+    const st=statusLabel(g);
+    const isAchieved=p>=100;
+    const doneCount=g.subtasks?g.subtasks.filter(s=>s.done).length:0;
+    const totalSubs=g.subtasks?g.subtasks.length:0;
+    return `
+    <div class="goal-card${isAchieved?' achieved':''}" data-id="${g.id}">
+      ${isAchieved?'<div class="trophy-badge">🏆</div>':''}
+      <div class="goal-cat cat-${g.category}">${g.category}</div>
+      <div class="goal-title">${g.title}</div>
+      <div class="goal-meta">
+        <span class="goal-status ${st.cls}">${st.text}</span>
+        <span>Due ${fmtDate(g.deadline)}</span>
+      </div>
+      <div class="goal-progress">
+        <div class="progress-track">
+          <div class="progress-fill${isAchieved?' achieved-fill':''}" style="width:${p}%"><span>${p}%</span></div>
+        </div>
+        <div class="progress-vals"><span>${fmtVal(g.current,g.unit)} ${g.unit!=='$'&&g.unit!=='%'?g.unit:''}</span><span>${fmtVal(g.target,g.unit)} ${g.unit!=='$'&&g.unit!=='%'?g.unit:''}</span></div>
+      </div>
+      ${totalSubs?`<details class="subtasks"><summary>Sub-tasks (${doneCount}/${totalSubs})</summary><ul class="subtask-list">${g.subtasks.map((s,si)=>`<li class="${s.done?'done':''}" onclick="toggleSub(${g.id},${si})"><span class="st-check">${s.done?'✓':''}</span>${s.text}</li>`).join('')}</ul></details>`:''}
+    </div>`;
+  }).join('');
+}
+
+function setFilter(c){activeFilter=c;render()}
+
+function toggleSub(goalId,subIdx){
+  const g=data.goals.find(g=>g.id===goalId);
+  if(!g||!g.subtasks[subIdx])return;
+  g.subtasks[subIdx].done=!g.subtasks[subIdx].done;
+  // Recalc subtask-based progress for % goals
+  save();render();
+}
+
+function addGoal(){
+  const title=document.getElementById('fTitle').value.trim();
+  const cat=document.getElementById('fCat').value;
+  const target=parseFloat(document.getElementById('fTarget').value);
+  const unit=document.getElementById('fUnit').value.trim()||'units';
+  const deadline=document.getElementById('fDeadline').value;
+  const current=parseFloat(document.getElementById('fCurrent').value)||0;
+  const subsRaw=document.getElementById('fSubs').value.trim();
+  if(!title||!target||!deadline)return alert('Title, target, and deadline are required');
+  const subs=subsRaw?subsRaw.split('\n').filter(l=>l.trim()).map(t=>({text:t.trim(),done:false})):[];
+  const id=data.goals.length?Math.max(...data.goals.map(g=>g.id))+1:1;
+  data.goals.push({id,title,category:cat,current,target,unit,deadline,status:'in-progress',subtasks:subs});
+  save();render();
+  // Check for confetti
+  if(current>=target)launchConfetti();
+  document.getElementById('fTitle').value='';
+  document.getElementById('fTarget').value='';
+  document.getElementById('fUnit').value='';
+  document.getElementById('fDeadline').value='';
+  document.getElementById('fCurrent').value='0';
+  document.getElementById('fSubs').value='';
+}
+
+function launchConfetti(){
+  const colors=['#d4a843','#f0c966','#4ade80','#60a5fa','#e879f9','#f87171'];
+  for(let i=0;i<80;i++){
+    const el=document.createElement('div');
+    el.className='confetti-piece';
+    el.style.left=Math.random()*100+'vw';
+    el.style.top='-10px';
+    el.style.background=colors[Math.floor(Math.random()*colors.length)];
+    el.style.borderRadius=Math.random()>.5?'50%':'2px';
+    el.style.width=(4+Math.random()*8)+'px';
+    el.style.height=(4+Math.random()*8)+'px';
+    el.style.animationDuration=(2+Math.random()*3)+'s';
+    el.style.animationDelay=(Math.random()*1.5)+'s';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),6000);
+  }
+}
+
+loadData();
+setInterval(loadData,60000);
+</script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+{
+  "goals": [
+    {
+      "id": 1,
+      "title": "Land first 5 paying clients",
+      "category": "Clients",
+      "current": 0,
+      "target": 5,
+      "unit": "clients",
+      "deadline": "2026-03-15",
+      "status": "in-progress",
+      "subtasks": [
+        {"text": "Finalize service packages & pricing", "done": true},
+        {"text": "Launch website with portfolio", "done": true},
+        {"text": "Cold outreach to 20 local businesses", "done": false},
+        {"text": "Post 3 case studies / samples", "done": false},
+        {"text": "Close first paying client", "done": false}
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Hit $5K monthly revenue",
+      "category": "Revenue",
+      "current": 0,
+      "target": 5000,
+      "unit": "$",
+      "deadline": "2026-04-01",
+      "status": "in-progress",
+      "subtasks": [
+        {"text": "Define pricing tiers", "done": true},
+        {"text": "Land first retainer client", "done": false},
+        {"text": "Upsell existing clients", "done": false},
+        {"text": "Reach $1K milestone", "done": false},
+        {"text": "Reach $5K milestone", "done": false}
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Build 25 agent skills",
+      "category": "Infrastructure",
+      "current": 20,
+      "target": 25,
+      "unit": "skills",
+      "deadline": "2026-02-28",
+      "status": "in-progress",
+      "subtasks": [
+        {"text": "Core skills (file, web, browser)", "done": true},
+        {"text": "Creative skills (image, video, audio)", "done": true},
+        {"text": "Social media skills", "done": true},
+        {"text": "Analytics & monitoring skills", "done": false},
+        {"text": "Client-facing automation skills", "done": false}
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Produce cartoon pilot episode",
+      "category": "Content",
+      "current": 75,
+      "target": 100,
+      "unit": "%",
+      "deadline": "2026-03-01",
+      "status": "in-progress",
+      "subtasks": [
+        {"text": "Script finalized", "done": true},
+        {"text": "Character designs locked", "done": true},
+        {"text": "Storyboard complete", "done": true},
+        {"text": "EP01 animatic produced", "done": true},
+        {"text": "Voice recording", "done": false},
+        {"text": "Final animation & sound", "done": false}
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Grow Instagram to 1,000 followers",
+      "category": "Growth",
+      "current": 0,
+      "target": 1000,
+      "unit": "followers",
+      "deadline": "2026-04-01",
+      "status": "in-progress",
+      "subtasks": [
+        {"text": "Set up business profile", "done": true},
+        {"text": "Create content calendar", "done": false},
+        {"text": "Post daily for 30 days", "done": false},
+        {"text": "Engage with 50 accounts/day", "done": false},
+        {"text": "Hit 500 followers", "done": false}
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Get first client referral",
+      "category": "Clients",
+      "current": 0,
+      "target": 1,
+      "unit": "referrals",
+      "deadline": "2026-03-31",
+      "status": "in-progress",
+      "subtasks": [
+        {"text": "Deliver exceptional first project", "done": false},
+        {"text": "Ask for testimonial", "done": false},
+        {"text": "Create referral incentive", "done": false},
+        {"text": "Receive first referral", "done": false}
+      ]
+    }
+  ],
+  "milestones": [
+    {"date": "2026-02-13", "text": "Launched kermiclemedia.com", "icon": "🚀"},
+    {"date": "2026-02-14", "text": "Multi-agent system online (3 bots)", "icon": "🤖"},
+    {"date": "2026-02-14", "text": "Forge shipped 9 projects in one day", "icon": "⚡"},
+    {"date": "2026-02-15", "text": "20 skills built", "icon": "🧠"},
+    {"date": "2026-02-15", "text": "EP01 animatic produced", "icon": "🎬"},
+    {"date": "2026-02-15", "text": "Hub expanded to 9+ tabs", "icon": "📊"},
+    {"date": "2026-03-01", "text": "Cartoon pilot complete", "icon": "🏆", "upcoming": true},
+    {"date": "2026-03-15", "text": "5 paying clients", "icon": "💰", "upcoming": true},
+    {"date": "2026-04-01", "text": "$5K monthly revenue", "icon": "🎯", "upcoming": true}
+  ]
+}

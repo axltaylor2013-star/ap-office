@@ -1,0 +1,433 @@
+<!-- Tab: Invoices | Link from hub.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kermicle Media — Client Invoices</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0b0e14;--bg2:#1a1a2e;--card:#16213e;--card2:#1a2747;--gold:#d4a843;--gold2:#f0c966;--text:#e0e0e0;--dim:#8892a4;--border:#253255;--green:#4ade80;--red:#f87171;--blue:#60a5fa;--orange:#fbbf24}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* Header */
+.header{background:linear-gradient(135deg,#0f1b38,#16213e);border-bottom:3px solid var(--gold);padding:24px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header h1{font-size:1.4rem;font-weight:700;color:var(--gold);letter-spacing:.5px}
+.header h1 span{color:var(--text);font-weight:300}
+.header-right{display:flex;gap:10px;align-items:center}
+.btn{background:var(--gold);color:#000;border:none;padding:10px 20px;border-radius:8px;font-weight:700;font-size:.85rem;cursor:pointer;transition:all .2s}
+.btn:hover{background:var(--gold2);transform:translateY(-1px)}
+.btn-outline{background:transparent;border:1px solid var(--gold);color:var(--gold)}
+.btn-outline:hover{background:var(--gold);color:#000}
+
+/* Overdue Alert */
+.overdue-alert{background:linear-gradient(90deg,#7f1d1d,#991b1b);color:#fecaca;padding:14px 32px;font-size:.9rem;font-weight:600;display:none;align-items:center;gap:10px;animation:alertPulse 2s infinite}
+@keyframes alertPulse{0%,100%{opacity:1}50%{opacity:.85}}
+
+/* KPIs */
+.grid{padding:24px 32px;display:grid;gap:20px}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;text-align:center;transition:border-color .2s}
+.kpi:hover{border-color:var(--gold)}
+.kpi .value{font-size:1.8rem;font-weight:700;color:var(--gold);margin:4px 0}
+.kpi .label{font-size:.7rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim)}
+.kpi .sub{font-size:.72rem;color:var(--dim);margin-top:4px}
+
+/* Section */
+.section{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;overflow:hidden}
+.section h2{font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+
+/* Table */
+.inv-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.inv-table th{text-align:left;color:var(--dim);font-size:.7rem;text-transform:uppercase;letter-spacing:1px;padding:10px 12px;border-bottom:2px solid var(--border);white-space:nowrap}
+.inv-table td{padding:12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.inv-table tr{cursor:pointer;transition:background .15s}
+.inv-table tr:hover{background:rgba(212,168,67,.06)}
+
+/* Status badges */
+.badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.badge-draft{background:#374151;color:#9ca3af}
+.badge-sent{background:#1e3a5f;color:var(--blue)}
+.badge-paid{background:#064e3b;color:var(--green)}
+.badge-overdue{background:#7f1d1d;color:var(--red);animation:overduePulse 1.5s infinite}
+@keyframes overduePulse{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.4)}50%{box-shadow:0 0 12px 4px rgba(248,113,113,.15)}}
+
+.days-info{font-size:.72rem;color:var(--dim)}
+.days-overdue{color:var(--red);font-weight:600}
+.days-ok{color:var(--green)}
+
+/* Modal */
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.active{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:95%;max-width:640px;max-height:90vh;overflow-y:auto;padding:32px;position:relative}
+.modal h2{color:var(--gold);font-size:1.2rem;margin-bottom:20px}
+.modal-close{position:absolute;top:16px;right:20px;background:none;border:none;color:var(--dim);font-size:1.4rem;cursor:pointer}
+.modal-close:hover{color:var(--text)}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:.8rem;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.form-group input,.form-group textarea,.form-group select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:.85rem;font-family:inherit;outline:none}
+.form-group input:focus,.form-group textarea:focus{border-color:var(--gold)}
+.form-group textarea{resize:vertical;min-height:60px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* Line items */
+.line-items{margin-bottom:16px}
+.line-item-row{display:grid;grid-template-columns:1fr 120px 36px;gap:8px;margin-bottom:8px;align-items:center}
+.line-item-row input{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:.85rem;outline:none}
+.line-item-row input:focus{border-color:var(--gold)}
+.remove-line{background:none;border:none;color:var(--red);font-size:1.1rem;cursor:pointer;padding:4px}
+.remove-line:hover{color:#fca5a5}
+.add-line-btn{background:transparent;border:1px dashed var(--border);color:var(--dim);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:.8rem;width:100%;transition:all .2s}
+.add-line-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+.totals-summary{background:var(--bg);border-radius:8px;padding:16px;margin:16px 0;display:flex;flex-direction:column;gap:6px}
+.total-row{display:flex;justify-content:space-between;font-size:.85rem}
+.total-row.grand{font-size:1.1rem;font-weight:700;color:var(--gold);border-top:1px solid var(--border);padding-top:8px;margin-top:4px}
+
+/* Invoice Preview */
+.preview-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);z-index:2000;display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px;backdrop-filter:blur(6px)}
+.preview-overlay.active{display:flex}
+.invoice-preview{background:#fff;color:#1a1a1a;width:100%;max-width:800px;border-radius:8px;overflow:hidden;margin:20px auto;box-shadow:0 25px 80px rgba(0,0,0,.5)}
+.inv-header-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.inv-header-bar .btn{font-size:.8rem;padding:8px 16px}
+
+/* Print invoice styles */
+.inv-body{padding:48px}
+.inv-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px}
+.inv-brand h2{font-size:1.6rem;font-weight:800;color:#d4a843;margin-bottom:4px}
+.inv-brand p{font-size:.8rem;color:#666;line-height:1.6}
+.inv-number{text-align:right}
+.inv-number h3{font-size:1.4rem;font-weight:700;color:#1a1a1a;margin-bottom:4px}
+.inv-number p{font-size:.82rem;color:#666;line-height:1.6}
+.inv-status-tag{display:inline-block;padding:4px 14px;border-radius:20px;font-size:.72rem;font-weight:700;text-transform:uppercase;margin-top:6px}
+.tag-paid{background:#d1fae5;color:#065f46}
+.tag-sent{background:#dbeafe;color:#1e40af}
+.tag-draft{background:#f3f4f6;color:#6b7280}
+.tag-overdue{background:#fee2e2;color:#991b1b}
+
+.inv-parties{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-bottom:36px;padding:24px;background:#f9fafb;border-radius:8px}
+.inv-party-label{font-size:.65rem;text-transform:uppercase;letter-spacing:2px;color:#9ca3af;margin-bottom:8px;font-weight:600}
+.inv-party h4{font-size:1rem;font-weight:700;color:#1a1a1a;margin-bottom:4px}
+.inv-party p{font-size:.82rem;color:#666;line-height:1.5}
+
+.inv-items-table{width:100%;border-collapse:collapse;margin-bottom:24px}
+.inv-items-table th{text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;padding:12px 0;border-bottom:2px solid #e5e7eb}
+.inv-items-table th:last-child{text-align:right}
+.inv-items-table td{padding:14px 0;border-bottom:1px solid #f3f4f6;font-size:.88rem;color:#374151}
+.inv-items-table td:last-child{text-align:right;font-weight:600;color:#1a1a1a}
+.inv-items-table tr:last-child td{border-bottom:2px solid #e5e7eb}
+
+.inv-totals{display:flex;justify-content:flex-end;margin-bottom:36px}
+.inv-totals-box{width:260px}
+.inv-total-line{display:flex;justify-content:space-between;padding:8px 0;font-size:.88rem;color:#666}
+.inv-total-line.grand{font-size:1.2rem;font-weight:800;color:#1a1a1a;border-top:2px solid #d4a843;padding-top:12px;margin-top:4px}
+.inv-total-line.grand span:last-child{color:#d4a843}
+
+.inv-footer{border-top:1px solid #e5e7eb;padding-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.inv-footer-section h5{font-size:.72rem;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:8px}
+.inv-footer-section p{font-size:.82rem;color:#666;line-height:1.6}
+
+.inv-watermark{text-align:center;padding:20px;font-size:.7rem;color:#d1d5db;border-top:1px solid #f3f4f6;margin-top:24px}
+
+@media print{
+  body *{visibility:hidden}
+  .invoice-preview,.invoice-preview *{visibility:visible}
+  .invoice-preview{position:fixed;left:0;top:0;width:100%;max-width:100%;margin:0;border-radius:0;box-shadow:none}
+  .inv-header-bar{display:none!important}
+  .preview-overlay{background:white;padding:0}
+  @page{margin:0.5in}
+}
+
+@media(max-width:768px){
+  .grid{padding:16px}
+  .header{padding:16px}
+  .inv-table{font-size:.75rem}
+  .inv-table th:nth-child(3),.inv-table td:nth-child(3),
+  .inv-table th:nth-child(6),.inv-table td:nth-child(6){display:none}
+  .inv-body{padding:24px}
+  .inv-top{flex-direction:column;gap:16px}
+  .inv-number{text-align:left}
+  .inv-parties{grid-template-columns:1fr;gap:20px}
+  .inv-footer{grid-template-columns:1fr}
+  .form-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Overdue Alert Bar -->
+<div class="overdue-alert" id="overdueAlert">⚠️ <span id="overdueAlertText"></span></div>
+
+<div class="header">
+  <h1>📄 <span>Kermicle Media</span> — Client Invoices</h1>
+  <div class="header-right">
+    <button class="btn" onclick="openCreateModal()">+ New Invoice</button>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="kpi-row" id="kpis"></div>
+  <div class="section">
+    <h2><span>📋</span> All Invoices</h2>
+    <div style="overflow-x:auto">
+      <table class="inv-table">
+        <thead><tr>
+          <th>Invoice #</th><th>Client</th><th>Service</th><th>Amount</th><th>Issued</th><th>Due</th><th>Status</th><th>Days</th>
+        </tr></thead>
+        <tbody id="invoiceBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Create Invoice Modal -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeCreateModal()">&times;</button>
+    <h2>Create New Invoice</h2>
+    <div class="form-row">
+      <div class="form-group"><label>Client Name</label><input id="fClient" placeholder="e.g. Acme Corp"></div>
+      <div class="form-group"><label>Client Email</label><input id="fEmail" type="email" placeholder="client@email.com"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Service</label><input id="fService" placeholder="e.g. Video Production"></div>
+      <div class="form-group"><label>Due Date</label><input id="fDueDate" type="date"></div>
+    </div>
+    <div class="form-group">
+      <label>Line Items</label>
+      <div id="lineItemsContainer"></div>
+      <button class="add-line-btn" onclick="addLineItem()">+ Add Line Item</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Tax Rate (%)</label><input id="fTax" type="number" value="0" min="0" max="100" step="0.5" onchange="calcFormTotals()" oninput="calcFormTotals()"></div>
+      <div></div>
+    </div>
+    <div class="totals-summary" id="formTotals">
+      <div class="total-row"><span>Subtotal</span><span id="fSubtotal">$0.00</span></div>
+      <div class="total-row"><span>Tax</span><span id="fTaxAmt">$0.00</span></div>
+      <div class="total-row grand"><span>Total</span><span id="fTotal">$0.00</span></div>
+    </div>
+    <div class="form-group"><label>Notes</label><textarea id="fNotes" placeholder="Payment terms, thank you note, etc."></textarea></div>
+    <button class="btn" style="width:100%;padding:14px" onclick="saveInvoice()">Create Invoice</button>
+  </div>
+</div>
+
+<!-- Invoice Preview -->
+<div class="preview-overlay" id="previewOverlay">
+  <div class="invoice-preview">
+    <div class="inv-header-bar">
+      <button class="btn btn-outline" onclick="closePreview()">← Back</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="window.print()">🖨️ Print</button>
+      </div>
+    </div>
+    <div class="inv-body" id="invoicePreviewBody"></div>
+  </div>
+</div>
+
+<script>
+let invoices=[];
+
+function loadData(){
+  fetch('invoices.json?_='+Date.now()).then(r=>r.json()).then(d=>{
+    if(!localStorage.getItem('kermicle-invoices')){
+      invoices=d.invoices||[];
+      localStorage.setItem('kermicle-invoices',JSON.stringify(invoices));
+    } else {
+      invoices=JSON.parse(localStorage.getItem('kermicle-invoices'));
+    }
+    render();
+  }).catch(()=>{
+    const s=localStorage.getItem('kermicle-invoices');
+    if(s)try{invoices=JSON.parse(s)}catch(e){invoices=[]}
+    render();
+  });
+}
+
+function save(){localStorage.setItem('kermicle-invoices',JSON.stringify(invoices))}
+function fmt(n){return'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtDate(d){if(!d)return'—';const dt=new Date(d+'T00:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+function today(){return new Date().toISOString().slice(0,10)}
+
+function getTotal(inv){
+  const sub=inv.lineItems.reduce((s,i)=>s+Number(i.amount),0);
+  const tax=sub*(inv.taxRate||0)/100;
+  return{subtotal:sub,tax,total:sub+tax};
+}
+
+function getStatus(inv){
+  if(inv.status==='paid')return'paid';
+  if(inv.status==='draft')return'draft';
+  const now=new Date();now.setHours(0,0,0,0);
+  const due=new Date(inv.dateDue+'T00:00:00');
+  if(due<now&&inv.status!=='paid')return'overdue';
+  return inv.status||'sent';
+}
+
+function daysInfo(inv){
+  const now=new Date();now.setHours(0,0,0,0);
+  const due=new Date(inv.dateDue+'T00:00:00');
+  const diff=Math.ceil((due-now)/(1000*60*60*24));
+  const status=getStatus(inv);
+  if(status==='paid')return'<span class="days-ok">Paid ✓</span>';
+  if(diff<0)return'<span class="days-overdue">'+Math.abs(diff)+' days overdue</span>';
+  if(diff===0)return'<span class="days-overdue">Due today</span>';
+  return'<span class="days-info">'+diff+' days left</span>';
+}
+
+function render(){
+  // Update statuses
+  invoices.forEach(inv=>{const s=getStatus(inv);if(s==='overdue')inv.status='overdue'});
+
+  const now=new Date();
+  const thisMonth=invoices.filter(i=>{const d=new Date(i.dateIssued+'T00:00:00');return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()});
+  const paidThisMonth=thisMonth.filter(i=>i.status==='paid');
+  const outstanding=invoices.filter(i=>i.status==='sent'||i.status==='overdue');
+  const overdue=invoices.filter(i=>getStatus(i)==='overdue');
+  const outAmt=outstanding.reduce((s,i)=>s+getTotal(i).total,0);
+  const paidAmt=paidThisMonth.reduce((s,i)=>s+getTotal(i).total,0);
+  const overdueAmt=overdue.reduce((s,i)=>s+getTotal(i).total,0);
+  const allTotals=invoices.map(i=>getTotal(i).total);
+  const avg=allTotals.length?allTotals.reduce((a,b)=>a+b,0)/allTotals.length:0;
+
+  // KPIs
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi"><div class="label">Outstanding</div><div class="value" style="color:var(--orange)">${fmt(outAmt)}</div><div class="sub">${outstanding.length} invoice${outstanding.length!==1?'s':''}</div></div>
+    <div class="kpi"><div class="label">Received This Month</div><div class="value" style="color:var(--green)">${fmt(paidAmt)}</div><div class="sub">${paidThisMonth.length} paid</div></div>
+    <div class="kpi"><div class="label">Overdue</div><div class="value" style="color:var(--red)">${fmt(overdueAmt)}</div><div class="sub">${overdue.length} overdue</div></div>
+    <div class="kpi"><div class="label">Avg Invoice Size</div><div class="value">${fmt(Math.round(avg))}</div><div class="sub">${invoices.length} total</div></div>
+    <div class="kpi"><div class="label">This Month</div><div class="value">${thisMonth.length}</div><div class="sub">invoices created</div></div>
+  `;
+
+  // Overdue alert
+  const alertEl=document.getElementById('overdueAlert');
+  if(overdue.length>0){
+    alertEl.style.display='flex';
+    document.getElementById('overdueAlertText').textContent=overdue.length+' invoice'+(overdue.length>1?'s are':' is')+' overdue — '+fmt(overdueAmt)+' outstanding!';
+  }else{alertEl.style.display='none'}
+
+  // Table
+  const sorted=[...invoices].sort((a,b)=>b.id-a.id);
+  document.getElementById('invoiceBody').innerHTML=sorted.map(inv=>{
+    const t=getTotal(inv);const st=getStatus(inv);
+    return`<tr onclick="openPreview(${inv.id})">
+      <td style="font-weight:700;color:var(--gold)">${inv.number}</td>
+      <td>${inv.client}</td>
+      <td style="color:var(--dim)">${inv.service}</td>
+      <td style="font-weight:600">${fmt(t.total)}</td>
+      <td style="color:var(--dim)">${fmtDate(inv.dateIssued)}</td>
+      <td style="color:var(--dim)">${fmtDate(inv.dateDue)}</td>
+      <td><span class="badge badge-${st}">${st}</span></td>
+      <td>${daysInfo(inv)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// Create Modal
+function openCreateModal(){
+  document.getElementById('createModal').classList.add('active');
+  document.getElementById('fDueDate').value=new Date(Date.now()+14*86400000).toISOString().slice(0,10);
+  document.getElementById('lineItemsContainer').innerHTML='';
+  addLineItem();addLineItem();
+  calcFormTotals();
+}
+function closeCreateModal(){document.getElementById('createModal').classList.remove('active')}
+
+function addLineItem(){
+  const c=document.getElementById('lineItemsContainer');
+  const div=document.createElement('div');div.className='line-item-row';
+  div.innerHTML='<input placeholder="Description" class="li-desc"><input type="number" placeholder="Amount" class="li-amt" oninput="calcFormTotals()"><button class="remove-line" onclick="this.parentElement.remove();calcFormTotals()">×</button>';
+  c.appendChild(div);
+}
+
+function calcFormTotals(){
+  const amts=[...document.querySelectorAll('.li-amt')].map(i=>Number(i.value)||0);
+  const sub=amts.reduce((a,b)=>a+b,0);
+  const tax=sub*(Number(document.getElementById('fTax').value)||0)/100;
+  document.getElementById('fSubtotal').textContent=fmt(sub);
+  document.getElementById('fTaxAmt').textContent=fmt(tax);
+  document.getElementById('fTotal').textContent=fmt(sub+tax);
+}
+
+function saveInvoice(){
+  const client=document.getElementById('fClient').value.trim();
+  const email=document.getElementById('fEmail').value.trim();
+  const service=document.getElementById('fService').value.trim();
+  const due=document.getElementById('fDueDate').value;
+  const taxRate=Number(document.getElementById('fTax').value)||0;
+  const notes=document.getElementById('fNotes').value.trim();
+  if(!client||!service)return alert('Client and service are required');
+  const descs=[...document.querySelectorAll('.li-desc')];
+  const amts=[...document.querySelectorAll('.li-amt')];
+  const lineItems=[];
+  for(let i=0;i<descs.length;i++){
+    const d=descs[i].value.trim(),a=Number(amts[i].value)||0;
+    if(d&&a>0)lineItems.push({description:d,amount:a});
+  }
+  if(!lineItems.length)return alert('Add at least one line item');
+  const maxId=invoices.length?Math.max(...invoices.map(i=>i.id)):0;
+  const num=maxId+1;
+  invoices.push({
+    id:num,number:'INV-'+String(num).padStart(3,'0'),
+    client,email,service,lineItems,taxRate,notes,
+    dateIssued:today(),dateDue:due,status:'draft'
+  });
+  save();render();closeCreateModal();
+  // Reset form
+  ['fClient','fEmail','fService','fNotes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fTax').value='0';
+}
+
+// Preview
+function openPreview(id){
+  const inv=invoices.find(i=>i.id===id);if(!inv)return;
+  const t=getTotal(inv);const st=getStatus(inv);
+  const tagClass={paid:'tag-paid',sent:'tag-sent',draft:'tag-draft',overdue:'tag-overdue'}[st]||'tag-sent';
+  document.getElementById('invoicePreviewBody').innerHTML=`
+    <div class="inv-top">
+      <div class="inv-brand">
+        <h2>KERMICLE MEDIA</h2>
+        <p>Creative Media Production<br>Roanoke, Virginia<br>hello@kermiclemedia.com<br>(540) 555-0100</p>
+      </div>
+      <div class="inv-number">
+        <h3>${inv.number}</h3>
+        <p>Date: ${fmtDate(inv.dateIssued)}<br>Due: ${fmtDate(inv.dateDue)}</p>
+        <span class="inv-status-tag ${tagClass}">${st}</span>
+      </div>
+    </div>
+    <div class="inv-parties">
+      <div class="inv-party">
+        <div class="inv-party-label">From</div>
+        <h4>Kermicle Media</h4>
+        <p>Jeremy Kermicle<br>Roanoke, VA<br>hello@kermiclemedia.com</p>
+      </div>
+      <div class="inv-party">
+        <div class="inv-party-label">Bill To</div>
+        <h4>${inv.client}</h4>
+        <p>${inv.email||''}<br>${inv.service}</p>
+      </div>
+    </div>
+    <table class="inv-items-table">
+      <thead><tr><th>#</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
+      <tbody>${inv.lineItems.map((li,i)=>`<tr><td>${i+1}</td><td>${li.description}</td><td style="text-align:right">${fmt(li.amount)}</td></tr>`).join('')}</tbody>
+    </table>
+    <div class="inv-totals"><div class="inv-totals-box">
+      <div class="inv-total-line"><span>Subtotal</span><span>${fmt(t.subtotal)}</span></div>
+      ${inv.taxRate?`<div class="inv-total-line"><span>Tax (${inv.taxRate}%)</span><span>${fmt(t.tax)}</span></div>`:''}
+      <div class="inv-total-line grand"><span>Total Due</span><span>${fmt(t.total)}</span></div>
+    </div></div>
+    <div class="inv-footer">
+      <div class="inv-footer-section"><h5>Payment Terms</h5><p>Net 14 — Payment due within 14 days of invoice date.<br>Accepted: Zelle, Venmo, Check, Bank Transfer</p></div>
+      <div class="inv-footer-section"><h5>Notes</h5><p>${inv.notes||'Thank you for your business!'}</p></div>
+    </div>
+    <div class="inv-watermark">Kermicle Media · kermiclemedia.com</div>
+  `;
+  document.getElementById('previewOverlay').classList.add('active');
+}
+function closePreview(){document.getElementById('previewOverlay').classList.remove('active')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePreview();closeCreateModal()}});
+
+loadData();
+</script>
+</body>
+</html>

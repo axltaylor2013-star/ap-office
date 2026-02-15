@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- Tab: Tools | Link from hub.html -->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Tools — Kermicle Media</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0b0e14;--card:#1a1a2e;--border:#2a2a4a;--gold:#d4a843;--gold2:#b8912e;--text:#e8ecf1;--dim:#8892a4;--green:#22c55e;--yellow:#eab308;--red:#ef4444}
+html{scroll-behavior:smooth}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);padding:24px;min-height:100vh}
+h1{text-align:center;color:var(--gold);font-size:1.6rem;margin-bottom:6px}
+.subtitle{text-align:center;color:var(--dim);font-size:.8rem;margin-bottom:24px;letter-spacing:1px;text-transform:uppercase}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;max-width:1400px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .2s}
+.card:hover{border-color:var(--gold)}
+.card-header{display:flex;align-items:center;gap:10px;padding:14px 18px;cursor:pointer;user-select:none;border-bottom:1px solid transparent;transition:border-color .2s}
+.card-header.open{border-bottom-color:var(--border)}
+.card-icon{font-size:1.3rem}
+.card-title{font-weight:700;font-size:.95rem;flex:1}
+.card-toggle{color:var(--dim);font-size:.8rem;transition:transform .2s}
+.card-header.open .card-toggle{transform:rotate(180deg)}
+.card-body{display:none;padding:18px}
+.card-header.open+.card-body{display:block}
+label{display:block;font-size:.75rem;color:var(--dim);margin-bottom:4px;margin-top:12px;text-transform:uppercase;letter-spacing:.5px}
+label:first-child{margin-top:0}
+select,input[type=text],input[type=number],textarea{width:100%;padding:8px 12px;background:#0f1225;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.85rem;font-family:inherit;outline:none;transition:border-color .2s}
+select:focus,input:focus,textarea:focus{border-color:var(--gold)}
+textarea{resize:vertical;min-height:60px}
+select{cursor:pointer}
+button.btn{background:var(--gold);color:#000;border:none;padding:8px 18px;border-radius:6px;font-weight:700;font-size:.8rem;cursor:pointer;margin-top:12px;transition:background .2s}
+button.btn:hover{background:var(--gold2)}
+button.btn-sm{padding:4px 10px;font-size:.7rem;margin-top:0}
+.output{background:#0f1225;border:1px solid var(--border);border-radius:6px;padding:12px;margin-top:12px;font-size:.82rem;white-space:pre-wrap;line-height:1.5;position:relative}
+.output .copy-btn{position:absolute;top:6px;right:6px;background:var(--gold);color:#000;border:none;padding:2px 8px;border-radius:4px;font-size:.65rem;cursor:pointer;font-weight:700}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+.tag{display:inline-block;background:rgba(212,168,67,.15);color:var(--gold);padding:2px 8px;border-radius:12px;font-size:.72rem;margin:3px 2px;cursor:pointer;border:1px solid transparent;transition:all .15s}
+.tag:hover{border-color:var(--gold);background:rgba(212,168,67,.3)}
+.tag-group{margin-top:8px}
+.tag-group-title{font-size:.7rem;color:var(--dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.result-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.result-row:last-child{border:none}
+.result-label{color:var(--dim)}
+.result-value{font-weight:700;color:var(--gold)}
+.swatch{width:48px;height:48px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:border-color .2s;display:inline-flex;align-items:flex-end;justify-content:center;padding-bottom:2px}
+.swatch:hover{border-color:#fff}
+.swatch span{font-size:.55rem;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8);font-weight:700}
+.palette-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.palette-section{margin-top:12px}
+.palette-section-title{font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.ref-card{background:#0f1225;border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.ref-card .platform{font-size:.7rem;color:var(--gold);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.ref-card .dims{font-size:1.1rem;font-weight:700}
+.ref-card .ratio{font-size:.75rem;color:var(--dim);margin-top:2px}
+.ref-card .note{font-size:.65rem;color:var(--dim);margin-top:4px}
+.ref-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}
+.heatmap{margin-top:12px;overflow-x:auto}
+.heatmap table{width:100%;border-collapse:collapse;font-size:.7rem;text-align:center}
+.heatmap th{color:var(--dim);padding:6px 4px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.heatmap td{padding:6px 4px;border-radius:4px;font-weight:600}
+.hm-best{background:#166534;color:#4ade80}
+.hm-ok{background:#854d0e44;color:#eab308}
+.hm-avoid{background:#1a1a2e;color:#555}
+.check-row{display:flex;align-items:center;gap:8px;margin-top:10px}
+.check-row input[type=checkbox]{accent-color:var(--gold);width:16px;height:16px}
+.check-row label{margin:0;font-size:.82rem;text-transform:none;letter-spacing:0;color:var(--text)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--gold);color:#000;padding:8px 20px;border-radius:8px;font-size:.8rem;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999}
+.toast.show{opacity:1}
+@media(max-width:500px){.grid{grid-template-columns:1fr}.row{flex-direction:column}}
+</style>
+</head>
+<body>
+
+<h1>🛠️ Quick Tools</h1>
+<p class="subtitle">Swiss Army Knife for Kermicle Media</p>
+
+<div class="grid">
+
+<!-- 1. Caption Generator -->
+<div class="card">
+  <div class="card-header" onclick="toggle(this)">
+    <span class="card-icon">✍️</span>
+    <span class="card-title">Caption Generator</span>
+    <span class="card-toggle">▼</span>
+  </div>
+  <div class="card-body">
+    <label>Content Type</label>
+    <select id="cap-type">
+      <option value="bts">Behind-the-Scenes</option>
+      <option value="ba">Before/After</option>
+      <option value="tips">Tips</option>
+      <option value="promo">Promo</option>
+      <option value="testimonial">Testimonial</option>
+    </select>
+    <label>Topic / Description</label>
+    <textarea id="cap-topic" placeholder="e.g. Color grading a wedding video in DaVinci Resolve"></textarea>
+    <button class="btn" onclick="generateCaption()">Generate Caption</button>
+    <div id="cap-output" class="output" style="display:none"><button class="copy-btn" onclick="copyText('cap-output')">Copy</button></div>
+  </div>
+</div>
+
+<!-- 2. Hashtag Builder -->
+<div class="card">
+  <div class="card-header" onclick="toggle(this)">
+    <span class="card-icon">#️⃣</span>
+    <span class="card-title">Hashtag Builder</span>
+    <span class="card-toggle">▼</span>
+  </div>
+  <div class="card-body">
+    <label>Platform</label>
+    <select id="ht-platform">
+      <option value="instagram">Instagram</option>
+      <option value="tiktok">TikTok</option>
+      <option value="twitter">X / Twitter</option>
+      <option value="linkedin">LinkedIn</option>
+    </select>
+    <label>Niche</label>
+    <select id="ht-niche">
+      <option value="photo">Photo Editing</option>
+      <option value="video">Video Editing</option>
+      <option value="smb">Small Business</option>
+      <option value="smm">Social Media Marketing</option>
+      <option value="ai">AI Tools</option>
+      <option value="freelance">Freelance</option>
+    </select>
+    <button class="btn" onclick="buildHashtags()">Build Hashtags</button>
+    <div id="ht-output" style="display:none"></div>
+  </div>
+</div>
+
+<!-- 3. ROI Calculator -->
+<div class="card">
+  <div class="card-header" onclick="toggle(this)">
+    <span class="card-icon">📊</span>
+    <span class="card-title">ROI Calculator</span>
+    <span class="card-toggle">▼</span>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div><label>Monthly Package ($)</label><input type="number" id="roi-price" placeholder="500"></div>
+      <div><label>Posts / Month</label><input type="number" id="roi-posts" placeholder="12"></div>
+    </div>
+    <div class="row">
+      <div><label>Est. Reach / Post</label><input type="number" id="roi-reach" placeholder="2000"></div>
+      <div><label>Conversion Rate (%)</label><input type="number" id="roi-conv" placeholder="2.5" step="0.1"></div>
+    </div>
+    <label>Avg Revenue per Conversion ($)</label>
+    <input type="number" id="roi-rev" placeholder="150">
+    <button class="btn" onclick="calcROI()">Calculate ROI</button>
+    <div id="roi-output" style="display:none"></div>
+  </div>
+</div>
+
+<!-- 4. Invoice Quick Calc -->
+<div class="card">
+  <div class="card-header" onclick="toggle(this)">
+    <span class="card-icon">🧾</span>
+    <span class="card-title">Invoice Quick Calc</span>
+    <span class="card-toggle">▼</span>
+  </div>
+  <div class="card-body">
+    <label>Mode</label>
+    <select id="inv-mode" onchange="toggleInvMode()">
+      <option value="hourly">Hourly</option>
+      <option value="flat">Flat Rate</option>
+    </select>
+    <div id="inv-hourly-fields">
+      <div class="row">
+        <div><label>Hours Worked</label><input type="number" id="inv-hours" placeholder="10"></div>
+        <div><label>Hourly Rate ($)</label><input type="number" id="inv-rate" placeholder="75"></div>
+      </div>
+    </div>
+    <div id="inv-flat-fields" style="display:none">
+      <label>Flat Rate ($)</label>
+      <input type="number" id="inv-flat" placeholder="500">
+    </div>
+    <label>Add-ons ($)</label>
+    <input type="number" id="inv-addons" placeholder="0">
+    <div class="check-row">
+      <input type="checkbox" id="inv-tax"><label for="inv-tax">Add tax (7%)</label>
+    </div>
+    <button class="btn" onclick="calcInvoice()">Calculate</button>
+    <div id="inv-output" style="display:none"></div>
+  </div>
+</div>
+
+<!-- 5. Color Palette Generator -->
+<div class="card">
+  <div class="card-header" onclick="toggle(this)">
+    <span class="card-icon">🎨</span>
+    <span class="card-title">Color Palette Generator</span>
+    <span class="card-toggle">▼</span>
+  </div>
+  <div class="card-body">
+    <label>Base Hex Color</label>
+    <div class="row" style="align-items:end">
+      <input type="text" id="pal-color" placeholder="#d4a843" style="flex:3">
+      <input type="color" id="pal-picker" value="#d4a843" style="flex:0;width:48px;height:38px;padding:2px;cursor:pointer;background:#0f1225;border:1px solid var(--border);border-radius:6px" oninput="document.getElementById('pal-color').value=this.value">
+    </div>
+    <button class="btn" onclick="genPalette()">Generate Palette</button>
+    <div id="pal-output" style="display:none"></div>
+  </div>
+</div>
+
+<!-- 6. Image Size Reference -->
+<div class="card">
+  <div class="card-header" onclick="toggle(this)">
+    <span class="card-icon">📐</span>
+    <span class="card-title">Image Size Reference</span>
+    <span class="card-toggle">▼</span>
+  </div>
+  <div class="card-body">
+    <div class="ref-grid" id="size-ref"></div>
+  </div>
+</div>
+
+<!-- 7. Posting Time Optimizer -->
+<div class="card" style="grid-column:1/-1">
+  <div class="card-header" onclick="toggle(this)">
+    <span class="card-icon">⏰</span>
+    <span class="card-title">Posting Time Optimizer</span>
+    <span class="card-toggle">▼</span>
+  </div>
+  <div class="card-body">
+    <label>Platform</label>
+    <select id="pt-platform" onchange="renderHeatmap()">
+      <option value="instagram">Instagram</option>
+      <option value="tiktok">TikTok</option>
+      <option value="twitter">X / Twitter</option>
+      <option value="facebook">Facebook</option>
+      <option value="linkedin">LinkedIn</option>
+      <option value="youtube">YouTube</option>
+    </select>
+    <div class="heatmap" id="pt-heatmap"></div>
+  </div>
+</div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// Toggle cards
+function toggle(h){h.classList.toggle('open')}
+
+// Toast
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500)}
+function copyText(id){const el=document.getElementById(id);const t=el.innerText.replace('Copy','').trim();navigator.clipboard.writeText(t);toast('Copied!')}
+function copyStr(s){navigator.clipboard.writeText(s);toast('Copied: '+s)}
+
+// 1. Caption Generator
+const captionTemplates={
+bts:{hook:["Here's what goes on behind the scenes…","Most people never see this part of the process.","POV: You're in the editing suite with me."],body:"I was working on {topic} and wanted to show you what the process actually looks like. It's not always glamorous, but this is where the magic happens. Every detail matters — from the first cut to the final export.",cta:["Save this for inspo 🔖","Drop a 🔥 if you want more BTS content","What part of the process surprises you most?"],tags:["#behindthescenes","#bts","#creativeprocess","#editinglife","#theprocess"]},
+ba:{hook:["The before & after that made my jaw drop.","Swipe to see the transformation →","This is why editing matters."],body:"Took {topic} from raw to refined. The difference is in the details — color correction, composition, and a whole lot of patience. This is what professional editing looks like.",cta:["Which do you prefer, before or after?","Save this transformation 🔖","Tag someone who needs this"],tags:["#beforeandafter","#transformation","#editingmagic","#glowup","#results"]},
+tips:{hook:["Stop doing this. Do this instead →","3 tips that changed my workflow:","Wish I knew this when I started."],body:"Here's something I learned while working on {topic}:\n\n1️⃣ Start with the end in mind\n2️⃣ Don't overcomplicate the process\n3️⃣ Consistency beats perfection every time\n\nThese small shifts made a huge difference.",cta:["Save for later 🔖","Share this with someone who needs it","Which tip resonates most?"],tags:["#tips","#protips","#learnontiktok","#contentcreator","#growthmindset"]},
+promo:{hook:["This is your sign to level up.","Tired of content that doesn't convert?","Ready to turn followers into customers?"],body:"We help businesses like yours turn {topic} into a growth engine. Professional content, strategic posting, real results. No fluff — just work that moves the needle.",cta:["DM 'START' to learn more","Link in bio for packages 👆","Book your free consultation today"],tags:["#socialmediamarketing","#contentcreation","#digitalmarketing","#growyourbrand","#marketingtips"]},
+testimonial:{hook:["Don't take my word for it…","Here's what our client had to say:","Results speak louder than promises."],body:'Working with our team on {topic} was a game-changer. "We saw a complete shift in our engagement and brand presence. The content quality speaks for itself." — Happy Client',cta:["Want results like this? DM us","See more success stories in our highlights","Your brand could be next 👇"],tags:["#clientresults","#testimonial","#casestudy","#socialmediaagency","#resultsdriven"]}
+};
+function generateCaption(){
+const type=document.getElementById('cap-type').value;
+const topic=document.getElementById('cap-topic').value||'[your topic]';
+const t=captionTemplates[type];
+const hook=t.hook[Math.floor(Math.random()*t.hook.length)];
+const body=t.body.replace(/\{topic\}/g,topic);
+const cta=t.cta[Math.floor(Math.random()*t.cta.length)];
+const tags=t.tags.join(' ');
+const out=document.getElementById('cap-output');
+out.style.display='block';
+out.innerHTML=`<button class="copy-btn" onclick="copyText('cap-output')">Copy</button><strong>Hook:</strong>\n${hook}\n\n<strong>Body:</strong>\n${body}\n\n<strong>CTA:</strong>\n${cta}\n\n<strong>Hashtags:</strong>\n${tags}`;
+}
+
+// 2. Hashtag Builder
+const hashtagDB={
+photo:{
+small:['#photoeditingtips','#editwithme','#colorgradingtips','#retouchingwork','#rawedits','#lightroomtutorial','#editingworkflow','#desktopediting','#photoretoucher','#editinginspo'],
+medium:['#photoediting','#lightroomedit','#photoshoptutorial','#colorgrading','#retouching','#editingtutorial','#photographyediting','#lightroompresets','#beforeafteredit','#rawphotography'],
+large:['#photoshop','#lightroom','#editing','#photography','#photographer','#photooftheday','#retouchingacademy','#digitalart','#creative','#visualart']},
+video:{
+small:['#videoeditingtips','#fcpxtips','#davinciresolveediting','#motiondesigntips','#videoproductiontips','#colorgradingtutorial','#editingvlog','#cutaways','#videotransitions','#sounddesigntips'],
+medium:['#videoediting','#davinciresolve','#premierepro','#aftereffects','#motiondesign','#filmmaking','#videoproduction','#cinematicvideo','#editinglife','#videoeditor'],
+large:['#video','#filmmaker','#cinematic','#film','#director','#contentcreator','#youtube','#reels','#creative','#behindthescenes']},
+smb:{
+small:['#smallbizowner','#shopsmallbusiness','#localbizlove','#smallbiztips','#bizownertips','#mompreneur','#sidehustletips','#smallbizmarketing','#growyoursmallbiz','#bizgrowth'],
+medium:['#smallbusiness','#shoplocal','#entrepreneur','#businessowner','#startup','#hustle','#growyourbusiness','#businesstips','#womeninbusiness','#onlinebusiness'],
+large:['#business','#marketing','#success','#motivation','#money','#entrepreneurship','#growth','#branding','#socialmedia','#digitalmarketing']},
+smm:{
+small:['#socialmediastrategy','#contentstrategy','#smmtips','#socialmarketer','#contentcalendartips','#engagementtips','#instagramgrowthtips','#socialmediacoach','#marketingagencylife','#contentmarketingtips'],
+medium:['#socialmediamarketing','#socialmediatips','#instagrammarketing','#contentmarketing','#digitalmarketingtips','#marketingstrategy','#socialmediamanager','#growyourbrand','#onlinemarketing','#instagramtips'],
+large:['#marketing','#socialmedia','#digitalmarketing','#instagram','#contentcreator','#branding','#business','#entrepreneur','#growth','#viral']},
+ai:{
+small:['#aitoolsforwork','#aiproductivity','#aicreativetools','#promptengineering','#aiworkflow','#generativeaiart','#aiforbusiness','#aiautomationtips','#aisidehustle','#chatgpttips'],
+medium:['#aitools','#artificialintelligence','#generativeai','#chatgpt','#midjourney','#machinelearning','#aiart','#futureofai','#techtips','#automation'],
+large:['#ai','#technology','#tech','#innovation','#future','#coding','#data','#digital','#creative','#trending']},
+freelance:{
+small:['#freelancerlife','#freelancingtips','#clientwork','#freelancedesigner','#workfromhometips','#solopreneur','#freelancebiz','#creativebusiness','#designerlife','#remoteworklife'],
+medium:['#freelance','#freelancer','#workfromhome','#remotework','#selfemployed','#creativepreneur','#girlboss','#designlife','#creativedirector','#freelancelife'],
+large:['#entrepreneur','#hustle','#motivation','#success','#business','#lifestyle','#creative','#design','#work','#freedom']}
+};
+function buildHashtags(){
+const niche=document.getElementById('ht-niche').value;
+const data=hashtagDB[niche];
+const out=document.getElementById('ht-output');
+out.style.display='block';
+let html='';
+[['🟢 Small (< 10K)',data.small],['🟡 Medium (10K–500K)',data.medium],['🔵 Large (500K+)',data.large]].forEach(([title,tags])=>{
+html+=`<div class="tag-group"><div class="tag-group-title">${title}</div>`;
+tags.forEach(t=>{html+=`<span class="tag" onclick="copyStr('${t}')">${t}</span>`});
+html+='</div>';
+});
+html+=`<button class="btn" style="margin-top:14px" onclick="copyStr('${[...data.small,...data.medium,...data.large].join(' ')}')">Copy All 30</button>`;
+out.innerHTML=html;
+}
+
+// 3. ROI Calculator
+function calcROI(){
+const price=+document.getElementById('roi-price').value||0;
+const posts=+document.getElementById('roi-posts').value||0;
+const reach=+document.getElementById('roi-reach').value||0;
+const conv=(+document.getElementById('roi-conv').value||0)/100;
+const rev=+document.getElementById('roi-rev').value||0;
+const impressions=posts*reach;
+const leads=Math.round(impressions*conv);
+const revenue=leads*rev;
+const roi=price>0?(revenue/price):0;
+const out=document.getElementById('roi-output');
+out.style.display='block';
+out.innerHTML=`
+<div style="margin-top:8px">
+<div class="result-row"><span class="result-label">Monthly Impressions</span><span class="result-value">${impressions.toLocaleString()}</span></div>
+<div class="result-row"><span class="result-label">Estimated Leads</span><span class="result-value">${leads.toLocaleString()}</span></div>
+<div class="result-row"><span class="result-label">Estimated Revenue</span><span class="result-value">$${revenue.toLocaleString()}</span></div>
+<div class="result-row"><span class="result-label">ROI Multiplier</span><span class="result-value">${roi.toFixed(1)}x</span></div>
+<div style="margin-top:12px;padding:10px;background:rgba(212,168,67,.1);border-radius:6px;font-size:.82rem;text-align:center">
+💡 You're paying <strong>$${price.toLocaleString()}/mo</strong> but generating an estimated <strong style="color:var(--gold)">$${revenue.toLocaleString()}</strong> in value
+</div></div>`;
+}
+
+// 4. Invoice Quick Calc
+function toggleInvMode(){
+const m=document.getElementById('inv-mode').value;
+document.getElementById('inv-hourly-fields').style.display=m==='hourly'?'block':'none';
+document.getElementById('inv-flat-fields').style.display=m==='flat'?'block':'none';
+}
+function calcInvoice(){
+const m=document.getElementById('inv-mode').value;
+let base=0;
+if(m==='hourly'){base=(+document.getElementById('inv-hours').value||0)*(+document.getElementById('inv-rate').value||0)}
+else{base=+document.getElementById('inv-flat').value||0}
+const addons=+document.getElementById('inv-addons').value||0;
+const subtotal=base+addons;
+const tax=document.getElementById('inv-tax').checked?subtotal*0.07:0;
+const total=subtotal+tax;
+const out=document.getElementById('inv-output');
+out.style.display='block';
+out.innerHTML=`
+<div style="margin-top:8px">
+<div class="result-row"><span class="result-label">Base</span><span class="result-value">$${base.toFixed(2)}</span></div>
+<div class="result-row"><span class="result-label">Add-ons</span><span class="result-value">$${addons.toFixed(2)}</span></div>
+${tax>0?`<div class="result-row"><span class="result-label">Tax (7%)</span><span class="result-value">$${tax.toFixed(2)}</span></div>`:''}
+<div class="result-row" style="border-top:2px solid var(--gold);padding-top:8px;margin-top:4px"><span class="result-label" style="font-weight:700;color:var(--text)">Total</span><span class="result-value" style="font-size:1.1rem">$${total.toFixed(2)}</span></div>
+</div>
+<button class="btn" onclick="copyStr('$${total.toFixed(2)}')">Copy Total</button>`;
+}
+
+// 5. Color Palette
+function hexToHSL(hex){hex=hex.replace('#','');const r=parseInt(hex.substring(0,2),16)/255,g=parseInt(hex.substring(2,4),16)/255,b=parseInt(hex.substring(4,6),16)/255;const max=Math.max(r,g,b),min=Math.min(r,g,b);let h,s,l=(max+min)/2;if(max===min){h=s=0}else{const d=max-min;s=l>.5?d/(2-max-min):d/(max+min);switch(max){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)/d+4)/6;break}}return[h*360,s*100,l*100]}
+function hslToHex(h,s,l){h=((h%360)+360)%360;s/=100;l/=100;const a=s*Math.min(l,1-l);const f=n=>{const k=(n+h/30)%12;const c=l-a*Math.max(Math.min(k-3,9-k,1),-1);return Math.round(255*c).toString(16).padStart(2,'0')};return'#'+f(0)+f(8)+f(4)}
+function genPalette(){
+let hex=document.getElementById('pal-color').value.trim();if(!hex.startsWith('#'))hex='#'+hex;if(!/^#[0-9a-fA-F]{6}$/.test(hex)){toast('Enter a valid 6-digit hex');return}
+const[h,s,l]=hexToHSL(hex);
+const schemes={
+'Complementary':[[h,s,l],[(h+180),s,l]],
+'Triadic':[[h,s,l],[(h+120),s,l],[(h+240),s,l]],
+'Analogous':[[h-30,s,l],[h,s,l],[h+30,s,l]],
+'Split-Complementary':[[h,s,l],[(h+150),s,l],[(h+210),s,l]]
+};
+const out=document.getElementById('pal-output');out.style.display='block';
+let html='';
+for(const[name,colors]of Object.entries(schemes)){
+html+=`<div class="palette-section"><div class="palette-section-title">${name}</div><div class="palette-row">`;
+colors.forEach(([ch,cs,cl])=>{const c=hslToHex(ch,cs,cl);html+=`<div class="swatch" style="background:${c}" onclick="copyStr('${c}')" title="${c}"><span>${c}</span></div>`});
+html+='</div></div>';
+}
+out.innerHTML=html;
+}
+
+// 6. Image Size Reference
+const sizes=[
+{platform:'Instagram Post',dims:'1080 × 1080',ratio:'1:1',note:'JPG/PNG, <8MB'},
+{platform:'Instagram Story',dims:'1080 × 1920',ratio:'9:16',note:'JPG/PNG/MP4, <30MB'},
+{platform:'Instagram Reel',dims:'1080 × 1920',ratio:'9:16',note:'MP4, <4GB, 90s max'},
+{platform:'TikTok',dims:'1080 × 1920',ratio:'9:16',note:'MP4, <287MB, 10min'},
+{platform:'YouTube Thumbnail',dims:'1280 × 720',ratio:'16:9',note:'JPG/PNG, <2MB'},
+{platform:'YouTube Banner',dims:'2560 × 1440',ratio:'16:9',note:'Safe area: 1546×423'},
+{platform:'X Post',dims:'1200 × 675',ratio:'16:9',note:'JPG/PNG/GIF, <5MB'},
+{platform:'Facebook Cover',dims:'820 × 312',ratio:'2.63:1',note:'PNG recommended, <100KB'}
+];
+document.getElementById('size-ref').innerHTML=sizes.map(s=>`<div class="ref-card"><div class="platform">${s.platform}</div><div class="dims">${s.dims}</div><div class="ratio">${s.ratio}</div><div class="note">${s.note}</div></div>`).join('');
+
+// 7. Posting Time Optimizer
+const postingData={
+instagram:{Mon:[0,0,1,0,0,0,1,2,2,3,3,3,2,2,1,1,2,3,2,1,0,0,0,0],Tue:[0,0,0,0,0,0,1,2,2,3,3,2,2,2,1,1,2,3,3,2,1,0,0,0],Wed:[0,0,0,0,0,0,1,2,3,3,3,3,2,2,1,1,2,2,3,2,1,0,0,0],Thu:[0,0,0,0,0,0,1,2,2,3,3,2,2,2,1,2,2,3,3,2,1,0,0,0],Fri:[0,0,0,0,0,0,1,2,2,3,2,3,2,2,1,1,2,2,2,1,0,0,0,0],Sat:[0,0,0,0,0,0,0,1,2,3,3,3,2,2,1,1,1,2,2,1,0,0,0,0],Sun:[0,0,0,0,0,0,0,1,2,3,3,3,2,2,1,1,1,2,2,1,0,0,0,0]},
+tiktok:{Mon:[0,0,0,0,0,0,1,3,2,2,3,2,1,1,1,1,2,3,3,3,2,1,0,0],Tue:[0,0,0,0,0,0,1,2,2,3,3,2,1,1,1,2,2,3,3,3,2,1,0,0],Wed:[0,0,0,0,0,0,1,3,2,2,2,2,1,1,1,2,2,3,3,3,2,1,0,0],Thu:[0,0,0,0,0,0,1,2,2,2,3,2,2,1,1,2,2,3,3,3,2,1,0,0],Fri:[0,0,0,0,0,0,1,2,2,2,2,2,2,1,1,2,3,3,3,2,1,1,0,0],Sat:[0,0,0,0,0,0,0,1,2,3,3,3,2,2,1,1,2,3,3,2,1,0,0,0],Sun:[0,0,0,0,0,0,0,1,2,3,3,3,2,2,1,1,2,3,3,2,1,0,0,0]},
+twitter:{Mon:[0,0,0,0,0,0,1,2,3,3,3,2,2,2,1,1,2,3,2,1,0,0,0,0],Tue:[0,0,0,0,0,0,1,2,3,3,3,2,2,2,1,1,2,3,2,1,0,0,0,0],Wed:[0,0,0,0,0,0,1,2,3,3,3,2,2,2,1,2,2,3,2,1,0,0,0,0],Thu:[0,0,0,0,0,0,1,2,3,3,3,2,2,2,1,1,2,3,2,1,0,0,0,0],Fri:[0,0,0,0,0,0,1,2,3,3,2,2,2,1,1,1,2,2,1,1,0,0,0,0],Sat:[0,0,0,0,0,0,0,1,2,3,3,2,1,1,1,1,1,2,1,0,0,0,0,0],Sun:[0,0,0,0,0,0,0,1,2,3,3,2,1,1,1,1,1,2,1,0,0,0,0,0]},
+facebook:{Mon:[0,0,0,0,0,0,1,2,3,3,3,2,2,3,2,1,2,2,2,1,0,0,0,0],Tue:[0,0,0,0,0,0,1,2,3,3,3,2,2,3,2,1,2,2,2,1,0,0,0,0],Wed:[0,0,0,0,0,0,1,2,3,3,3,2,2,3,2,2,2,2,2,1,0,0,0,0],Thu:[0,0,0,0,0,0,1,2,3,3,3,2,2,2,2,1,2,2,2,1,0,0,0,0],Fri:[0,0,0,0,0,0,1,2,3,3,2,2,2,2,1,1,2,2,1,1,0,0,0,0],Sat:[0,0,0,0,0,0,0,1,2,3,3,3,2,1,1,1,1,2,1,0,0,0,0,0],Sun:[0,0,0,0,0,0,0,1,2,3,3,3,2,1,1,1,1,2,1,0,0,0,0,0]},
+linkedin:{Mon:[0,0,0,0,0,0,1,3,3,3,3,2,2,2,1,1,1,1,0,0,0,0,0,0],Tue:[0,0,0,0,0,0,1,3,3,3,3,2,2,2,1,1,1,1,0,0,0,0,0,0],Wed:[0,0,0,0,0,0,1,3,3,3,3,2,2,2,1,1,1,1,0,0,0,0,0,0],Thu:[0,0,0,0,0,0,1,3,3,3,3,2,2,2,1,1,1,1,0,0,0,0,0,0],Fri:[0,0,0,0,0,0,1,2,3,3,2,2,1,1,1,0,0,0,0,0,0,0,0,0],Sat:[0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0],Sun:[0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0]},
+youtube:{Mon:[0,0,0,0,0,0,1,2,2,3,2,2,2,3,3,3,2,2,2,1,0,0,0,0],Tue:[0,0,0,0,0,0,1,2,2,3,2,2,2,3,3,3,2,2,2,1,0,0,0,0],Wed:[0,0,0,0,0,0,1,2,2,3,2,2,2,3,3,3,2,2,2,1,0,0,0,0],Thu:[0,0,0,0,0,0,1,2,2,3,2,2,2,3,3,3,2,2,2,1,0,0,0,0],Fri:[0,0,0,0,0,0,1,2,2,3,2,2,2,3,3,2,2,2,1,1,0,0,0,0],Sat:[0,0,0,0,0,0,0,1,2,3,3,3,3,3,2,2,2,2,1,0,0,0,0,0],Sun:[0,0,0,0,0,0,0,1,2,3,3,3,3,3,2,2,2,2,1,0,0,0,0,0]}
+};
+function renderHeatmap(){
+const p=document.getElementById('pt-platform').value;
+const d=postingData[p];
+const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const cls=['hm-avoid','hm-avoid','hm-ok','hm-best'];
+let html='<table><tr><th></th>';
+for(let h=0;h<24;h++)html+=`<th>${h%12===0?12:h%12}${h<12?'a':'p'}</th>`;
+html+='</tr>';
+days.forEach(day=>{
+html+=`<tr><th>${day}</th>`;
+d[day].forEach(v=>{html+=`<td class="${cls[v]}">${['·','·','○','★'][v]}</td>`});
+html+='</tr>';
+});
+html+='</table><div style="margin-top:8px;font-size:.7rem;color:var(--dim)">★ <span class="hm-best" style="padding:1px 6px;border-radius:3px">Best</span> &nbsp; ○ <span class="hm-ok" style="padding:1px 6px;border-radius:3px">Good</span> &nbsp; · <span class="hm-avoid" style="padding:1px 6px;border-radius:3px">Avoid</span></div>';
+document.getElementById('pt-heatmap').innerHTML=html;
+}
+renderHeatmap();
+</script>
+</body>
+</html>
