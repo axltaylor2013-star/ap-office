@@ -1,0 +1,328 @@
+<!-- Tab: Expenses | Link from hub.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kermicle Media — Expense Tracker</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; }
+  a { color: #d4a843; text-decoration: none; }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 30px; padding-bottom: 16px; border-bottom: 3px solid #d4a843; }
+  .header h1 { font-size: 1.8rem; color: #d4a843; margin-bottom: 4px; }
+  .header p { color: #888; font-size: 0.9rem; }
+
+  /* KPI Cards */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 30px; }
+  .kpi-card { background: #16213e; border-radius: 12px; padding: 20px; border-left: 4px solid #d4a843; }
+  .kpi-card .label { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .kpi-card .value { font-size: 1.8rem; font-weight: 700; color: #d4a843; }
+  .kpi-card .sub { font-size: 0.8rem; color: #888; margin-top: 4px; }
+  .kpi-card .value.green { color: #4caf50; }
+  .kpi-card .value.yellow { color: #ff9800; }
+  .kpi-card .value.red { color: #f44336; }
+
+  /* Sections */
+  .section { background: #16213e; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+  .section h2 { color: #d4a843; font-size: 1.2rem; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #0f3460; }
+
+  /* Filters */
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .filters select, .filters input { background: #0f3460; color: #e0e0e0; border: 1px solid #1a3a6e; border-radius: 6px; padding: 8px 12px; font-size: 0.85rem; }
+  .filters select:focus, .filters input:focus { outline: none; border-color: #d4a843; }
+
+  /* Table */
+  .expense-table { width: 100%; border-collapse: collapse; }
+  .expense-table th { text-align: left; padding: 10px 12px; color: #d4a843; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #0f3460; }
+  .expense-table td { padding: 10px 12px; border-bottom: 1px solid #0f3460; font-size: 0.9rem; }
+  .expense-table tr:hover td { background: #1a2a4e; }
+  .expense-table .amount { color: #d4a843; font-weight: 600; }
+  .expense-table .recurring-badge { background: #d4a843; color: #1a1a2e; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; font-weight: 600; }
+  .expense-table .category-badge { background: #0f3460; padding: 3px 8px; border-radius: 10px; font-size: 0.75rem; }
+
+  /* Bar Charts */
+  .h-bar-chart .bar-row { display: flex; align-items: center; margin: 8px 0; }
+  .h-bar-chart .bar-label { width: 160px; text-align: right; padding-right: 12px; color: #e0e0e0; font-size: 0.85rem; flex-shrink: 0; }
+  .h-bar-chart .bar-track { flex: 1; background: #0f3460; border-radius: 4px; overflow: hidden; height: 28px; }
+  .h-bar-chart .bar-fill { background: linear-gradient(90deg, #d4a843, #f0c966); height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .h-bar-chart .bar-value { margin-left: 10px; color: #d4a843; font-weight: bold; min-width: 70px; font-size: 0.85rem; }
+
+  .v-bar-chart { display: flex; align-items: flex-end; gap: 12px; height: 200px; padding: 20px 0 30px; }
+  .v-bar-chart .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; position: relative; }
+  .v-bar-chart .bar { background: linear-gradient(180deg, #f0c966, #d4a843); border-radius: 4px 4px 0 0; width: 100%; max-width: 60px; transition: height 0.3s; }
+  .v-bar-chart .bar-month { font-size: 0.75rem; color: #888; margin-top: 6px; }
+  .v-bar-chart .bar-amt { font-size: 0.75rem; color: #d4a843; margin-bottom: 4px; }
+
+  /* Recurring */
+  .recurring-list { list-style: none; }
+  .recurring-list li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #0f3460; }
+  .recurring-list li:last-child { border-bottom: none; }
+  .recurring-list .r-name { color: #e0e0e0; }
+  .recurring-list .r-amount { color: #d4a843; font-weight: 600; }
+  .burn-rate { margin-top: 16px; padding: 16px; background: #0f3460; border-radius: 8px; text-align: center; }
+  .burn-rate .big { font-size: 2rem; color: #d4a843; font-weight: 700; }
+  .burn-rate .label { color: #888; font-size: 0.85rem; }
+
+  /* Form */
+  .add-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .add-form input, .add-form select, .add-form textarea { background: #0f3460; color: #e0e0e0; border: 1px solid #1a3a6e; border-radius: 6px; padding: 10px; font-size: 0.9rem; }
+  .add-form input:focus, .add-form select:focus, .add-form textarea:focus { outline: none; border-color: #d4a843; }
+  .add-form .checkbox-row { display: flex; align-items: center; gap: 8px; }
+  .add-form .checkbox-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: #d4a843; }
+  .btn { background: #d4a843; color: #1a1a2e; border: none; border-radius: 6px; padding: 10px 20px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+  .btn:hover { background: #f0c966; }
+  .btn-row { display: flex; gap: 10px; margin-top: 12px; }
+
+  .empty-state { text-align: center; padding: 40px; color: #888; }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 10px; }
+
+  @media (max-width: 600px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .h-bar-chart .bar-label { width: 100px; font-size: 0.75rem; }
+    .add-form { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>💰 Kermicle Media — Expense Tracker</h1>
+  <p>Business expenses, burn rate & profit margins</p>
+</div>
+
+<div class="kpi-grid" id="kpiCards"></div>
+
+<div class="section">
+  <h2>📋 Expense List</h2>
+  <div class="filters">
+    <select id="filterCategory"><option value="">All Categories</option></select>
+    <select id="filterVendor"><option value="">All Vendors</option></select>
+    <input type="month" id="filterMonth" />
+    <input type="text" id="filterSearch" placeholder="Search..." />
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="expense-table" id="expenseTable">
+      <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Category</th><th>Vendor</th><th></th></tr></thead>
+      <tbody id="expenseBody"></tbody>
+    </table>
+  </div>
+  <div id="emptyList" class="empty-state" style="display:none;">
+    <div class="icon">📭</div>
+    <p>No expenses logged yet. Use the form below or ask the agent to log one.</p>
+  </div>
+</div>
+
+<div class="section">
+  <h2>📊 Category Breakdown</h2>
+  <div class="h-bar-chart" id="categoryChart"></div>
+</div>
+
+<div class="section">
+  <h2>📈 Monthly Trend (Last 6 Months)</h2>
+  <div class="v-bar-chart" id="monthlyChart"></div>
+</div>
+
+<div class="section">
+  <h2>🔄 Recurring Expenses</h2>
+  <ul class="recurring-list" id="recurringList"></ul>
+  <div class="burn-rate" id="burnRate"></div>
+</div>
+
+<div class="section">
+  <h2>➕ Quick Add Expense</h2>
+  <div class="add-form" id="addForm">
+    <input type="date" id="addDate" />
+    <input type="text" id="addDesc" placeholder="Description" />
+    <input type="number" id="addAmount" placeholder="Amount ($)" step="0.01" />
+    <select id="addCategory"></select>
+    <input type="text" id="addVendor" placeholder="Vendor" />
+    <div class="checkbox-row"><input type="checkbox" id="addRecurring" /><label for="addRecurring">Recurring</label></div>
+    <input type="text" id="addNotes" placeholder="Notes (optional)" />
+  </div>
+  <div class="btn-row">
+    <button class="btn" onclick="addExpense()">Add Expense</button>
+    <button class="btn" style="background:#0f3460;color:#d4a843;" onclick="exportCSV()">⬇ Export CSV</button>
+  </div>
+</div>
+
+<script>
+const expenseData = {"expenses":[],"categories":["software/subscriptions","hardware","marketing/ads","contractors","office/supplies","travel","API costs","other"],"budgets":{"monthly":3000,"yearly":36000}};
+const revenueData = {"entries":[],"goals":{"monthly":5000,"quarterly":15000,"yearly":60000},"projections":{"method":"3-month-average"}};
+
+const fmt = (n) => '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const now = new Date();
+const curMonth = now.getMonth();
+const curYear = now.getFullYear();
+
+function getMonthExpenses(year, month) {
+  return expenseData.expenses.filter(e => {
+    const d = new Date(e.date + 'T00:00:00');
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
+}
+
+function getYTD() {
+  return expenseData.expenses.filter(e => new Date(e.date + 'T00:00:00').getFullYear() === curYear);
+}
+
+function sum(arr) { return arr.reduce((s, e) => s + e.amount, 0); }
+
+function getRevMonth(year, month) {
+  return (revenueData.entries || []).filter(e => {
+    const d = new Date(e.date + 'T00:00:00');
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
+}
+
+// KPI
+function renderKPI() {
+  const monthExp = sum(getMonthExpenses(curYear, curMonth));
+  const ytdExp = sum(getYTD());
+  // Largest category
+  const catTotals = {};
+  getMonthExpenses(curYear, curMonth).forEach(e => { catTotals[e.category] = (catTotals[e.category]||0) + e.amount; });
+  let topCat = '—', topCatAmt = 0;
+  Object.entries(catTotals).forEach(([c,a]) => { if(a > topCatAmt){ topCat = c; topCatAmt = a; }});
+  // Profit margin
+  const monthRev = sum(getRevMonth(curYear, curMonth));
+  let margin = 0, marginClass = 'green';
+  if(monthRev > 0) { margin = ((monthRev - monthExp) / monthRev * 100); }
+  if(margin < 15) marginClass = 'red'; else if(margin < 30) marginClass = 'yellow';
+  const budgetPct = expenseData.budgets.monthly > 0 ? (monthExp / expenseData.budgets.monthly * 100).toFixed(0) : '—';
+
+  document.getElementById('kpiCards').innerHTML = `
+    <div class="kpi-card"><div class="label">This Month</div><div class="value">${fmt(monthExp)}</div><div class="sub">${budgetPct}% of ${fmt(expenseData.budgets.monthly)} budget</div></div>
+    <div class="kpi-card"><div class="label">Year to Date</div><div class="value">${fmt(ytdExp)}</div><div class="sub">of ${fmt(expenseData.budgets.yearly)} yearly budget</div></div>
+    <div class="kpi-card"><div class="label">Top Category</div><div class="value" style="font-size:1.2rem;">${topCat}</div><div class="sub">${fmt(topCatAmt)} this month</div></div>
+    <div class="kpi-card"><div class="label">Profit Margin</div><div class="value ${marginClass}">${monthRev > 0 ? margin.toFixed(1) + '%' : 'N/A'}</div><div class="sub">Revenue: ${fmt(monthRev)}</div></div>
+  `;
+}
+
+// Filters
+function populateFilters() {
+  const catSel = document.getElementById('filterCategory');
+  const addCatSel = document.getElementById('addCategory');
+  expenseData.categories.forEach(c => {
+    catSel.innerHTML += `<option value="${c}">${c}</option>`;
+    addCatSel.innerHTML += `<option value="${c}">${c}</option>`;
+  });
+  const vendors = [...new Set(expenseData.expenses.map(e => e.vendor).filter(Boolean))].sort();
+  const vSel = document.getElementById('filterVendor');
+  vendors.forEach(v => { vSel.innerHTML += `<option value="${v}">${v}</option>`; });
+  document.getElementById('addDate').value = now.toISOString().slice(0,10);
+}
+
+// Table
+function renderTable() {
+  const cat = document.getElementById('filterCategory').value;
+  const vendor = document.getElementById('filterVendor').value;
+  const month = document.getElementById('filterMonth').value;
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+  let items = [...expenseData.expenses].sort((a,b) => b.date.localeCompare(a.date));
+  if(cat) items = items.filter(e => e.category === cat);
+  if(vendor) items = items.filter(e => e.vendor === vendor);
+  if(month) items = items.filter(e => e.date.startsWith(month));
+  if(search) items = items.filter(e => (e.description+e.vendor+e.notes+e.category).toLowerCase().includes(search));
+
+  const tbody = document.getElementById('expenseBody');
+  const empty = document.getElementById('emptyList');
+  if(items.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = items.map(e => `<tr>
+    <td>${e.date}</td><td>${e.description}</td><td class="amount">${fmt(e.amount)}</td>
+    <td><span class="category-badge">${e.category}</span></td><td>${e.vendor||'—'}</td>
+    <td>${e.recurring ? '<span class="recurring-badge">⟳ Recurring</span>' : ''}</td>
+  </tr>`).join('');
+}
+
+// Category chart
+function renderCategoryChart() {
+  const catTotals = {};
+  expenseData.expenses.forEach(e => { catTotals[e.category] = (catTotals[e.category]||0) + e.amount; });
+  const sorted = Object.entries(catTotals).sort((a,b) => b[1]-a[1]);
+  const max = sorted.length ? sorted[0][1] : 1;
+  document.getElementById('categoryChart').innerHTML = sorted.length ? sorted.map(([c,a]) =>
+    `<div class="bar-row"><div class="bar-label">${c}</div><div class="bar-track"><div class="bar-fill" style="width:${(a/max*100).toFixed(1)}%"></div></div><div class="bar-value">${fmt(a)}</div></div>`
+  ).join('') : '<p style="color:#888;text-align:center;">No data yet</p>';
+}
+
+// Monthly trend
+function renderMonthlyChart() {
+  const months = [];
+  for(let i = 5; i >= 0; i--) {
+    let m = curMonth - i, y = curYear;
+    if(m < 0){ m += 12; y--; }
+    const total = sum(getMonthExpenses(y, m));
+    const label = new Date(y, m).toLocaleString('en', {month:'short'});
+    months.push({label, total});
+  }
+  const max = Math.max(...months.map(m=>m.total), 1);
+  document.getElementById('monthlyChart').innerHTML = months.map(m =>
+    `<div class="bar-col"><div class="bar-amt">${m.total > 0 ? fmt(m.total) : ''}</div><div class="bar" style="height:${Math.max(m.total/max*100,2)}%"></div><div class="bar-month">${m.label}</div></div>`
+  ).join('');
+}
+
+// Recurring
+function renderRecurring() {
+  const recurring = expenseData.expenses.filter(e => e.recurring);
+  const unique = {};
+  recurring.forEach(e => {
+    const key = e.description + '|' + e.vendor;
+    if(!unique[key] || e.date > unique[key].date) unique[key] = e;
+  });
+  const items = Object.values(unique).sort((a,b) => b.amount - a.amount);
+  const burnRate = items.reduce((s,e) => s + e.amount, 0);
+  const list = document.getElementById('recurringList');
+  list.innerHTML = items.length ? items.map(e =>
+    `<li><span class="r-name">${e.description} <span style="color:#888">— ${e.vendor||'N/A'}</span></span><span class="r-amount">${fmt(e.amount)}/mo</span></li>`
+  ).join('') : '<li style="color:#888;text-align:center;">No recurring expenses</li>';
+  document.getElementById('burnRate').innerHTML = `<div class="label">Monthly Burn Rate</div><div class="big">${fmt(burnRate)}</div><div class="label">${expenseData.expenses.length > 0 ? ((burnRate / sum(expenseData.expenses) * 100)||0).toFixed(0) + '% of total spend is recurring' : ''}</div>`;
+}
+
+// Quick add (in-page only)
+function addExpense() {
+  const e = {
+    id: expenseData.expenses.length ? Math.max(...expenseData.expenses.map(x=>x.id)) + 1 : 1,
+    date: document.getElementById('addDate').value,
+    description: document.getElementById('addDesc').value,
+    amount: parseFloat(document.getElementById('addAmount').value) || 0,
+    category: document.getElementById('addCategory').value,
+    vendor: document.getElementById('addVendor').value,
+    recurring: document.getElementById('addRecurring').checked,
+    notes: document.getElementById('addNotes').value
+  };
+  if(!e.description || !e.amount) { alert('Description and amount required'); return; }
+  expenseData.expenses.push(e);
+  renderAll();
+  document.getElementById('addDesc').value = '';
+  document.getElementById('addAmount').value = '';
+  document.getElementById('addVendor').value = '';
+  document.getElementById('addNotes').value = '';
+  document.getElementById('addRecurring').checked = false;
+}
+
+// Export CSV
+function exportCSV() {
+  if(!expenseData.expenses.length) { alert('No expenses to export'); return; }
+  let csv = 'ID,Date,Description,Amount,Category,Vendor,Recurring,Notes\n';
+  expenseData.expenses.forEach(e => {
+    csv += `${e.id},${e.date},"${e.description}",${e.amount},"${e.category}","${e.vendor||''}",${e.recurring},"${e.notes||''}"\n`;
+  });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'expenses.csv'; a.click();
+}
+
+// Filter events
+['filterCategory','filterVendor','filterMonth','filterSearch'].forEach(id => {
+  document.getElementById(id).addEventListener('input', renderTable);
+  document.getElementById(id).addEventListener('change', renderTable);
+});
+
+function renderAll() { renderKPI(); populateFilters(); renderTable(); renderCategoryChart(); renderMonthlyChart(); renderRecurring(); }
+renderAll();
+</script>
+</body>
+</html>

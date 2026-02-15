@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kermicle Media — Command Hub</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0b0e14;--sidebar:#0f1318;--border:#1a1f2e;--gold:#d4a843;--gold2:#b8912e;--text:#e8ecf1;--dim:#8892a4;--hover:#161b25}
@@ -110,6 +111,9 @@ nav{flex:1;padding:12px 0;display:flex;flex-direction:column;gap:2px}
       <div class="nav-item" data-screen="tools" onclick="switchScreen(this)">
         <span class="nav-icon">🛠️</span><span class="nav-label">Quick Tools</span>
       </div>
+      <div class="nav-item" data-screen="expenses" onclick="switchScreen(this)">
+        <span class="nav-icon">💳</span><span class="nav-label">Expenses</span>
+      </div>
     </nav>
     <button class="toggle-btn" onclick="toggleSidebar()" title="Collapse sidebar">◀ <span class="nav-label">Collapse</span></button>
     <div class="sidebar-footer">
@@ -129,6 +133,7 @@ nav{flex:1;padding:12px 0;display:flex;flex-direction:column;gap:2px}
     <iframe id="frame-invoices" src="invoices.html" loading="lazy"></iframe>
     <iframe id="frame-goals" src="goals.html" loading="lazy"></iframe>
     <iframe id="frame-tools" src="tools.html" loading="lazy"></iframe>
+    <iframe id="frame-expenses" src="expenses.html" loading="lazy"></iframe>
   </main>
 </div>
 

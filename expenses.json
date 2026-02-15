@@ -1,0 +1,17 @@
+{
+  "expenses": [],
+  "categories": [
+    "software/subscriptions",
+    "hardware",
+    "marketing/ads",
+    "contractors",
+    "office/supplies",
+    "travel",
+    "API costs",
+    "other"
+  ],
+  "budgets": {
+    "monthly": 3000,
+    "yearly": 36000
+  }
+}
