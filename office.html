@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AP Technologies — The Office</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>?</text></svg>">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0b0e14;color:#e8ecf1;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;height:100vh}
@@ -51,7 +52,7 @@ function resize(){
   H=canvas.height=window.innerHeight-54;
 }
 resize();
-window.addEventListener('resize',resize);
+window.addEventListener('resize',()=>{resize();if(dog.homeX)initDog();});
 
 // Clock
 function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
@@ -76,9 +77,10 @@ function sy(y){return y*H/700}
 
 // Furniture
 const desks=[
-  {x:120,y:250,w:200,h:100,label:'JARVIS',color:'#d4a843'},
-  {x:500,y:250,w:200,h:100,label:'MULE',color:'#22c55e'},
-  {x:880,y:250,w:200,h:100,label:'FORGE',color:'#a855f7'},
+  {x:80,y:250,w:180,h:100,label:'JARVIS',color:'#d4a843'},
+  {x:370,y:250,w:180,h:100,label:'MULE',color:'#22c55e'},
+  {x:660,y:250,w:180,h:100,label:'FORGE',color:'#a855f7'},
+  {x:950,y:250,w:180,h:100,label:'SCOUT',color:'#06b6d4'},
 ];
 
 const waterCooler={x:550,y:520,w:60,h:80};
@@ -92,8 +94,8 @@ const agents=[
   {
     id:'jarvis',name:'Jarvis 🤖',emoji:'🤖',
     color:'#d4a843',bodyColor:'#2a2520',headColor:'#d4a843',
-    x:220,y:320,targetX:220,targetY:320,
-    homeX:220,homeY:320,
+    x:170,y:320,targetX:170,targetY:320,
+    homeX:170,homeY:320,
     desk:0,status:'Working',
     task:'Managing operations',
     speed:1.2,
@@ -103,8 +105,8 @@ const agents=[
   {
     id:'mule',name:'Mule 🫏',emoji:'🫏',
     color:'#22c55e',bodyColor:'#1a2a1e',headColor:'#22c55e',
-    x:600,y:320,targetX:600,targetY:320,
-    homeX:600,homeY:320,
+    x:460,y:320,targetX:460,targetY:320,
+    homeX:460,homeY:320,
     desk:1,status:'Standby',
     task:'Awaiting assignment',
     speed:0.8,
@@ -114,13 +116,24 @@ const agents=[
   {
     id:'forge',name:'Forge 🔨',emoji:'🔨',
     color:'#a855f7',bodyColor:'#1e1a2a',headColor:'#a855f7',
-    x:980,y:320,targetX:980,targetY:320,
-    homeX:980,homeY:320,
+    x:750,y:320,targetX:750,targetY:320,
+    homeX:750,homeY:320,
     desk:2,status:'Building',
     task:'Ready to build',
     speed:1.0,
     state:'working',stateTimer:0,
     bobOffset:Math.PI*2/3
+  },
+  {
+    id:'scout',name:'Scout 🔭',emoji:'🔭',
+    color:'#06b6d4',bodyColor:'#0e2a2e',headColor:'#06b6d4',
+    x:1040,y:320,targetX:1040,targetY:320,
+    homeX:1040,homeY:320,
+    desk:3,status:'Scouting',
+    task:'Scanning the horizon',
+    speed:1.1,
+    state:'working',stateTimer:0,
+    bobOffset:Math.PI
   }
 ];
 
@@ -145,6 +158,15 @@ function pickBehavior(agent){
     const r=Math.random();
     if(r<0.7) return 'working';
     if(r<0.85) return 'walking_to_water';
+    return 'walking_to_snack';
+  }
+  if(agent.id==='scout'){
+    // Scout wanders a lot, checks whiteboard, explores
+    const r=Math.random();
+    if(r<0.3) return 'working';
+    if(r<0.5) return 'walking_to_whiteboard';
+    if(r<0.65) return 'walking_to_water';
+    if(r<0.8) return 'wander';
     return 'walking_to_snack';
   }
   // Jarvis — works, checks whiteboard, water
@@ -395,6 +417,211 @@ function drawServerRack(){
   ctx.textAlign='left';
 }
 
+// === THE DOG ===
+const dog={
+  x:0,y:0, // set after first resize
+  targetX:0,targetY:0,
+  homeX:0,homeY:0, // couch position, set after resize
+  state:'sleeping', // sleeping, wandering, stalking, stealing, running, eating, returning
+  stateTimer:8+Math.random()*15,
+  targetAgent:null,
+  hasFoodEmoji:'',
+  speed:1.8,
+  flipX:false,
+  tailWag:0
+};
+function initDog(){
+  dog.homeX=sx(couch.x+90);dog.homeY=sy(couch.y+45);
+  dog.x=dog.homeX;dog.y=dog.homeY;
+  dog.targetX=dog.homeX;dog.targetY=dog.homeY;
+}
+
+function updateDog(dt){
+  dog.stateTimer-=dt;
+  dog.tailWag+=dt*8;
+
+  const dx=dog.targetX-dog.x;
+  const dy=dog.targetY-dog.y;
+  const dist=Math.sqrt(dx*dx+dy*dy);
+  if(dist>3){
+    const spd=dog.speed*60*dt;
+    dog.x+=dx/dist*Math.min(spd,dist);
+    dog.y+=dy/dist*Math.min(spd,dist);
+    if(dx>0)dog.flipX=false; else if(dx<0)dog.flipX=true;
+  }
+
+  if(dog.stateTimer<=0){
+    switch(dog.state){
+      case 'sleeping':
+        // Wake up and wander OR stalk someone's food
+        if(Math.random()<0.4){
+          dog.state='stalking';
+          dog.targetAgent=agents[Math.floor(Math.random()*agents.length)];
+          dog.stateTimer=20;
+        }else{
+          dog.state='wandering';
+          dog.targetX=sx(100+Math.random()*1000);
+          dog.targetY=sy(400+Math.random()*200);
+          dog.stateTimer=4+Math.random()*5;
+        }
+        break;
+      case 'wandering':
+        if(Math.random()<0.5){
+          dog.state='stalking';
+          dog.targetAgent=agents[Math.floor(Math.random()*agents.length)];
+          dog.stateTimer=20;
+        }else{
+          dog.state='returning';
+          dog.targetX=dog.homeX;dog.targetY=dog.homeY;
+          dog.stateTimer=20;
+        }
+        break;
+      case 'stalking':
+        // Reached the agent — steal their food!
+        dog.state='stealing';
+        dog.stateTimer=1.2;
+        const foods=['🍕','🌮','🍩','🍔','🥪','🍪'];
+        dog.hasFoodEmoji=foods[Math.floor(Math.random()*foods.length)];
+        // Alert particles
+        if(dog.targetAgent){
+          for(let i=0;i<3;i++) particles.push({x:dog.targetAgent.x,y:dog.targetAgent.y-sy(50),vx:(Math.random()-.5)*30,vy:-20-Math.random()*20,life:.8,maxLife:.8,color:'#ef4444',size:4,type:'bump'});
+        }
+        break;
+      case 'stealing':
+        // Run away with food!
+        dog.state='running';
+        dog.speed=3.0;
+        dog.targetX=dog.homeX;dog.targetY=dog.homeY;
+        dog.stateTimer=20;
+        break;
+      case 'running':
+        dog.state='eating';
+        dog.speed=1.8;
+        dog.stateTimer=2+Math.random()*2;
+        break;
+      case 'eating':
+        dog.hasFoodEmoji='';
+        dog.state='sleeping';
+        dog.stateTimer=10+Math.random()*20;
+        break;
+      case 'returning':
+        dog.state='sleeping';
+        dog.stateTimer=8+Math.random()*15;
+        break;
+    }
+  }
+
+  // While stalking, follow the target agent
+  if(dog.state==='stalking'&&dog.targetAgent){
+    dog.targetX=dog.targetAgent.x+sy(20);
+    dog.targetY=dog.targetAgent.y+sy(5);
+  }
+}
+
+function drawDog(){
+  const bob=Math.sin(dog.tailWag)*2;
+  const isMoving=Math.abs(dog.x-dog.targetX)>3||Math.abs(dog.y-dog.targetY)>3;
+  const legKick=isMoving?Math.sin(dog.tailWag*2)*5:0;
+  const s=dog.flipX?-1:1;
+
+  ctx.save();
+  ctx.translate(dog.x,dog.y);
+  ctx.scale(s,1);
+
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,.2)';
+  ctx.beginPath();
+  ctx.ellipse(0,sy(4),sy(14),sy(4),0,0,Math.PI*2);
+  ctx.fill();
+
+  // Body
+  ctx.fillStyle='#8B6914';
+  ctx.beginPath();
+  ctx.ellipse(0,-sy(2)+bob,sy(14),sy(8),0,0,Math.PI*2);
+  ctx.fill();
+
+  // Head
+  ctx.fillStyle='#A07818';
+  ctx.beginPath();
+  ctx.arc(sy(12),-sy(6)+bob,sy(7),0,Math.PI*2);
+  ctx.fill();
+
+  // Ear
+  ctx.fillStyle='#6B4E10';
+  ctx.beginPath();
+  ctx.ellipse(sy(16),-sy(12)+bob,sy(4),sy(5),0.3,0,Math.PI*2);
+  ctx.fill();
+
+  // Eye
+  ctx.fillStyle='#111';
+  ctx.beginPath();
+  ctx.arc(sy(15),-sy(7)+bob,sy(1.5),0,Math.PI*2);
+  ctx.fill();
+
+  // Nose
+  ctx.fillStyle='#222';
+  ctx.beginPath();
+  ctx.arc(sy(18),-sy(5)+bob,sy(1.2),0,Math.PI*2);
+  ctx.fill();
+
+  // Tail (wagging)
+  const tailAngle=Math.sin(dog.tailWag*3)*0.5;
+  ctx.strokeStyle='#8B6914';
+  ctx.lineWidth=sy(3);
+  ctx.beginPath();
+  ctx.moveTo(-sy(12),-sy(2)+bob);
+  ctx.quadraticCurveTo(-sy(18),-sy(14)+bob+Math.sin(dog.tailWag*4)*sy(5),-sy(20),-sy(10)+bob);
+  ctx.stroke();
+
+  // Legs
+  ctx.strokeStyle='#7A5C12';
+  ctx.lineWidth=sy(2.5);
+  ctx.beginPath();ctx.moveTo(-sy(6),sy(4));ctx.lineTo(-sy(6)+legKick,sy(10));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(sy(6),sy(4));ctx.lineTo(sy(6)-legKick,sy(10));ctx.stroke();
+
+  ctx.restore();
+
+  // State effects
+  if(dog.state==='sleeping'){
+    const zOff=Math.sin(Date.now()/800)*4;
+    ctx.fillStyle='#505a6e';
+    ctx.font=`${sy(8)}px sans-serif`;
+    ctx.fillText('z',dog.x+sy(14),dog.y-sy(14)+zOff);
+    ctx.font=`${sy(11)}px sans-serif`;
+    ctx.fillText('z',dog.x+sy(20),dog.y-sy(20)+zOff*1.2);
+    ctx.font=`${sy(14)}px sans-serif`;
+    ctx.fillText('Z',dog.x+sy(27),dog.y-sy(26)+zOff*1.5);
+  }
+  if(dog.hasFoodEmoji){
+    ctx.font=`${sy(14)}px serif`;
+    ctx.fillText(dog.hasFoodEmoji,dog.x+(dog.flipX?-sy(22):sy(16)),dog.y-sy(8));
+  }
+  if(dog.state==='stealing'){
+    ctx.fillStyle='#ef4444';
+    ctx.font=`bold ${sy(10)}px sans-serif`;
+    ctx.textAlign='center';
+    ctx.fillText('YOINK!',dog.x,dog.y-sy(22));
+    ctx.textAlign='left';
+  }
+  if(dog.state==='eating'){
+    ctx.font=`${sy(10)}px serif`;
+    ctx.fillText('😋',dog.x+sy(14),dog.y-sy(12));
+    // Crumb particles
+    if(Math.random()<0.2) particles.push({x:dog.x+(-5+Math.random()*10),y:dog.y-sy(4),vx:(Math.random()-.5)*15,vy:-5-Math.random()*10,life:.5,maxLife:.5,color:'#d4a843',size:2,type:'bump'});
+  }
+  if(dog.state==='stalking'){
+    ctx.font=`${sy(10)}px serif`;
+    ctx.fillText('👀',dog.x+(dog.flipX?sy(10):-sy(18)),dog.y-sy(18));
+  }
+
+  // Name tag
+  ctx.fillStyle='#8B6914';
+  ctx.font=`bold ${sy(7)}px 'Segoe UI',sans-serif`;
+  ctx.textAlign='center';
+  ctx.fillText('Lil Dude 🐕',dog.x,dog.y+sy(16));
+  ctx.textAlign='left';
+}
+
 function drawCouch(){
   const x=sx(couch.x),y=sy(couch.y),w=sx(couch.w),h=sy(couch.h);
   ctx.fillStyle='#2a1a1a';
@@ -406,18 +633,6 @@ function drawCouch(){
   ctx.fillRect(x+sx(10),y+sy(10),sx(50),sy(40));
   ctx.fillRect(x+sx(70),y+sy(10),sx(50),sy(40));
   ctx.fillRect(x+sx(130),y+sy(10),sx(40),sy(40));
-  // Dog sleeping on couch!
-  ctx.font=`${sy(22)}px serif`;
-  ctx.fillText('🐕',x+sx(85),y+sy(42));
-  // Zzz
-  const zOff=Math.sin(Date.now()/800)*5;
-  ctx.fillStyle='#505a6e';
-  ctx.font=`${sy(10)}px sans-serif`;
-  ctx.fillText('z',x+sx(110),y+sy(8)+zOff);
-  ctx.font=`${sy(13)}px sans-serif`;
-  ctx.fillText('z',x+sx(120),y-sy(2)+zOff*1.2);
-  ctx.font=`${sy(16)}px sans-serif`;
-  ctx.fillText('Z',x+sx(132),y-sy(12)+zOff*1.5);
   // Label
   ctx.fillStyle='#505a6e';
   ctx.font=`${sy(8)}px 'Segoe UI',sans-serif`;
@@ -548,7 +763,7 @@ canvas.addEventListener('mousemove',e=>{
 // Load tasks from tasks.json and update agents
 function loadTasks(){
   fetch('tasks.json?_='+Date.now()).then(r=>r.json()).then(tasks=>{
-    const agentMap={Jarvis:'jarvis',Mule:'mule',Forge:'forge'};
+    const agentMap={Jarvis:'jarvis',Mule:'mule',Forge:'forge',Scout:'scout'};
     for(const a of agents){
       const myTasks=tasks.filter(t=>agentMap[t.agent]===a.id);
       const inProgress=myTasks.filter(t=>t.status==='in-progress');
@@ -578,12 +793,13 @@ function loadTasks(){
   }).catch(()=>{
     // If fetch fails, show defaults instead of "Loading..."
     for(const a of agents){
-      if(a.task==='Loading...') a.task=a.id==='jarvis'?'Managing operations':a.id==='mule'?'Awaiting assignment':'Ready to build';
+      if(a.task==='Loading...') a.task=a.id==='jarvis'?'Managing operations':a.id==='mule'?'Awaiting assignment':a.id==='forge'?'Ready to build':'Scanning the horizon';
     }
   });
 }
 loadTasks();
 setInterval(loadTasks,30000); // refresh every 30s
+initDog();
 
 // Main loop
 let lastTime=performance.now();
@@ -602,6 +818,7 @@ function frame(now){
 
   // Update & draw agents
   agents.forEach(a=>{updateAgent(a,dt);drawAgent(a)});
+  updateDog(dt);drawDog();
   updateParticles(dt);
 
   // Days counter in corner
@@ -609,7 +826,7 @@ function frame(now){
   ctx.fillStyle='#d4a843';
   ctx.font=`bold ${sy(11)}px 'Segoe UI',sans-serif`;
   ctx.textAlign='right';
-  ctx.fillText(`Day ${days} · Agents: 3 · Scripts: stockpiling`,W-sx(20),H-sy(15));
+  ctx.fillText(`Day ${days} · Agents: 4 · Scripts: stockpiling`,W-sx(20),H-sy(15));
   ctx.textAlign='left';
 
   requestAnimationFrame(frame);
