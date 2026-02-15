@@ -95,7 +95,7 @@ const agents=[
     x:220,y:320,targetX:220,targetY:320,
     homeX:220,homeY:320,
     desk:0,status:'Working',
-    task:'Managing agents & writing scripts',
+    task:'Managing operations',
     speed:1.2,
     state:'working',stateTimer:0,
     bobOffset:0
@@ -106,7 +106,7 @@ const agents=[
     x:600,y:320,targetX:600,targetY:320,
     homeX:600,homeY:320,
     desk:1,status:'Standby',
-    task:'Awaiting assignment...',
+    task:'Awaiting assignment',
     speed:0.8,
     state:'idle',stateTimer:0,
     bobOffset:Math.PI/3
@@ -117,7 +117,7 @@ const agents=[
     x:980,y:320,targetX:980,targetY:320,
     homeX:980,homeY:320,
     desk:2,status:'Building',
-    task:'Image optimizer CLI (Task 1/9)',
+    task:'Ready to build',
     speed:1.0,
     state:'working',stateTimer:0,
     bobOffset:Math.PI*2/3
@@ -538,11 +538,52 @@ canvas.addEventListener('mousemove',e=>{
     tooltip.style.top=(e.clientY-10)+'px';
     tooltip.querySelector('.tt-name').textContent=hoveredAgent.name;
     tooltip.querySelector('.tt-task').textContent=hoveredAgent.task;
-    tooltip.querySelector('.tt-status').textContent='Status: '+hoveredAgent.state.replace(/_/g,' ');
+    const stats=hoveredAgent.completed!==undefined?` | ✅${hoveredAgent.completed} 🔄${hoveredAgent.inProgress} ⏳${hoveredAgent.queued}`:'';
+    tooltip.querySelector('.tt-status').textContent='Status: '+hoveredAgent.status+stats;
   }else{
     tooltip.style.opacity='0';
   }
 });
+
+// Load tasks from tasks.json and update agents
+function loadTasks(){
+  fetch('tasks.json?_='+Date.now()).then(r=>r.json()).then(tasks=>{
+    const agentMap={Jarvis:'jarvis',Mule:'mule',Forge:'forge'};
+    for(const a of agents){
+      const myTasks=tasks.filter(t=>agentMap[t.agent]===a.id);
+      const inProgress=myTasks.filter(t=>t.status==='in-progress');
+      const queued=myTasks.filter(t=>t.status==='queued');
+      const completed=myTasks.filter(t=>t.status==='completed');
+      if(inProgress.length>0){
+        a.task=inProgress[0].task;
+        a.status='Working';
+        a.state=a.state==='idle'?'working':a.state;
+      }else if(queued.length>0){
+        a.task='Next: '+queued[0].task;
+        a.status='Queued';
+        a.state='working';
+      }else if(completed.length>0){
+        a.task='Done: '+completed[completed.length-1].task;
+        a.status='Idle';
+      }else{
+        a.task='Awaiting assignment...';
+        a.status='Idle';
+        a.state='idle';
+      }
+      // Update tooltip stats
+      a.completed=completed.length;
+      a.inProgress=inProgress.length;
+      a.queued=queued.length;
+    }
+  }).catch(()=>{
+    // If fetch fails, show defaults instead of "Loading..."
+    for(const a of agents){
+      if(a.task==='Loading...') a.task=a.id==='jarvis'?'Managing operations':a.id==='mule'?'Awaiting assignment':'Ready to build';
+    }
+  });
+}
+loadTasks();
+setInterval(loadTasks,30000); // refresh every 30s
 
 // Main loop
 let lastTime=performance.now();
