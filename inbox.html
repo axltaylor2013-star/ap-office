@@ -1,0 +1,247 @@
+<!-- Tab: Inbox | Link from hub.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inbox — Kermicle Media</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0b0e14;--card:#1a1a2e;--border:#252540;--gold:#d4a843;--gold-dim:rgba(212,168,67,.15);--text:#e8ecf1;--dim:#8892a4;--hover:#222244;--green:#22c55e;--red:#ef4444;--blue:#3b82f6}
+html,body{min-height:100vh;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+
+.container{max-width:860px;margin:0 auto;padding:24px 16px 60px}
+
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.header h1{font-size:1.4rem;font-weight:700;color:var(--gold);display:flex;align-items:center;gap:10px}
+.mark-all{background:none;border:1px solid var(--border);color:var(--dim);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.8rem;transition:all .2s}
+.mark-all:hover{border-color:var(--gold);color:var(--gold)}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.stat-value{font-size:1.5rem;font-weight:700;color:var(--gold)}
+.stat-label{font-size:.7rem;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+
+/* Filter tabs */
+.tabs{display:flex;gap:6px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.tab{background:none;border:1px solid var(--border);color:var(--dim);padding:7px 16px;border-radius:20px;cursor:pointer;font-size:.8rem;white-space:nowrap;transition:all .2s}
+.tab:hover{border-color:var(--gold);color:var(--text)}
+.tab.active{background:var(--gold-dim);border-color:var(--gold);color:var(--gold);font-weight:600}
+.tab .count{background:var(--gold-dim);color:var(--gold);border-radius:10px;padding:1px 7px;font-size:.7rem;margin-left:6px}
+
+/* Feed */
+.feed{display:flex;flex-direction:column;gap:2px}
+.group-label{font-size:.7rem;color:var(--dim);text-transform:uppercase;letter-spacing:1.5px;padding:16px 0 8px;font-weight:600}
+
+/* Notification card */
+.notif{display:flex;align-items:flex-start;gap:14px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;transition:all .2s;position:relative;cursor:default}
+.notif:hover{border-color:#333355;background:var(--hover)}
+.notif.unread{border-left:3px solid var(--gold)}
+.notif.dismissed{opacity:0;max-height:0;padding:0;margin:0;border:none;overflow:hidden;transition:all .3s}
+
+.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:6px;opacity:0;transition:opacity .2s}
+.notif.unread .notif-dot{opacity:1}
+
+.notif-icon{font-size:1.4rem;flex-shrink:0;width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:var(--gold-dim);border-radius:8px}
+
+.notif-body{flex:1;min-width:0}
+.notif-title{font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.notif-desc{font-size:.8rem;color:var(--dim);line-height:1.5}
+.notif-meta{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+
+.badge{font-size:.65rem;padding:3px 10px;border-radius:12px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.badge-jarvis{background:rgba(59,130,246,.15);color:#60a5fa}
+.badge-mule{background:rgba(168,85,247,.15);color:#c084fc}
+.badge-forge{background:rgba(249,115,22,.15);color:#fb923c}
+.badge-revenue{background:rgba(34,197,94,.15);color:#4ade80}
+.badge-outreach{background:rgba(236,72,153,.15);color:#f472b6}
+.badge-leads{background:rgba(6,182,212,.15);color:#22d3ee}
+.badge-system{background:rgba(148,163,184,.15);color:#94a3b8}
+
+.time{font-size:.7rem;color:var(--dim)}
+
+.notif-actions{display:flex;gap:6px;margin-top:8px}
+.notif-actions button{background:none;border:1px solid var(--border);color:var(--dim);padding:4px 12px;border-radius:6px;cursor:pointer;font-size:.72rem;transition:all .2s}
+.notif-actions button:hover{border-color:var(--gold);color:var(--gold)}
+.notif-actions .btn-dismiss{border-color:transparent}
+.notif-actions .btn-dismiss:hover{color:var(--red);border-color:rgba(239,68,68,.3)}
+
+/* Grouped */
+.notif-group-count{font-size:.75rem;color:var(--gold);font-weight:600;margin-left:4px}
+
+/* Empty state */
+.empty{text-align:center;padding:60px 20px;color:var(--dim)}
+.empty-icon{font-size:2.5rem;margin-bottom:12px}
+.empty-text{font-size:.9rem}
+
+/* Responsive */
+@media(max-width:600px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .header h1{font-size:1.15rem}
+  .notif{padding:12px}
+  .notif-icon{width:30px;height:30px;font-size:1.1rem}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>📬 Inbox</h1>
+    <button class="mark-all" onclick="markAllRead()">✓ Mark all read</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="feed" id="feed"></div>
+</div>
+
+<script>
+const AGENTS={
+  jarvis:{icon:'🤖',label:'Jarvis',badge:'badge-jarvis'},
+  mule:{icon:'🫏',label:'Mule',badge:'badge-mule'},
+  forge:{icon:'🔨',label:'Forge',badge:'badge-forge'},
+  revenue:{icon:'💰',label:'Revenue',badge:'badge-revenue'},
+  outreach:{icon:'📧',label:'Outreach',badge:'badge-outreach'},
+  leads:{icon:'🎯',label:'Leads',badge:'badge-leads'},
+  system:{icon:'⏰',label:'System',badge:'badge-system'}
+};
+
+const FILTERS=['all','jarvis','mule','forge','revenue','leads','system'];
+let notifications=[];
+let activeFilter='all';
+
+async function load(){
+  try{
+    const r=await fetch('inbox.json?_='+Date.now());
+    notifications=await r.json();
+  }catch(e){notifications=[]}
+  render();
+}
+
+function relativeTime(ts){
+  const d=new Date(ts),now=new Date(),diff=(now-d)/1000;
+  if(diff<60)return 'Just now';
+  if(diff<3600)return Math.floor(diff/60)+' min ago';
+  if(diff<86400)return Math.floor(diff/3600)+' hours ago';
+  if(diff<172800)return 'Yesterday';
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+
+function groupNotifications(list){
+  // Group same agent events within 5 min
+  const groups=[];
+  let i=0;
+  while(i<list.length){
+    const curr=list[i];
+    const cluster=[curr];
+    let j=i+1;
+    while(j<list.length){
+      const next=list[j];
+      if(next.agent===curr.agent && Math.abs(new Date(curr.timestamp)-new Date(next.timestamp))<300000){
+        cluster.push(next);j++;
+      }else break;
+    }
+    groups.push(cluster);
+    i=j;
+  }
+  return groups;
+}
+
+function render(){
+  const now=new Date();
+  const todayStr=now.toDateString();
+  const filtered=activeFilter==='all'?notifications:notifications.filter(n=>{
+    if(activeFilter==='leads')return n.agent==='leads';
+    if(activeFilter==='system')return['system','outreach'].includes(n.agent)&&['reminder','email'].includes(n.type);
+    return n.agent===activeFilter;
+  });
+
+  // Stats
+  const unread=notifications.filter(n=>!n.read).length;
+  const todayCount=notifications.filter(n=>new Date(n.timestamp).toDateString()===todayStr).length;
+  const agentCounts={};
+  notifications.filter(n=>new Date(n.timestamp).toDateString()===todayStr).forEach(n=>{agentCounts[n.agent]=(agentCounts[n.agent]||0)+1});
+  const topAgent=Object.entries(agentCounts).sort((a,b)=>b[1]-a[1])[0];
+  const lastTs=notifications.length?relativeTime(notifications[0].timestamp):'—';
+
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="stat-value">${unread}</div><div class="stat-label">Unread</div></div>
+    <div class="stat"><div class="stat-value">${todayCount}</div><div class="stat-label">Today</div></div>
+    <div class="stat"><div class="stat-value">${topAgent?AGENTS[topAgent[0]]?.icon||'—':'—'}</div><div class="stat-label">Most Active</div></div>
+    <div class="stat"><div class="stat-value" style="font-size:.85rem">${lastTs}</div><div class="stat-label">Last Activity</div></div>
+  `;
+
+  // Tabs
+  const tabCounts={all:notifications.filter(n=>!n.read).length};
+  FILTERS.forEach(f=>{if(f!=='all')tabCounts[f]=notifications.filter(n=>!n.read&&(f==='system'?['system','outreach'].includes(n.agent):n.agent===f)).length});
+  document.getElementById('tabs').innerHTML=FILTERS.map(f=>{
+    const label=f==='all'?'All':AGENTS[f]?.label||f.charAt(0).toUpperCase()+f.slice(1);
+    const c=tabCounts[f]||0;
+    return `<button class="tab${activeFilter===f?' active':''}" onclick="setFilter('${f}')">${label}${c?'<span class="count">'+c+'</span>':''}</button>`;
+  }).join('');
+
+  // Feed
+  const sorted=[...filtered].sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+  const groups=groupNotifications(sorted);
+
+  if(!groups.length){
+    document.getElementById('feed').innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">All clear — nothing to see here.</div></div>`;
+    return;
+  }
+
+  // Split into today / earlier
+  let html='';
+  let shownToday=false,shownEarlier=false;
+  groups.forEach(cluster=>{
+    const isToday=new Date(cluster[0].timestamp).toDateString()===todayStr;
+    if(isToday&&!shownToday){html+=`<div class="group-label">Today</div>`;shownToday=true}
+    if(!isToday&&!shownEarlier){html+=`<div class="group-label">Earlier</div>`;shownEarlier=true}
+
+    if(cluster.length>1){
+      const a=AGENTS[cluster[0].agent]||{icon:'📌',label:'Agent',badge:'badge-system'};
+      const unreadG=cluster.some(n=>!n.read);
+      const ids=cluster.map(n=>n.id).join(',');
+      html+=`<div class="notif${unreadG?' unread':''}" data-ids="${ids}">
+        <div class="notif-dot"></div>
+        <div class="notif-icon">${a.icon}</div>
+        <div class="notif-body">
+          <div class="notif-title">${a.label} completed ${cluster.length} tasks<span class="badge ${a.badge}">${a.label}</span></div>
+          <div class="notif-desc">${cluster.map(n=>n.title).join(' · ')}</div>
+          <div class="notif-meta"><span class="time">${relativeTime(cluster[0].timestamp)}</span></div>
+          <div class="notif-actions"><button onclick="markGroupRead('${ids}')">Dismiss</button></div>
+        </div>
+      </div>`;
+    }else{
+      const n=cluster[0];
+      const a=AGENTS[n.agent]||{icon:'📌',label:'Agent',badge:'badge-system'};
+      const actions=(n.actions||[]).map(act=>{
+        if(act==='dismiss')return `<button class="btn-dismiss" onclick="dismiss('${n.id}')">Dismiss</button>`;
+        return `<button onclick="markRead('${n.id}')">${act.charAt(0).toUpperCase()+act.slice(1)}</button>`;
+      }).join('');
+      html+=`<div class="notif${n.read?'':' unread'}" id="notif-${n.id}">
+        <div class="notif-dot"></div>
+        <div class="notif-icon">${a.icon}</div>
+        <div class="notif-body">
+          <div class="notif-title">${n.title}<span class="badge ${a.badge}">${a.label}</span></div>
+          <div class="notif-desc">${n.body}</div>
+          <div class="notif-meta"><span class="time">${relativeTime(n.timestamp)}</span></div>
+          ${actions?'<div class="notif-actions">'+actions+'</div>':''}
+        </div>
+      </div>`;
+    }
+  });
+  document.getElementById('feed').innerHTML=html;
+}
+
+function setFilter(f){activeFilter=f;render()}
+function markRead(id){const n=notifications.find(x=>x.id===id);if(n)n.read=true;render()}
+function markGroupRead(ids){ids.split(',').forEach(id=>{const n=notifications.find(x=>x.id===id);if(n)n.read=true});render()}
+function dismiss(id){notifications=notifications.filter(x=>x.id!==id);render()}
+function markAllRead(){notifications.forEach(n=>n.read=true);render()}
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,471 @@
+<!-- Tab: Leads | Link from hub.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kermicle Media — Lead Pipeline</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0b0e14;--bg2:#1a1a2e;--card:#16213e;--card2:#1a2747;--gold:#d4a843;--gold2:#f0c966;--text:#e0e0e0;--dim:#8892a4;--border:#253255;--green:#4ade80;--red:#f87171;--orange:#fbbf24;--radius:10px}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#253255;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--gold)}
+
+/* Header */
+.header{background:linear-gradient(135deg,#0a0d12,#16213e);border-bottom:3px solid var(--gold);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;position:sticky;top:0;z-index:50}
+.header h1{font-size:1.3rem;font-weight:700;color:var(--gold);letter-spacing:.5px;display:flex;align-items:center;gap:10px}
+.header h1 span{color:var(--text);font-weight:300;font-size:1rem}
+.header-actions{display:flex;gap:10px;align-items:center}
+.btn{padding:8px 18px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000}
+.btn-gold:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--dim)}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+
+/* Main grid */
+.main{padding:20px 28px;display:flex;flex-direction:column;gap:20px}
+
+/* KPI Row */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 16px;text-align:center;transition:all .25s;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:0;transition:opacity .3s}
+.kpi:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 8px 24px rgba(212,168,67,.1)}
+.kpi:hover::before{opacity:1}
+.kpi .value{font-size:1.7rem;font-weight:700;color:var(--gold);margin:4px 0}
+.kpi .label{font-size:.65rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim)}
+.kpi .sub{font-size:.7rem;color:var(--dim);margin-top:4px}
+
+/* Two-col layout */
+.split{display:grid;grid-template-columns:1fr 340px;gap:20px}
+.split-full{grid-column:1/-1}
+
+/* Section cards */
+.section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;overflow:hidden}
+.section h2{font-size:.95rem;font-weight:700;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+/* ==================== KANBAN BOARD ==================== */
+.kanban-wrap{overflow-x:auto;padding-bottom:8px}
+.kanban{display:flex;gap:14px;min-height:400px}
+.kanban-col{min-width:220px;max-width:240px;flex:1;display:flex;flex-direction:column;background:rgba(22,33,62,.4);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.kanban-col-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,.15)}
+.kanban-col-header .col-title{font-size:.8rem;font-weight:700;display:flex;align-items:center;gap:6px}
+.kanban-col-header .col-count{background:rgba(212,168,67,.15);color:var(--gold);font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:10px}
+.kanban-col.stage-prospect .col-title{color:#60a5fa}
+.kanban-col.stage-contacted .col-title{color:#a78bfa}
+.kanban-col.stage-responding .col-title{color:#34d399}
+.kanban-col.stage-proposal .col-title{color:var(--orange)}
+.kanban-col.stage-won .col-title{color:var(--green)}
+.kanban-col.stage-lost .col-title{color:var(--red)}
+.kanban-cards{flex:1;padding:10px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-height:60px}
+.kanban-cards.drag-over{background:rgba(212,168,67,.04);border:1px dashed rgba(212,168,67,.3);border-radius:6px;margin:4px}
+
+/* Lead Cards */
+.lead-card{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:14px;cursor:grab;transition:all .25s;position:relative;animation:cardIn .35s ease}
+.lead-card:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.3)}
+.lead-card:active{cursor:grabbing;transform:scale(.97);opacity:.8}
+.lead-card.high-value{border-left:3px solid var(--gold);background:linear-gradient(135deg,var(--card2),rgba(212,168,67,.06))}
+.lead-card.high-value::after{content:'⭐';position:absolute;top:8px;right:10px;font-size:.7rem}
+.lead-card .lc-biz{font-weight:700;font-size:.85rem;margin-bottom:4px;color:var(--text);padding-right:20px}
+.lead-card .lc-contact{font-size:.72rem;color:var(--dim);margin-bottom:6px}
+.lead-card .lc-service{font-size:.7rem;color:#a78bfa;background:rgba(167,139,250,.1);padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:6px}
+.lead-card .lc-bottom{display:flex;justify-content:space-between;align-items:center}
+.lead-card .lc-value{font-weight:700;font-size:.8rem;color:var(--gold)}
+.lead-card .lc-days{font-size:.65rem;color:var(--dim)}
+.lead-card .lc-alert{color:var(--orange);font-size:.7rem;margin-top:4px;animation:alertPulse 2s infinite}
+.lead-card .lc-move{display:flex;gap:4px;margin-top:8px;opacity:0;transition:opacity .2s}
+.lead-card:hover .lc-move{opacity:1}
+.lc-move button{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--dim);font-size:.65rem;padding:3px 8px;border-radius:4px;cursor:pointer;transition:all .2s}
+.lc-move button:hover{background:var(--gold);color:#000;border-color:var(--gold)}
+
+@keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes alertPulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* Quick Add Form */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-grid.three{grid-template-columns:1fr 1fr 1fr}
+.form-full{grid-column:1/-1}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--dim);font-weight:600}
+.form-group input,.form-group select,.form-group textarea{background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:.82rem;font-family:inherit;transition:border-color .2s;outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(212,168,67,.1)}
+.form-group textarea{resize:vertical;min-height:50px}
+.form-group select{cursor:pointer}
+.form-actions{display:flex;gap:10px;margin-top:6px}
+
+/* Donut Chart */
+.donut-wrap{display:flex;align-items:center;gap:20px;justify-content:center;flex-wrap:wrap}
+.donut-chart{position:relative;width:160px;height:160px}
+.donut-chart canvas{width:100%;height:100%}
+.donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut-center .dc-val{font-size:1.4rem;font-weight:700;color:var(--gold)}
+.donut-center .dc-label{font-size:.6rem;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+.donut-legend{display:flex;flex-direction:column;gap:6px}
+.donut-legend-item{display:flex;align-items:center;gap:8px;font-size:.75rem;color:var(--dim)}
+.donut-legend-item .dl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.donut-legend-item .dl-val{margin-left:auto;font-weight:600;color:var(--text);min-width:20px;text-align:right}
+
+/* Activity Timeline */
+.timeline{display:flex;flex-direction:column;gap:0;max-height:360px;overflow-y:auto}
+.tl-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(37,50,85,.4);align-items:flex-start;animation:cardIn .3s ease}
+.tl-item:last-child{border-bottom:none}
+.tl-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);margin-top:5px;flex-shrink:0}
+.tl-content{flex:1}
+.tl-text{font-size:.78rem;color:var(--text);line-height:1.4}
+.tl-time{font-size:.65rem;color:var(--dim);margin-top:2px}
+
+/* Follow-up Alerts */
+.alerts{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto}
+.alert-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.15);border-radius:8px;font-size:.78rem;transition:all .2s}
+.alert-item:hover{border-color:var(--orange);background:rgba(251,191,36,.08)}
+.alert-icon{font-size:1.1rem;flex-shrink:0}
+.alert-text{flex:1}
+.alert-text strong{color:var(--orange)}
+.alert-days{color:var(--orange);font-weight:700;font-size:.75rem;white-space:nowrap}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;width:90%;max-width:600px;max-height:85vh;overflow-y:auto;animation:modalIn .25s ease}
+.modal h2{color:var(--gold);margin-bottom:16px;font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.modal-close{position:absolute;top:16px;right:20px;background:none;border:none;color:var(--dim);font-size:1.2rem;cursor:pointer}
+@keyframes modalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+
+/* Responsive */
+@media(max-width:1200px){.kpi-row{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){
+  .split{grid-template-columns:1fr}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .main{padding:16px}
+  .header{padding:16px}
+}
+@media(max-width:600px){
+  .kpi-row{grid-template-columns:1fr}
+  .form-grid,.form-grid.three{grid-template-columns:1fr}
+  .kanban-col{min-width:180px}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔥 Lead Pipeline <span>— Kermicle Media</span></h1>
+  <div class="header-actions">
+    <button class="btn btn-outline" onclick="toggleForm()">➕ Quick Add</button>
+    <button class="btn btn-gold" onclick="exportData()">📤 Export</button>
+  </div>
+</div>
+
+<!-- Quick Add Form (collapsible) -->
+<div id="addFormWrap" style="display:none;padding:0 28px">
+  <div class="section" style="margin-top:16px;border-color:var(--gold)">
+    <h2>➕ Add New Lead</h2>
+    <form id="addForm" onsubmit="return addLead(event)">
+      <div class="form-grid three">
+        <div class="form-group">
+          <label>Business Name *</label>
+          <input type="text" id="f-biz" required placeholder="Acme Corp">
+        </div>
+        <div class="form-group">
+          <label>Contact Name *</label>
+          <input type="text" id="f-contact" required placeholder="John Doe">
+        </div>
+        <div class="form-group">
+          <label>Email / Phone</label>
+          <input type="text" id="f-email" placeholder="john@acme.com">
+        </div>
+      </div>
+      <div class="form-grid three" style="margin-top:10px">
+        <div class="form-group">
+          <label>Platform Found On</label>
+          <select id="f-platform">
+            <option value="Instagram">Instagram</option>
+            <option value="Google">Google</option>
+            <option value="Referral">Referral</option>
+            <option value="Cold Outreach">Cold Outreach</option>
+            <option value="Walk-in">Walk-in</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Service Interested In</label>
+          <select id="f-service">
+            <option value="Social Media Management">Social Media Management</option>
+            <option value="Website Design">Website Design</option>
+            <option value="Content Creation">Content Creation</option>
+            <option value="Brand Identity">Brand Identity</option>
+            <option value="Full Marketing Package">Full Marketing Package</option>
+            <option value="SEO">SEO</option>
+            <option value="Paid Ads">Paid Ads</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Estimated Value ($)</label>
+          <input type="number" id="f-value" placeholder="2000" min="0">
+        </div>
+      </div>
+      <div class="form-grid" style="margin-top:10px">
+        <div class="form-group form-full">
+          <label>Notes</label>
+          <textarea id="f-notes" placeholder="Any additional details..."></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-gold">🚀 Add Lead</button>
+        <button type="button" class="btn btn-outline" onclick="toggleForm()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpis"></div>
+
+  <!-- Kanban Board -->
+  <div class="section">
+    <h2>📊 Pipeline Board</h2>
+    <div class="kanban-wrap">
+      <div class="kanban" id="kanban"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Split -->
+  <div class="split">
+    <!-- Left: Source Chart + Alerts -->
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="section">
+        <h2>📍 Lead Sources</h2>
+        <div class="donut-wrap">
+          <div class="donut-chart"><canvas id="donutCanvas" width="160" height="160"></canvas><div class="donut-center"><span class="dc-val" id="donutTotal">0</span><span class="dc-label">Total Leads</span></div></div>
+          <div class="donut-legend" id="donutLegend"></div>
+        </div>
+      </div>
+      <div class="section">
+        <h2>⚠️ Follow-up Alerts</h2>
+        <div class="alerts" id="alerts"></div>
+      </div>
+    </div>
+    <!-- Right: Activity Timeline -->
+    <div class="section">
+      <h2>🕐 Activity Timeline</h2>
+      <div class="timeline" id="timeline"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ STATE ============
+const STAGES=[
+  {id:'prospect',label:'🔍 Prospect',color:'#60a5fa'},
+  {id:'contacted',label:'📧 Contacted',color:'#a78bfa'},
+  {id:'responding',label:'💬 Responding',color:'#34d399'},
+  {id:'proposal',label:'📋 Proposal Sent',color:'#fbbf24'},
+  {id:'won',label:'✅ Closed Won',color:'#4ade80'},
+  {id:'lost',label:'❌ Lost',color:'#f87171'}
+];
+const SOURCE_COLORS={Instagram:'#e1306c',Google:'#4285f4',Referral:'#34d399','Cold Outreach':'#a78bfa','Walk-in':'#fbbf24',Other:'#8892a4'};
+let DATA={leads:[]};
+
+// ============ LOAD/SAVE ============
+async function loadData(){
+  try{
+    const r=await fetch('leads.json');
+    if(r.ok) DATA=await r.json();
+    else throw 0;
+  }catch(e){
+    const s=localStorage.getItem('kermicle-leads');
+    if(s) DATA=JSON.parse(s);
+  }
+  saveLocal();
+  render();
+}
+function saveLocal(){localStorage.setItem('kermicle-leads',JSON.stringify(DATA))}
+function saveData(){saveLocal()}
+
+// ============ RENDER ALL ============
+function render(){renderKPIs();renderKanban();renderDonut();renderTimeline();renderAlerts()}
+
+// ============ KPIs ============
+function renderKPIs(){
+  const leads=DATA.leads;
+  const active=leads.filter(l=>!['won','lost'].includes(l.stage));
+  const won=leads.filter(l=>l.stage==='won');
+  const lost=leads.filter(l=>l.stage==='lost');
+  const totalClosed=won.length+lost.length;
+  const convRate=totalClosed?Math.round(won.length/totalClosed*100):0;
+  const pipeVal=active.reduce((s,l)=>s+(l.value||0),0);
+  const avgDeal=won.length?Math.round(won.reduce((s,l)=>s+(l.value||0),0)/won.length):0;
+  const now=new Date();
+  const weekAgo=new Date(now);weekAgo.setDate(weekAgo.getDate()-7);
+  const thisWeek=leads.filter(l=>new Date(l.createdAt)>=weekAgo).length;
+
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi"><div class="label">Active Leads</div><div class="value">${active.length}</div><div class="sub">${leads.length} total</div></div>
+    <div class="kpi"><div class="label">Pipeline Value</div><div class="value">$${pipeVal.toLocaleString()}</div><div class="sub">active prospects</div></div>
+    <div class="kpi"><div class="label">Conversion Rate</div><div class="value">${convRate}%</div><div class="sub">${won.length}W / ${lost.length}L</div></div>
+    <div class="kpi"><div class="label">Avg Deal Size</div><div class="value">$${avgDeal.toLocaleString()}</div><div class="sub">${won.length} closed won</div></div>
+    <div class="kpi"><div class="label">Added This Week</div><div class="value">${thisWeek}</div><div class="sub">last 7 days</div></div>
+  `;
+}
+
+// ============ KANBAN ============
+function renderKanban(){
+  const el=document.getElementById('kanban');
+  el.innerHTML=STAGES.map(s=>{
+    const cards=DATA.leads.filter(l=>l.stage===s.id);
+    return`<div class="kanban-col stage-${s.id}" data-stage="${s.id}">
+      <div class="kanban-col-header"><span class="col-title">${s.label}</span><span class="col-count">${cards.length}</span></div>
+      <div class="kanban-cards" data-stage="${s.id}" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropCard(event,this)">${cards.map(c=>cardHTML(c,s.id)).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function cardHTML(c,stage){
+  const isHigh=(c.value||0)>=3000;
+  const days=Math.floor((Date.now()-new Date(c.lastTouched).getTime())/(86400000));
+  const staleAlert=days>=3&&!['won','lost'].includes(stage)?`<div class="lc-alert">⚠️ No contact in ${days}d</div>`:'';
+  const si=STAGES.findIndex(s=>s.id===stage);
+  const prevStage=si>0?STAGES[si-1].id:null;
+  const nextStage=si<STAGES.length-1?STAGES[si+1].id:null;
+  return`<div class="lead-card${isHigh?' high-value':''}" draggable="true" ondragstart="dragCard(event,'${c.id}')">
+    <div class="lc-biz">${esc(c.business)}</div>
+    <div class="lc-contact">${esc(c.contact)}</div>
+    <div class="lc-service">${esc(c.service||'—')}</div>
+    <div class="lc-bottom"><span class="lc-value">$${(c.value||0).toLocaleString()}</span><span class="lc-days">${days}d in stage</span></div>
+    ${staleAlert}
+    <div class="lc-move">
+      ${prevStage?`<button onclick="moveLead('${c.id}','${prevStage}')">◀ Back</button>`:''}
+      ${nextStage?`<button onclick="moveLead('${c.id}','${nextStage}')">Next ▶</button>`:''}
+    </div>
+  </div>`;
+}
+
+function dragCard(e,id){e.dataTransfer.setData('text/plain',id)}
+function dropCard(e,el){
+  e.preventDefault();el.classList.remove('drag-over');
+  const id=e.dataTransfer.getData('text/plain');
+  const stage=el.dataset.stage;
+  moveLead(id,stage);
+}
+function moveLead(id,newStage){
+  const lead=DATA.leads.find(l=>l.id===id);
+  if(!lead||lead.stage===newStage) return;
+  const oldStage=lead.stage;
+  lead.stage=newStage;
+  lead.lastTouched=new Date().toISOString();
+  const stageLabel=STAGES.find(s=>s.id===newStage)?.label||newStage;
+  lead.history=lead.history||[];
+  lead.history.push({action:`Moved ${lead.business} to ${stageLabel}`,date:new Date().toISOString()});
+  saveData();render();
+}
+
+// ============ DONUT CHART ============
+function renderDonut(){
+  const counts={};
+  DATA.leads.forEach(l=>{const s=l.source||l.platform||'Other';counts[s]=(counts[s]||0)+1});
+  const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const total=DATA.leads.length;
+  document.getElementById('donutTotal').textContent=total;
+
+  // Draw donut on canvas
+  const canvas=document.getElementById('donutCanvas');
+  const ctx=canvas.getContext('2d');
+  const cx=80,cy=80,R=70,r=45;
+  ctx.clearRect(0,0,160,160);
+  if(!total){ctx.fillStyle='#253255';ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.arc(cx,cy,r,0,Math.PI*2,true);ctx.fill();return}
+  let angle=-Math.PI/2;
+  entries.forEach(([src,cnt])=>{
+    const slice=cnt/total*Math.PI*2;
+    ctx.fillStyle=SOURCE_COLORS[src]||'#8892a4';
+    ctx.beginPath();ctx.moveTo(cx+R*Math.cos(angle),cy+R*Math.sin(angle));
+    ctx.arc(cx,cy,R,angle,angle+slice);
+    ctx.lineTo(cx+r*Math.cos(angle+slice),cy+r*Math.sin(angle+slice));
+    ctx.arc(cx,cy,r,angle+slice,angle,true);ctx.closePath();ctx.fill();
+    angle+=slice;
+  });
+
+  document.getElementById('donutLegend').innerHTML=entries.map(([src,cnt])=>`
+    <div class="donut-legend-item"><span class="dl-dot" style="background:${SOURCE_COLORS[src]||'#8892a4'}"></span>${src}<span class="dl-val">${cnt}</span></div>
+  `).join('');
+}
+
+// ============ TIMELINE ============
+function renderTimeline(){
+  const all=[];
+  DATA.leads.forEach(l=>(l.history||[]).forEach(h=>all.push({...h,biz:l.business})));
+  all.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const el=document.getElementById('timeline');
+  if(!all.length){el.innerHTML='<div style="color:var(--dim);text-align:center;padding:30px">No activity yet</div>';return}
+  el.innerHTML=all.slice(0,30).map(a=>`
+    <div class="tl-item"><div class="tl-dot"></div><div class="tl-content"><div class="tl-text">${esc(a.action)}</div><div class="tl-time">${timeAgo(a.date)}</div></div></div>
+  `).join('');
+}
+
+// ============ ALERTS ============
+function renderAlerts(){
+  const stale=DATA.leads.filter(l=>{
+    if(['won','lost'].includes(l.stage)) return false;
+    const days=(Date.now()-new Date(l.lastTouched).getTime())/(86400000);
+    return days>=3;
+  }).map(l=>({...l,daysSince:Math.floor((Date.now()-new Date(l.lastTouched).getTime())/(86400000))}))
+    .sort((a,b)=>b.daysSince-a.daysSince);
+
+  const el=document.getElementById('alerts');
+  if(!stale.length){el.innerHTML='<div style="color:var(--dim);text-align:center;padding:20px">✅ All leads are up to date!</div>';return}
+  el.innerHTML=stale.map(l=>`
+    <div class="alert-item"><span class="alert-icon">⚠️</span><div class="alert-text"><strong>${esc(l.business)}</strong> — ${esc(l.contact)} (${STAGES.find(s=>s.id===l.stage)?.label||l.stage})</div><span class="alert-days">${l.daysSince}d ago</span></div>
+  `).join('');
+}
+
+// ============ ADD LEAD ============
+function toggleForm(){const w=document.getElementById('addFormWrap');w.style.display=w.style.display==='none'?'block':'none'}
+function addLead(e){
+  e.preventDefault();
+  const lead={
+    id:'lead-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+    business:document.getElementById('f-biz').value.trim(),
+    contact:document.getElementById('f-contact').value.trim(),
+    email:document.getElementById('f-email').value.trim(),
+    phone:'',
+    platform:document.getElementById('f-platform').value,
+    service:document.getElementById('f-service').value,
+    value:parseInt(document.getElementById('f-value').value)||0,
+    notes:document.getElementById('f-notes').value.trim(),
+    stage:'prospect',
+    source:document.getElementById('f-platform').value,
+    createdAt:new Date().toISOString(),
+    lastTouched:new Date().toISOString(),
+    history:[{action:`Added new lead: ${document.getElementById('f-biz').value.trim()}`,date:new Date().toISOString()}]
+  };
+  DATA.leads.push(lead);
+  saveData();render();
+  document.getElementById('addForm').reset();
+  toggleForm();
+}
+
+// ============ EXPORT ============
+function exportData(){
+  const blob=new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='leads-export.json';a.click();
+}
+
+// ============ UTILS ============
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+function timeAgo(d){
+  const s=Math.floor((Date.now()-new Date(d).getTime())/1000);
+  if(s<60) return 'just now';if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';
+}
+
+// ============ INIT ============
+loadData();
+</script>
+</body>
+</html>
