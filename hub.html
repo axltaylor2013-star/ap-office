@@ -89,6 +89,9 @@ nav{flex:1;padding:12px 0;display:flex;flex-direction:column;gap:2px}
       <div class="nav-item" data-screen="revenue" onclick="switchScreen(this)">
         <span class="nav-icon">💰</span><span class="nav-label">Revenue</span>
       </div>
+      <div class="nav-item" data-screen="analytics" onclick="switchScreen(this)">
+        <span class="nav-icon">📈</span><span class="nav-label">Analytics</span>
+      </div>
     </nav>
     <button class="toggle-btn" onclick="toggleSidebar()" title="Collapse sidebar">◀ <span class="nav-label">Collapse</span></button>
     <div class="sidebar-footer">
@@ -101,6 +104,7 @@ nav{flex:1;padding:12px 0;display:flex;flex-direction:column;gap:2px}
     <iframe id="frame-taskboard" src="taskboard.html" loading="lazy"></iframe>
     <iframe id="frame-office" src="office.html" loading="lazy"></iframe>
     <iframe id="frame-revenue" src="revenue.html" loading="lazy"></iframe>
+    <iframe id="frame-analytics" src="analytics.html" loading="lazy"></iframe>
   </main>
 </div>
 

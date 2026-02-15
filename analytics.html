@@ -1,0 +1,482 @@
+<!-- Tab: Analytics | Link from hub.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kermicle Media — Analytics Tracker</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#1a1a2e;--card:#16213e;--card-hover:#1a2747;--text:#e0e0e0;--text-dim:#8892a4;
+  --gold:#d4a843;--gold-light:#f0c966;--gold-dim:rgba(212,168,67,.15);
+  --ig:#E1306C;--tt:#00f2ea;--yt:#FF0000;--tw:#9ca3af;
+  --radius:12px;--shadow:0 4px 24px rgba(0,0,0,.3);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+a{color:var(--gold);text-decoration:none}
+
+/* Header */
+.header{background:linear-gradient(135deg,#16213e 0%,#1a1a2e 100%);padding:28px 32px 20px;border-bottom:3px solid var(--gold);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
+.header h1{font-size:1.6rem;font-weight:700;letter-spacing:-.5px}
+.header h1 span{color:var(--gold)}
+.header-sub{font-size:.85rem;color:var(--text-dim);margin-top:2px}
+.header-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.export-btn{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .2s}
+.export-btn:hover{background:var(--gold);color:#1a1a2e}
+
+/* Container */
+.container{max-width:1200px;margin:0 auto;padding:24px 20px 60px}
+
+/* Quick Add Form */
+.quick-add{background:var(--card);border-radius:var(--radius);padding:24px;margin-bottom:28px;border:1px solid rgba(212,168,67,.2);box-shadow:var(--shadow)}
+.quick-add h2{font-size:1.1rem;color:var(--gold);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.form-row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+.form-group{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px}
+.form-group label{font-size:.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.form-group select,.form-group input{background:#0f1a2e;border:1px solid #2a3a5c;color:var(--text);padding:10px 12px;border-radius:8px;font-size:.9rem;transition:border-color .2s}
+.form-group select:focus,.form-group input:focus{outline:none;border-color:var(--gold)}
+.add-btn{background:var(--gold);color:#1a1a2e;border:none;padding:10px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:.9rem;transition:all .2s;white-space:nowrap;align-self:end}
+.add-btn:hover{background:var(--gold-light);transform:translateY(-1px)}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:24px;overflow-x:auto;padding-bottom:4px}
+.tab{padding:10px 20px;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:600;transition:all .2s;border:1px solid transparent;white-space:nowrap;user-select:none}
+.tab:hover{background:var(--gold-dim)}
+.tab.active{background:var(--gold);color:#1a1a2e;border-color:var(--gold)}
+.tab .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.tab[data-p="all"] .dot{background:var(--gold)}
+.tab[data-p="instagram"] .dot{background:var(--ig)}
+.tab[data-p="tiktok"] .dot{background:var(--tt)}
+.tab[data-p="youtube"] .dot{background:var(--yt)}
+.tab[data-p="twitter"] .dot{background:var(--tw)}
+
+/* KPI Cards */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:28px}
+.kpi{background:var(--card);border-radius:var(--radius);padding:20px;border-left:4px solid var(--gold);box-shadow:var(--shadow);transition:transform .2s;animation:fadeUp .5s ease both}
+.kpi:hover{transform:translateY(-2px)}
+.kpi-label{font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);font-weight:600}
+.kpi-value{font-size:1.8rem;font-weight:700;margin:6px 0 4px;color:var(--text)}
+.kpi-delta{font-size:.85rem;font-weight:600}
+.kpi-delta.up{color:#4ade80}
+.kpi-delta.down{color:#f87171}
+.kpi-delta.neutral{color:var(--text-dim)}
+
+/* Chart */
+.chart-section{background:var(--card);border-radius:var(--radius);padding:24px;margin-bottom:28px;box-shadow:var(--shadow)}
+.chart-section h2{font-size:1.1rem;color:var(--gold);margin-bottom:20px}
+.chart-container{width:100%;overflow-x:auto}
+svg.line-chart{width:100%;height:280px;display:block}
+.chart-line{fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.chart-area{opacity:.15}
+.chart-dot{transition:r .15s}
+.chart-dot:hover{r:6}
+.chart-grid line{stroke:#2a3a5c;stroke-width:.5}
+.chart-label{fill:var(--text-dim);font-size:11px;font-family:inherit}
+.chart-tooltip{position:absolute;background:#0f1a2e;border:1px solid var(--gold);padding:8px 12px;border-radius:8px;font-size:.8rem;pointer-events:none;opacity:0;transition:opacity .15s;z-index:10}
+
+/* Content List */
+.content-section{background:var(--card);border-radius:var(--radius);padding:24px;margin-bottom:28px;box-shadow:var(--shadow)}
+.content-section h2{font-size:1.1rem;color:var(--gold);margin-bottom:16px}
+.content-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #2a3a5c}
+.content-item:last-child{border-bottom:none}
+.content-rank{width:28px;height:28px;border-radius:50%;background:var(--gold-dim);color:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0}
+.content-info{flex:1;min-width:0}
+.content-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.content-meta{font-size:.8rem;color:var(--text-dim)}
+.content-value{font-weight:700;color:var(--gold);font-size:1rem;flex-shrink:0}
+
+/* Summary Table */
+.summary-table{width:100%;border-collapse:collapse;margin-top:12px}
+.summary-table th{text-align:left;padding:10px 12px;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);border-bottom:2px solid var(--gold)}
+.summary-table td{padding:10px 12px;border-bottom:1px solid #2a3a5c;font-size:.9rem}
+.summary-table tr:hover td{background:rgba(212,168,67,.05)}
+.platform-badge{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.platform-badge .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* Goals */
+.goal-card{background:var(--card);border-radius:var(--radius);padding:20px;margin-bottom:12px;box-shadow:var(--shadow)}
+.goal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.goal-title{font-weight:600;font-size:.95rem}
+.goal-deadline{font-size:.8rem;color:var(--text-dim)}
+.progress-track{background:#0f1a2e;border-radius:8px;overflow:hidden;height:20px;position:relative}
+.progress-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,var(--gold),var(--gold-light));transition:width 1s ease;position:relative}
+.progress-fill::after{content:attr(data-pct);position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:.7rem;font-weight:700;color:#1a1a2e}
+.goal-stats{display:flex;justify-content:space-between;margin-top:8px;font-size:.8rem;color:var(--text-dim)}
+
+/* Projections */
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.proj-card{background:var(--card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);border-top:3px solid var(--gold)}
+.proj-platform{font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);margin-bottom:8px}
+.proj-value{font-size:1.4rem;font-weight:700}
+.proj-label{font-size:.8rem;color:var(--text-dim);margin-top:4px}
+
+/* Empty State */
+.empty-state{text-align:center;padding:80px 20px;animation:fadeUp .5s ease}
+.empty-icon{font-size:4rem;margin-bottom:16px;opacity:.6}
+.empty-title{font-size:1.3rem;font-weight:700;color:var(--gold);margin-bottom:8px}
+.empty-text{color:var(--text-dim);max-width:500px;margin:0 auto;line-height:1.8}
+.empty-text code{background:#0f1a2e;padding:2px 8px;border-radius:4px;font-size:.85rem;color:var(--gold)}
+
+/* Animations */
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.section-animate{animation:fadeUp .5s ease both}
+.section-animate:nth-child(2){animation-delay:.1s}
+.section-animate:nth-child(3){animation-delay:.2s}
+.section-animate:nth-child(4){animation-delay:.3s}
+
+/* Responsive */
+@media(max-width:600px){
+  .header{padding:20px 16px 14px}
+  .header h1{font-size:1.2rem}
+  .container{padding:16px 12px 40px}
+  .form-row{flex-direction:column}
+  .form-group{min-width:100%}
+  .kpi-value{font-size:1.4rem}
+  svg.line-chart{height:200px}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row">
+    <div>
+      <h1>Kermicle Media — <span>Analytics Tracker</span></h1>
+      <div class="header-sub">Social media growth & performance dashboard</div>
+    </div>
+    <button class="export-btn" onclick="exportData()">⬇ Export JSON</button>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Quick Add -->
+  <div class="quick-add section-animate">
+    <h2>📊 Log Snapshot</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Platform</label>
+        <select id="f-platform">
+          <option value="instagram">Instagram</option>
+          <option value="tiktok">TikTok</option>
+          <option value="youtube">YouTube</option>
+          <option value="twitter">X / Twitter</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label id="m1-label">Followers</label>
+        <input type="number" id="f-m1" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label id="m2-label">Engagement %</label>
+        <input type="number" id="f-m2" step="0.1" placeholder="0.0">
+      </div>
+      <div class="form-group">
+        <label id="m3-label">Reach</label>
+        <input type="number" id="f-m3" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label id="m4-label">Impressions</label>
+        <input type="number" id="f-m4" placeholder="0">
+      </div>
+      <button class="add-btn" onclick="addSnapshot()">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs section-animate">
+    <div class="tab active" data-p="all" onclick="setTab('all')"><span class="dot"></span>All</div>
+    <div class="tab" data-p="instagram" onclick="setTab('instagram')"><span class="dot"></span>Instagram</div>
+    <div class="tab" data-p="tiktok" onclick="setTab('tiktok')"><span class="dot"></span>TikTok</div>
+    <div class="tab" data-p="youtube" onclick="setTab('youtube')"><span class="dot"></span>YouTube</div>
+    <div class="tab" data-p="twitter" onclick="setTab('twitter')"><span class="dot"></span>X / Twitter</div>
+  </div>
+
+  <div id="dashboard-content"></div>
+</div>
+
+<div class="chart-tooltip" id="tooltip"></div>
+
+<script>
+// ── Data ──
+const analyticsData = {"snapshots":[],"goals":[],"config":{"platforms":["instagram","tiktok","youtube","twitter"]}};
+
+const PLATFORMS = {
+  instagram: { name:'Instagram', color:'#E1306C', m:['followers','engagementRate','reach','impressions'], labels:['Followers','Engagement %','Reach','Impressions'] },
+  tiktok:    { name:'TikTok',    color:'#00f2ea', m:['followers','views','likes','comments'],             labels:['Followers','Views','Likes','Comments'] },
+  youtube:   { name:'YouTube',   color:'#FF0000', m:['subscribers','views','watchTimeHours','likes'],     labels:['Subscribers','Views','Watch Hours','Likes'] },
+  twitter:   { name:'X/Twitter', color:'#9ca3af', m:['followers','impressions','engagementRate','retweets'], labels:['Followers','Impressions','Engagement %','Retweets'] }
+};
+
+let currentTab = 'all';
+
+// ── Helpers ──
+const fmt = n => n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String(n);
+const pct = n => (n>=0?'+':'')+n.toFixed(1)+'%';
+const platformColor = p => PLATFORMS[p]?.color||'#d4a843';
+
+function getLatest(platform) {
+  const snaps = analyticsData.snapshots.filter(s=>s.platform===platform).sort((a,b)=>b.date.localeCompare(a.date));
+  return snaps[0]||null;
+}
+function getPrevious(platform) {
+  const snaps = analyticsData.snapshots.filter(s=>s.platform===platform).sort((a,b)=>b.date.localeCompare(a.date));
+  return snaps[1]||null;
+}
+function getHistory(platform,metric) {
+  return analyticsData.snapshots.filter(s=>s.platform===platform&&s.metrics[metric]!=null).sort((a,b)=>a.date.localeCompare(b.date)).map(s=>({date:s.date,value:s.metrics[metric]}));
+}
+function calcDelta(curr,prev,key) {
+  if(!prev||!prev.metrics[key]||!curr.metrics[key]) return null;
+  return ((curr.metrics[key]-prev.metrics[key])/prev.metrics[key])*100;
+}
+function projectGrowth(platform,metric,months) {
+  const hist = getHistory(platform,metric);
+  if(hist.length<2) return null;
+  const recent = hist.slice(-6);
+  let totalGrowth=0;
+  for(let i=1;i<recent.length;i++) totalGrowth+=(recent[i].value-recent[i-1].value);
+  const avgGrowth = totalGrowth/(recent.length-1);
+  return Math.round(recent[recent.length-1].value + avgGrowth*months);
+}
+
+// ── Form labels ──
+document.getElementById('f-platform').addEventListener('change', function() {
+  const p = PLATFORMS[this.value];
+  document.getElementById('m1-label').textContent=p.labels[0];
+  document.getElementById('m2-label').textContent=p.labels[1];
+  document.getElementById('m3-label').textContent=p.labels[2];
+  document.getElementById('m4-label').textContent=p.labels[3];
+});
+
+// ── Add Snapshot ──
+function addSnapshot() {
+  const p = document.getElementById('f-platform').value;
+  const pm = PLATFORMS[p].m;
+  const vals = [
+    parseFloat(document.getElementById('f-m1').value)||0,
+    parseFloat(document.getElementById('f-m2').value)||0,
+    parseFloat(document.getElementById('f-m3').value)||0,
+    parseFloat(document.getElementById('f-m4').value)||0
+  ];
+  const maxId = analyticsData.snapshots.reduce((mx,s)=>Math.max(mx,s.id||0),0);
+  const snap = {
+    id: maxId+1,
+    date: new Date().toISOString().slice(0,10),
+    platform: p,
+    metrics: {},
+    topContent: [],
+    notes: ''
+  };
+  pm.forEach((k,i)=>snap.metrics[k]=vals[i]);
+  analyticsData.snapshots.push(snap);
+  ['f-m1','f-m2','f-m3','f-m4'].forEach(id=>document.getElementById(id).value='');
+  render();
+}
+
+// ── Export ──
+function exportData() {
+  const blob = new Blob([JSON.stringify(analyticsData,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'analytics.json';
+  a.click();
+}
+
+// ── Tabs ──
+function setTab(t) {
+  currentTab=t;
+  document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.p===t));
+  render();
+}
+
+// ── SVG Chart ──
+function buildChart(datasets, width, height) {
+  if(!datasets.length||datasets.every(d=>d.points.length<2)) return '<div style="text-align:center;padding:40px;color:var(--text-dim)">Need at least 2 snapshots to show chart</div>';
+  const pad={t:20,r:20,b:40,l:60};
+  const w=width-pad.l-pad.r, h=height-pad.t-pad.b;
+  let allPts=[];
+  datasets.forEach(d=>allPts.push(...d.points));
+  const minV=Math.min(...allPts.map(p=>p.value))*0.9;
+  const maxV=Math.max(...allPts.map(p=>p.value))*1.1||1;
+  const allDates=[...new Set(allPts.map(p=>p.date))].sort();
+  const x=i=>(pad.l + (i/(Math.max(allDates.length-1,1)))*w);
+  const y=v=>(pad.t + h - ((v-minV)/(maxV-minV))*h);
+
+  let svg=`<svg class="line-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">`;
+  // Grid
+  svg+=`<g class="chart-grid">`;
+  for(let i=0;i<=4;i++){
+    const gy=pad.t+(h/4)*i;
+    const val=maxV-((maxV-minV)/4)*i;
+    svg+=`<line x1="${pad.l}" y1="${gy}" x2="${width-pad.r}" y2="${gy}"/>`;
+    svg+=`<text class="chart-label" x="${pad.l-8}" y="${gy+4}" text-anchor="end">${fmt(Math.round(val))}</text>`;
+  }
+  // Date labels
+  const step=Math.max(1,Math.floor(allDates.length/6));
+  allDates.forEach((d,i)=>{
+    if(i%step===0||i===allDates.length-1)
+      svg+=`<text class="chart-label" x="${x(i)}" y="${height-8}" text-anchor="middle">${d.slice(5)}</text>`;
+  });
+  svg+=`</g>`;
+
+  // Lines
+  datasets.forEach(ds=>{
+    const pts=ds.points.map(p=>({x:x(allDates.indexOf(p.date)),y:y(p.value),v:p.value,d:p.date}));
+    if(pts.length<2)return;
+    const pathD=pts.map((p,i)=>(i===0?'M':'L')+`${p.x},${p.y}`).join(' ');
+    // Area
+    svg+=`<path class="chart-area" d="${pathD} L${pts[pts.length-1].x},${pad.t+h} L${pts[0].x},${pad.t+h} Z" fill="${ds.color}"/>`;
+    // Line
+    svg+=`<path class="chart-line" d="${pathD}" stroke="${ds.color}" style="stroke-dasharray:${w*3};stroke-dashoffset:${w*3};animation:drawLine 1.5s ease forwards"/>`;
+    // Dots
+    pts.forEach(p=>{
+      svg+=`<circle class="chart-dot" cx="${p.x}" cy="${p.y}" r="4" fill="${ds.color}" stroke="var(--card)" stroke-width="2" `+
+        `onmouseenter="showTip(evt,'${ds.label}: ${fmt(p.v)} on ${p.d}')" onmouseleave="hideTip()"/>`;
+    });
+  });
+
+  svg+=`</svg><style>@keyframes drawLine{to{stroke-dashoffset:0}}</style>`;
+  return svg;
+}
+
+// ── Tooltip ──
+function showTip(e,text){
+  const t=document.getElementById('tooltip');
+  t.textContent=text;t.style.opacity='1';
+  t.style.left=(e.pageX+12)+'px';t.style.top=(e.pageY-30)+'px';
+}
+function hideTip(){document.getElementById('tooltip').style.opacity='0';}
+
+// ── Render ──
+function render() {
+  const el=document.getElementById('dashboard-content');
+  const snaps=analyticsData.snapshots;
+
+  if(!snaps.length){
+    el.innerHTML=`<div class="empty-state">
+      <div class="empty-icon">📈</div>
+      <div class="empty-title">No Analytics Data Yet</div>
+      <div class="empty-text">
+        Use the form above to log your first snapshot, or tell your assistant:<br><br>
+        <code>Log analytics: Instagram — 1,250 followers, 4.2% engagement, 15,000 reach</code><br><br>
+        Supported platforms: Instagram, TikTok, YouTube, X/Twitter<br>
+        Each snapshot tracks followers, engagement, reach, and top content.
+      </div>
+    </div>`;
+    return;
+  }
+
+  let html='';
+  const platforms = currentTab==='all' ? ['instagram','tiktok','youtube','twitter'] : [currentTab];
+  const activePlatforms = platforms.filter(p=>snaps.some(s=>s.platform===p));
+
+  // KPI Cards
+  html+='<div class="kpi-grid">';
+  if(currentTab==='all'){
+    const totalFollowers = ['instagram','tiktok','youtube','twitter'].reduce((sum,p)=>{
+      const l=getLatest(p); return sum+(l?l.metrics[PLATFORMS[p].m[0]]||0:0);
+    },0);
+    html+=`<div class="kpi"><div class="kpi-label">Total Followers</div><div class="kpi-value">${fmt(totalFollowers)}</div><div class="kpi-delta neutral">${activePlatforms.length} platforms tracked</div></div>`;
+    activePlatforms.forEach(p=>{
+      const l=getLatest(p), pr=getPrevious(p), pk=PLATFORMS[p].m[0];
+      const v=l?l.metrics[pk]||0:0;
+      const d=l&&pr?calcDelta(l,pr,pk):null;
+      html+=`<div class="kpi" style="border-left-color:${platformColor(p)}"><div class="kpi-label">${PLATFORMS[p].name}</div><div class="kpi-value">${fmt(v)}</div>`;
+      html+=d!=null?`<div class="kpi-delta ${d>=0?'up':'down'}">${pct(d)} growth</div>`:`<div class="kpi-delta neutral">First snapshot</div>`;
+      html+=`</div>`;
+    });
+  } else {
+    const p=currentTab, pm=PLATFORMS[p], l=getLatest(p), pr=getPrevious(p);
+    if(l){
+      pm.m.forEach((k,i)=>{
+        const v=l.metrics[k]||0;
+        const d=pr?calcDelta(l,pr,k):null;
+        html+=`<div class="kpi" style="border-left-color:${pm.color}"><div class="kpi-label">${pm.labels[i]}</div><div class="kpi-value">${k.includes('Rate')?v.toFixed(1)+'%':fmt(v)}</div>`;
+        html+=d!=null?`<div class="kpi-delta ${d>=0?'up':'down'}">${pct(d)}</div>`:`<div class="kpi-delta neutral">—</div>`;
+        html+=`</div>`;
+      });
+    }
+  }
+  html+='</div>';
+
+  // Growth Chart
+  html+='<div class="chart-section section-animate"><h2>📈 Growth Over Time</h2><div class="chart-container">';
+  const datasets=[];
+  activePlatforms.forEach(p=>{
+    const key=PLATFORMS[p].m[0];
+    const pts=getHistory(p,key);
+    if(pts.length) datasets.push({label:PLATFORMS[p].name,color:PLATFORMS[p].color,points:pts});
+  });
+  html+=buildChart(datasets,900,280);
+  html+='</div></div>';
+
+  // Cross-platform Summary (all tab)
+  if(currentTab==='all'&&activePlatforms.length>1){
+    html+='<div class="content-section section-animate"><h2>🔄 Cross-Platform Summary</h2><div style="overflow-x:auto"><table class="summary-table"><thead><tr><th>Platform</th><th>Followers</th><th>Growth</th><th>Engagement</th><th>Last Updated</th></tr></thead><tbody>';
+    activePlatforms.forEach(p=>{
+      const l=getLatest(p), pr=getPrevious(p), pm=PLATFORMS[p];
+      const fk=pm.m[0], ek=pm.m[1];
+      const fv=l?l.metrics[fk]||0:0;
+      const ev=l?l.metrics[ek]||0:0;
+      const d=l&&pr?calcDelta(l,pr,fk):null;
+      html+=`<tr><td><span class="platform-badge"><span class="dot" style="background:${pm.color}"></span>${pm.name}</span></td>`;
+      html+=`<td>${fmt(fv)}</td>`;
+      html+=`<td>${d!=null?`<span class="kpi-delta ${d>=0?'up':'down'}">${pct(d)}</span>`:'—'}</td>`;
+      html+=`<td>${ek.includes('Rate')?ev.toFixed(1)+'%':fmt(ev)}</td>`;
+      html+=`<td>${l?l.date:'—'}</td></tr>`;
+    });
+    html+='</tbody></table></div></div>';
+  }
+
+  // Best Performing Content
+  const allContent=[];
+  const relevantSnaps = currentTab==='all'?snaps:snaps.filter(s=>s.platform===currentTab);
+  relevantSnaps.forEach(s=>{
+    (s.topContent||[]).forEach(c=>allContent.push({...c,platform:s.platform,date:s.date}));
+  });
+  if(allContent.length){
+    allContent.sort((a,b)=>b.value-a.value);
+    html+='<div class="content-section section-animate"><h2>🏆 Best Performing Content</h2>';
+    allContent.slice(0,8).forEach((c,i)=>{
+      html+=`<div class="content-item"><div class="content-rank">${i+1}</div><div class="content-info"><div class="content-title">${c.title||'Untitled'}</div><div class="content-meta"><span class="platform-badge"><span class="dot" style="background:${platformColor(c.platform)};width:6px;height:6px"></span>${PLATFORMS[c.platform]?.name}</span> · ${c.date}</div></div><div class="content-value">${fmt(c.value)} ${c.metric||''}</div></div>`;
+    });
+    html+='</div>';
+  }
+
+  // Goals
+  const goals = currentTab==='all'?analyticsData.goals:analyticsData.goals.filter(g=>g.platform===currentTab);
+  if(goals.length){
+    html+='<div class="section-animate" style="margin-bottom:28px"><h2 style="color:var(--gold);margin-bottom:16px">🎯 Goals</h2>';
+    goals.forEach(g=>{
+      const l=getLatest(g.platform);
+      const curr=l?l.metrics[g.metric]||0:0;
+      const prog=Math.min((curr/g.target)*100,150);
+      html+=`<div class="goal-card"><div class="goal-header"><div class="goal-title"><span class="platform-badge"><span class="dot" style="background:${platformColor(g.platform)}"></span>${PLATFORMS[g.platform]?.name}</span> — ${fmt(g.target)} ${g.metric}</div><div class="goal-deadline">by ${g.deadline}</div></div>`;
+      html+=`<div class="progress-track"><div class="progress-fill" style="width:${Math.min(prog,100)}%" data-pct="${prog.toFixed(0)}%"></div></div>`;
+      html+=`<div class="goal-stats"><span>${fmt(curr)} current</span><span>${fmt(g.target-curr)} to go</span></div></div>`;
+    });
+    html+='</div>';
+  }
+
+  // Projections
+  if(activePlatforms.some(p=>getHistory(p,PLATFORMS[p].m[0]).length>=2)){
+    html+='<div class="section-animate" style="margin-bottom:28px"><h2 style="color:var(--gold);margin-bottom:16px">🔮 Growth Projections (3 months)</h2><div class="proj-grid">';
+    activePlatforms.forEach(p=>{
+      const key=PLATFORMS[p].m[0];
+      const proj=projectGrowth(p,key,3);
+      if(proj==null)return;
+      const curr=getLatest(p)?.metrics[key]||0;
+      html+=`<div class="proj-card"><div class="proj-platform"><span class="dot" style="background:${PLATFORMS[p].color};display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px"></span>${PLATFORMS[p].name}</div><div class="proj-value">${fmt(proj)}</div><div class="proj-label">${PLATFORMS[p].labels[0]} in 3 months (currently ${fmt(curr)})</div></div>`;
+    });
+    html+='</div></div>';
+  }
+
+  el.innerHTML=html;
+}
+
+// Initial render
+render();
+</script>
+</body>
+</html>
