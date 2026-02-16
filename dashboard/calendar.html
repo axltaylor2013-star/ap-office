@@ -5,6 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Content Calendar — Kermicle Media</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>?</text></svg>">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -249,11 +250,10 @@ async function loadData(){
   }catch(e){posts=[]}
   render();
 }
-async function saveData(){
+function saveData(){
   try{
-    // Use localStorage as fallback since we can't write files from browser
-    localStorage.setItem('kermicle_calendar',JSON.stringify({posts,meta:{version:'1.0'}}));
-  }catch(e){}
+    localStorage.setItem('kermicle_calendar',JSON.stringify({posts,meta:{version:'1.0',lastSaved:new Date().toISOString()}}));
+  }catch(e){console.warn('Calendar save failed:',e)}
 }
 function loadFromStorage(){
   try{

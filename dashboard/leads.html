@@ -5,6 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kermicle Media — Lead Pipeline</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>?</text></svg>">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0b0e14;--bg2:#1a1a2e;--card:#16213e;--card2:#1a2747;--gold:#d4a843;--gold2:#f0c966;--text:#e0e0e0;--dim:#8892a4;--border:#253255;--green:#4ade80;--red:#f87171;--orange:#fbbf24;--radius:10px}
@@ -276,7 +277,7 @@ let DATA={leads:[]};
 // ============ LOAD/SAVE ============
 async function loadData(){
   try{
-    const r=await fetch('leads.json');
+    const r=await fetch('leads.json?_='+Date.now());
     if(r.ok) DATA=await r.json();
     else throw 0;
   }catch(e){
@@ -290,7 +291,7 @@ function saveLocal(){localStorage.setItem('kermicle-leads',JSON.stringify(DATA))
 function saveData(){saveLocal()}
 
 // ============ RENDER ALL ============
-function render(){renderKPIs();renderKanban();renderDonut();renderTimeline();renderAlerts()}
+function render(){renderKPIs();renderKanban();renderDonut();renderTimeline();renderAlerts();updateFooter()}
 
 // ============ KPIs ============
 function renderKPIs(){
@@ -462,6 +463,13 @@ function timeAgo(d){
   const s=Math.floor((Date.now()-new Date(d).getTime())/1000);
   if(s<60) return 'just now';if(s<3600) return Math.floor(s/60)+'m ago';
   if(s<86400) return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';
+}
+
+// ============ LAST UPDATED FOOTER ============
+function updateFooter(){
+  let f=document.getElementById('lastUpdatedFooter');
+  if(!f){f=document.createElement('div');f.id='lastUpdatedFooter';f.style.cssText='text-align:center;padding:16px 28px;font-size:.7rem;color:var(--dim)';document.querySelector('.main').appendChild(f)}
+  f.textContent='Last updated: '+new Date().toLocaleString();
 }
 
 // ============ INIT ============

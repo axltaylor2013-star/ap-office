@@ -4,11 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kermicle Command Center — Task Board</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>?</text></svg>">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0d0d0d;--card:#1a1a1a;--card2:#222;--gold:#d4a843;--gold2:#b8912e;--text:#e0e0e0;--dim:#888;--green:#4ade80;--blue:#60a5fa;--orange:#fbbf24;--red:#f87171;--border:#333}
+:root{--bg:#0b0e14;--card:#16213e;--card2:#1a2747;--gold:#d4a843;--gold2:#b8912e;--text:#e0e0e0;--dim:#8892a4;--green:#4ade80;--blue:#60a5fa;--orange:#fbbf24;--red:#f87171;--border:#253255}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-.header{background:linear-gradient(135deg,#111 0%,#1a1a1a 100%);border-bottom:2px solid var(--gold);padding:20px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header{background:linear-gradient(135deg,#0a0d12 0%,#16213e 100%);border-bottom:2px solid var(--gold);padding:20px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .header h1{font-size:1.6rem;font-weight:700;color:var(--gold);letter-spacing:1px}
 .header h1 span{color:var(--text);font-weight:300}
 .stats{display:flex;gap:20px;flex-wrap:wrap}
@@ -33,7 +34,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .col-body{padding:10px;max-height:60vh;overflow-y:auto}
 .col-body::-webkit-scrollbar{width:4px}
 .col-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.task-card{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;transition:border-color .2s,transform .15s;cursor:default}
+.task-card{background:#1a2747;border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;transition:border-color .2s,transform .15s;cursor:default}
 .task-card:hover{border-color:var(--gold);transform:translateY(-1px)}
 .task-title{font-weight:600;font-size:.88rem;margin-bottom:6px}
 .task-meta{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
@@ -43,7 +44,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .agent-forge{background:#4ade8033;color:var(--green)}
 .cat-badge{font-size:.7rem;color:var(--dim);background:var(--border);padding:2px 6px;border-radius:3px}
 .date-text{font-size:.7rem;color:var(--dim)}
-.task-path{margin-top:6px;display:flex;align-items:center;gap:4px;background:#111;border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:'Cascadia Code','Fira Code',monospace;font-size:.7rem;color:var(--gold);cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;transition:border-color .2s}
+.task-path{margin-top:6px;display:flex;align-items:center;gap:4px;background:#0b0e14;border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:'Cascadia Code','Fira Code',monospace;font-size:.7rem;color:var(--gold);cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;transition:border-color .2s}
 .task-path:hover{border-color:var(--gold)}
 .task-path .copy-icon{flex-shrink:0;opacity:.5;transition:opacity .2s}
 .task-path:hover .copy-icon{opacity:1}

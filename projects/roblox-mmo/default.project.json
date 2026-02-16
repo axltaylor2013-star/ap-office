@@ -1,0 +1,49 @@
+{
+    "name": "Wilderness",
+    "tree": {
+        "$className": "DataModel",
+        "Workspace": {
+            "$className": "Workspace",
+            "$ignoreUnknownInstances": true
+        },
+        "Lighting": {
+            "$className": "Lighting",
+            "$ignoreUnknownInstances": true
+        },
+        "ReplicatedStorage": {
+            "$className": "ReplicatedStorage",
+            "$ignoreUnknownInstances": true,
+            "Modules": {
+                "$className": "Folder",
+                "$path": "src/ReplicatedStorage/Modules"
+            },
+            "Remotes": {
+                "$className": "Folder",
+                "LevelUp": { "$className": "RemoteEvent" },
+                "XPUpdate": { "$className": "RemoteEvent" },
+                "InventoryUpdate": { "$className": "RemoteEvent" },
+                "ZoneChanged": { "$className": "RemoteEvent" },
+                "Attack": { "$className": "RemoteEvent" },
+                "DamageDealt": { "$className": "RemoteEvent" },
+                "EatFood": { "$className": "RemoteEvent" }
+            }
+        },
+        "ServerScriptService": {
+            "$className": "ServerScriptService",
+            "$ignoreUnknownInstances": true,
+            "$path": "src/ServerScriptService"
+        },
+        "StarterPlayer": {
+            "$className": "StarterPlayer",
+            "$ignoreUnknownInstances": true,
+            "StarterPlayerScripts": {
+                "$className": "StarterPlayerScripts",
+                "$path": "src/StarterPlayerScripts"
+            }
+        },
+        "StarterGui": {
+            "$className": "StarterGui",
+            "$ignoreUnknownInstances": true
+        }
+    }
+}

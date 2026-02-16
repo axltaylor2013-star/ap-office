@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Client Portal — Kermicle Media</title>
+<script id="portal-config" type="application/json">
+{
+  "client": "Apex Ventures",
+  "project": "Brand Video Package",
+  "service": "video-editing",
+  "package": "Premium",
+  "startDate": "2026-02-10",
+  "estCompletion": "2026-03-15",
+  "phases": ["Footage Review", "Editing", "Color Grade", "Sound Design", "Delivered"],
+  "currentPhase": 1,
+  "deliverables": [
+    { "name": "Hero Brand Video (60s)", "status": "in-progress" },
+    { "name": "Social Cut (30s)", "status": "pending" },
+    { "name": "Instagram Reel #1", "status": "ready" },
+    { "name": "Behind-the-Scenes Reel", "status": "pending" },
+    { "name": "Thumbnail Set (5x)", "status": "delivered" }
+  ],
+  "activity": [
+    { "date": "2026-02-15", "text": "First edit draft delivered for review — check deliverables below" },
+    { "date": "2026-02-14", "text": "Color palette and mood board approved by client" },
+    { "date": "2026-02-13", "text": "Raw footage organized and selects confirmed" },
+    { "date": "2026-02-11", "text": "Footage received — beginning review process" },
+    { "date": "2026-02-10", "text": "Project kickoff — discovery call completed" }
+  ],
+  "password": null,
+  "contact": {
+    "email": "hello@kermiclemedia.com",
+    "telegram": "@kermiclemedia",
+    "website": "https://kermiclemedia.com"
+  }
+}
+</script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0e14;--card:#131720;--card-border:#1c2030;--card-hover:#181d2a;
+  --gold:#d4a843;--gold-glow:rgba(212,168,67,0.15);--gold-soft:rgba(212,168,67,0.08);
+  --green:#2ecc71;--green-soft:rgba(46,204,113,0.12);
+  --blue:#3b82f6;--blue-soft:rgba(59,130,246,0.12);
+  --orange:#f59e0b;--orange-soft:rgba(245,158,11,0.12);
+  --gray:#3a3f4c;--gray-soft:rgba(58,63,76,0.3);
+  --text:#e8e8e8;--text-muted:#8a8f9c;--text-dim:#555a66;
+  --radius:16px;--radius-sm:10px;
+  --font:'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh;overflow-x:hidden}
+
+/* === PASSWORD GATE === */
+#password-gate{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;opacity:1;transition:opacity .5s}
+#password-gate.hidden{opacity:0;pointer-events:none}
+#password-gate h2{color:var(--gold);font-size:1.4rem;font-weight:600}
+#password-gate input{background:#1a1f2e;border:1px solid var(--card-border);color:var(--text);padding:12px 20px;border-radius:var(--radius-sm);font-size:1rem;width:280px;text-align:center;outline:none;transition:border-color .3s}
+#password-gate input:focus{border-color:var(--gold)}
+#password-gate .error{color:#e74c3c;font-size:.85rem;height:20px}
+
+/* === LAYOUT === */
+.container{max-width:900px;margin:0 auto;padding:24px 20px 60px}
+
+/* === HEADER === */
+header{text-align:center;padding:48px 0 32px;animation:fadeInDown .8s ease}
+.logo-mark{display:inline-flex;align-items:center;gap:10px;margin-bottom:16px}
+.logo-icon{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--gold),#b8912e);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.2rem;color:var(--bg)}
+.logo-text{font-size:1.1rem;font-weight:600;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase}
+.client-name{font-size:2.2rem;font-weight:700;color:var(--text);margin:8px 0 4px}
+.project-name{font-size:1.1rem;color:var(--gold);font-weight:500}
+.header-divider{width:60px;height:2px;background:var(--gold);margin:24px auto 0;border-radius:2px}
+
+/* === CARDS === */
+.card{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:28px;margin-bottom:20px;transition:box-shadow .3s,border-color .3s}
+.card:hover{box-shadow:0 0 30px var(--gold-glow);border-color:rgba(212,168,67,0.15)}
+.card-title{font-size:1rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+.card-title .icon{font-size:1.1rem}
+
+/* === COUNTDOWN === */
+.countdown-bar{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+.countdown-unit{text-align:center}
+.countdown-num{font-size:2rem;font-weight:700;color:var(--gold);line-height:1}
+.countdown-label{font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+
+/* === PHASE TRACKER === */
+.phases{display:flex;align-items:flex-start;gap:0;position:relative;padding:10px 0}
+.phase{flex:1;text-align:center;position:relative;z-index:1}
+.phase-dot{width:36px;height:36px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;border:2px solid var(--gray);background:var(--bg);color:var(--text-dim);transition:all .5s;position:relative}
+.phase.done .phase-dot{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 0 15px rgba(46,204,113,0.3)}
+.phase.active .phase-dot{background:var(--gold);border-color:var(--gold);color:var(--bg);box-shadow:0 0 20px var(--gold-glow);animation:pulse 2s infinite}
+.phase-name{font-size:.75rem;color:var(--text-muted);line-height:1.3;padding:0 2px}
+.phase.done .phase-name{color:var(--green)}
+.phase.active .phase-name{color:var(--gold);font-weight:600}
+.phase-connector{position:absolute;top:28px;left:calc(50% + 18px);right:calc(-50% + 18px);height:2px;background:var(--gray);z-index:0}
+.phase.done .phase-connector{background:var(--green)}
+.phase:last-child .phase-connector{display:none}
+
+/* === PROJECT DETAILS === */
+.details-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
+.detail-item{background:var(--bg);border-radius:var(--radius-sm);padding:16px;border:1px solid var(--card-border)}
+.detail-label{font-size:.7rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-bottom:6px}
+.detail-value{font-size:1.05rem;font-weight:600;color:var(--text)}
+.detail-value.gold{color:var(--gold)}
+
+/* === PROGRESS BAR === */
+.progress-container{margin-top:20px}
+.progress-label{display:flex;justify-content:space-between;margin-bottom:8px;font-size:.85rem}
+.progress-track{height:8px;background:var(--gray-soft);border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:4px;transition:width 1.5s cubic-bezier(0.4,0,0.2,1);width:0}
+
+/* === DELIVERABLES === */
+.deliverable{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);margin-bottom:10px;transition:border-color .3s}
+.deliverable:hover{border-color:rgba(212,168,67,0.2)}
+.deliverable:last-child{margin-bottom:0}
+.del-icon{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.del-icon.pending{background:var(--gray)}
+.del-icon.in-progress{background:var(--blue);box-shadow:0 0 8px rgba(59,130,246,0.4)}
+.del-icon.ready{background:var(--gold);box-shadow:0 0 8px var(--gold-glow)}
+.del-icon.delivered{background:var(--green);box-shadow:0 0 8px rgba(46,204,113,0.4)}
+.del-name{flex:1;font-size:.95rem}
+.del-status{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;padding:4px 12px;border-radius:20px;font-weight:600}
+.del-status.pending{color:var(--text-muted);background:var(--gray-soft)}
+.del-status.in-progress{color:var(--blue);background:var(--blue-soft)}
+.del-status.ready{color:var(--gold);background:var(--gold-soft)}
+.del-status.delivered{color:var(--green);background:var(--green-soft)}
+.del-action{margin-left:8px}
+.btn-download{background:transparent;border:1px solid var(--gold);color:var(--gold);padding:5px 14px;border-radius:20px;font-size:.75rem;cursor:pointer;font-weight:600;transition:all .3s;text-transform:uppercase;letter-spacing:.5px}
+.btn-download:hover{background:var(--gold);color:var(--bg)}
+
+/* === ACTIVITY FEED === */
+.activity-item{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--card-border);position:relative}
+.activity-item:last-child{border-bottom:none}
+.activity-date{font-size:.8rem;color:var(--gold);font-weight:600;white-space:nowrap;min-width:70px;padding-top:2px}
+.activity-line{width:2px;background:var(--card-border);position:absolute;left:82px;top:0;bottom:0}
+.activity-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:7px;position:relative;z-index:1}
+.activity-text{font-size:.9rem;color:var(--text-muted);line-height:1.5}
+.activity-item:first-child .activity-text{color:var(--text)}
+
+/* === CONTACT === */
+.contact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.contact-item{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);text-decoration:none;color:var(--text);transition:all .3s}
+.contact-item:hover{border-color:var(--gold);box-shadow:0 0 15px var(--gold-glow)}
+.contact-icon{font-size:1.3rem}
+.contact-label{font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px}
+.contact-value{font-size:.9rem;color:var(--text);font-weight:500}
+
+/* === FOOTER === */
+footer{text-align:center;padding:40px 0 24px;border-top:1px solid var(--card-border);margin-top:40px}
+footer p{font-size:.8rem;color:var(--text-dim)}
+footer a{color:var(--gold);text-decoration:none}
+footer a:hover{text-decoration:underline}
+
+/* === ANIMATIONS === */
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 20px var(--gold-glow)}50%{box-shadow:0 0 30px rgba(212,168,67,0.35)}}
+.animate-in{opacity:0;transform:translateY(20px);transition:opacity .6s ease,transform .6s ease}
+.animate-in.visible{opacity:1;transform:translateY(0)}
+
+/* === RESPONSIVE === */
+@media(max-width:600px){
+  .container{padding:16px 14px 40px}
+  header{padding:32px 0 24px}
+  .client-name{font-size:1.6rem}
+  .card{padding:20px}
+  .phases{flex-wrap:wrap;gap:8px}
+  .phase{min-width:60px}
+  .phase-connector{display:none}
+  .phase-dot{width:30px;height:30px;font-size:.75rem}
+  .countdown-num{font-size:1.5rem}
+  .details-grid{grid-template-columns:1fr 1fr}
+  .deliverable{flex-wrap:wrap;gap:10px}
+  .del-action{margin-left:auto}
+  .contact-grid{grid-template-columns:1fr}
+}
+
+/* === PRINT === */
+@media print{
+  body{background:#fff;color:#111}
+  .card{background:#fff;border:1px solid #ddd;box-shadow:none;break-inside:avoid}
+  .card:hover{box-shadow:none}
+  .card-title{color:#111}
+  header{padding:20px 0}
+  .logo-icon{background:var(--gold);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .client-name{color:#111}
+  .phase-dot{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .progress-fill{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .del-icon,.del-status{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .btn-download{display:none}
+  footer{border-top:1px solid #ddd}
+  footer p,footer a{color:#555}
+  #password-gate{display:none!important}
+}
+</style>
+</head>
+<body>
+
+<div id="password-gate" class="hidden">
+  <h2>🔒 Enter Access Code</h2>
+  <input type="password" id="pw-input" placeholder="Access code" autocomplete="off">
+  <div class="error" id="pw-error"></div>
+</div>
+
+<div class="container" id="portal-content">
+  <header>
+    <div class="logo-mark">
+      <div class="logo-icon">K</div>
+      <div class="logo-text">Kermicle Media</div>
+    </div>
+    <h1 class="client-name" id="client-name"></h1>
+    <p class="project-name" id="project-name"></p>
+    <div class="header-divider"></div>
+  </header>
+
+  <!-- Countdown -->
+  <div class="card animate-in" id="countdown-card">
+    <div class="card-title"><span class="icon">⏱</span> Estimated Delivery</div>
+    <div class="countdown-bar" id="countdown"></div>
+  </div>
+
+  <!-- Phase Tracker -->
+  <div class="card animate-in">
+    <div class="card-title"><span class="icon">📍</span> Project Progress</div>
+    <div class="phases" id="phases"></div>
+    <div class="progress-container">
+      <div class="progress-label">
+        <span id="progress-phase">—</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- Project Details -->
+  <div class="card animate-in">
+    <div class="card-title"><span class="icon">📋</span> Project Details</div>
+    <div class="details-grid" id="details"></div>
+  </div>
+
+  <!-- Deliverables -->
+  <div class="card animate-in">
+    <div class="card-title"><span class="icon">📦</span> Deliverables</div>
+    <div id="deliverables"></div>
+  </div>
+
+  <!-- Activity Feed -->
+  <div class="card animate-in">
+    <div class="card-title"><span class="icon">📡</span> Activity</div>
+    <div id="activity"></div>
+  </div>
+
+  <!-- Contact -->
+  <div class="card animate-in">
+    <div class="card-title"><span class="icon">💬</span> Get in Touch</div>
+    <div class="contact-grid" id="contact"></div>
+  </div>
+
+  <footer>
+    <p>Powered by <a href="https://kermiclemedia.com" target="_blank">Kermicle Media</a> · <a href="mailto:hello@kermiclemedia.com">hello@kermiclemedia.com</a></p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  const C = JSON.parse(document.getElementById('portal-config').textContent);
+
+  // Password gate
+  if(C.password){
+    const gate=document.getElementById('password-gate');
+    gate.classList.remove('hidden');
+    document.getElementById('portal-content').style.display='none';
+    const inp=document.getElementById('pw-input');
+    const err=document.getElementById('pw-error');
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        if(inp.value===C.password){
+          gate.classList.add('hidden');
+          document.getElementById('portal-content').style.display='';
+          setTimeout(initAnimations,100);
+        }else{
+          err.textContent='Incorrect code. Try again.';
+          inp.value='';
+        }
+      }
+    });
+    return;
+  }
+
+  // Title
+  document.title=C.client+' — Kermicle Media Portal';
+  document.getElementById('client-name').textContent=C.client;
+  document.getElementById('project-name').textContent=C.project;
+
+  // Countdown
+  const est=new Date(C.estCompletion+'T23:59:59');
+  function updateCountdown(){
+    const now=new Date(),diff=est-now;
+    if(diff<=0){
+      document.getElementById('countdown').innerHTML='<div style="color:var(--green);font-weight:600;font-size:1.1rem">🎉 Project Complete!</div>';
+      return;
+    }
+    const d=Math.floor(diff/864e5),h=Math.floor(diff%864e5/36e5),m=Math.floor(diff%36e5/6e4),s=Math.floor(diff%6e4/1e3);
+    document.getElementById('countdown').innerHTML=
+      `<div class="countdown-unit"><div class="countdown-num">${d}</div><div class="countdown-label">Days</div></div>`+
+      `<div class="countdown-unit"><div class="countdown-num">${h}</div><div class="countdown-label">Hours</div></div>`+
+      `<div class="countdown-unit"><div class="countdown-num">${m}</div><div class="countdown-label">Min</div></div>`+
+      `<div class="countdown-unit"><div class="countdown-num">${s}</div><div class="countdown-label">Sec</div></div>`;
+  }
+  updateCountdown();setInterval(updateCountdown,1000);
+
+  // Phases
+  const ph=document.getElementById('phases');
+  C.phases.forEach((p,i)=>{
+    const cls=i<C.currentPhase?'done':i===C.currentPhase?'active':'';
+    ph.innerHTML+=`<div class="phase ${cls}"><div class="phase-dot">${i<C.currentPhase?'✓':i+1}</div><div class="phase-name">${p}</div>${i<C.phases.length-1?'<div class="phase-connector"></div>':''}</div>`;
+  });
+
+  // Progress
+  const pct=Math.round((C.currentPhase/(C.phases.length-1))*100);
+  document.getElementById('progress-phase').textContent=C.phases[C.currentPhase];
+  document.getElementById('progress-pct').textContent=pct+'%';
+  setTimeout(()=>{document.getElementById('progress-fill').style.width=pct+'%'},300);
+
+  // Details
+  const fmt=d=>{const dt=new Date(d+'T00:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})};
+  document.getElementById('details').innerHTML=
+    `<div class="detail-item"><div class="detail-label">Service</div><div class="detail-value">${C.service.replace(/-/g,' ').replace(/\b\w/g,l=>l.toUpperCase())}</div></div>`+
+    `<div class="detail-item"><div class="detail-label">Package</div><div class="detail-value gold">${C.package}</div></div>`+
+    `<div class="detail-item"><div class="detail-label">Started</div><div class="detail-value">${fmt(C.startDate)}</div></div>`+
+    `<div class="detail-item"><div class="detail-label">Est. Delivery</div><div class="detail-value gold">${fmt(C.estCompletion)}</div></div>`;
+
+  // Deliverables
+  const dl=document.getElementById('deliverables');
+  C.deliverables.forEach(d=>{
+    const btn=d.status==='ready'?'<div class="del-action"><button class="btn-download">Download</button></div>':'';
+    dl.innerHTML+=`<div class="deliverable"><div class="del-icon ${d.status}"></div><div class="del-name">${d.name}</div><span class="del-status ${d.status}">${d.status.replace('-',' ')}</span>${btn}</div>`;
+  });
+
+  // Activity
+  const ac=document.getElementById('activity');
+  C.activity.forEach(a=>{
+    const dt=new Date(a.date+'T00:00:00');
+    const label=dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    ac.innerHTML+=`<div class="activity-item"><div class="activity-date">${label}</div><div class="activity-dot"></div><div class="activity-text">${a.text}</div></div>`;
+  });
+
+  // Contact
+  const ct=document.getElementById('contact');
+  const contact=C.contact||{email:'hello@kermiclemedia.com',telegram:'@kermiclemedia',website:'https://kermiclemedia.com'};
+  ct.innerHTML=
+    `<a class="contact-item" href="mailto:${contact.email}"><div class="contact-icon">✉️</div><div><div class="contact-label">Email</div><div class="contact-value">${contact.email}</div></div></a>`+
+    `<a class="contact-item" href="https://t.me/${contact.telegram.replace('@','')}" target="_blank"><div class="contact-icon">💬</div><div><div class="contact-label">Telegram</div><div class="contact-value">${contact.telegram}</div></div></a>`+
+    `<a class="contact-item" href="${contact.website}" target="_blank"><div class="contact-icon">🌐</div><div><div class="contact-label">Website</div><div class="contact-value">${contact.website.replace('https://','')}</div></div></a>`;
+
+  // Scroll animations
+  function initAnimations(){
+    const els=document.querySelectorAll('.animate-in');
+    const obs=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target)}})},{threshold:0.1});
+    els.forEach((el,i)=>{el.style.transitionDelay=(i*0.1)+'s';obs.observe(el)});
+  }
+  initAnimations();
+})();
+</script>
+</body>
+</html>

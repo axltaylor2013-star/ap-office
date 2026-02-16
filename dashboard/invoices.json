@@ -1,0 +1,72 @@
+{
+  "invoices": [
+    {
+      "id": 1,
+      "number": "INV-001",
+      "client": "Golden Leaf Bakery",
+      "email": "sarah@goldenleafbakery.com",
+      "service": "Photo Editing + Reels Package",
+      "lineItems": [
+        {"description": "Monthly photo editing — product shots & menu items (20 images)", "amount": 500},
+        {"description": "Basic Reels Package — 4 Reels/month (color grading, text overlays, music)", "amount": 297},
+        {"description": "Social media caption writing (4 posts)", "amount": 100}
+      ],
+      "taxRate": 0,
+      "notes": "First month retainer. Thank you for being our first client, Sarah! Payment via Zelle accepted.",
+      "dateIssued": "2026-02-08",
+      "dateDue": "2026-02-22",
+      "status": "paid",
+      "datePaid": "2026-02-15"
+    },
+    {
+      "id": 2,
+      "number": "INV-002",
+      "client": "Blue Ridge Realty Group",
+      "email": "jennifer@blueridgerealty.com",
+      "service": "Real Estate Photo & Video Editing",
+      "lineItems": [
+        {"description": "Real estate photo editing — 25 listings (exposure, color, sky replacement)", "amount": 750},
+        {"description": "Virtual staging — 5 rooms (furniture, decor, lighting)", "amount": 500},
+        {"description": "Property walkthrough video edit — 3 listings (color grade, music, titles)", "amount": 450}
+      ],
+      "taxRate": 5.3,
+      "notes": "Net 14. Custom volume pricing pending — this invoice covers initial batch. One round of revisions included per deliverable.",
+      "dateIssued": "2026-02-12",
+      "dateDue": "2026-02-26",
+      "status": "sent"
+    },
+    {
+      "id": 3,
+      "number": "INV-003",
+      "client": "Bella's Bistro",
+      "email": "isabella@bellasbistro.com",
+      "service": "Sample Edit + Reels Proposal",
+      "lineItems": [
+        {"description": "Complimentary sample edit — menu hero shot (color grading, retouching)", "amount": 0},
+        {"description": "Standard Reels Package setup fee (first month)", "amount": 547}
+      ],
+      "taxRate": 0,
+      "notes": "Sample edit provided free of charge. Setup fee covers first month of Standard Reels Package (8 Reels/month). Pending proposal acceptance.",
+      "dateIssued": "2026-02-13",
+      "dateDue": "2026-02-27",
+      "status": "sent"
+    },
+    {
+      "id": 4,
+      "number": "INV-004",
+      "client": "Oakwood Wedding Venues",
+      "email": "events@oakwoodvenues.com",
+      "service": "Wedding Content Package",
+      "lineItems": [
+        {"description": "Wedding highlight reel — 4 min cinematic edit (color grade, music, titles)", "amount": 3000},
+        {"description": "Full ceremony edit — complete video with audio sync", "amount": 2000},
+        {"description": "Photo album editing — 200 images (retouching, color consistency, album layout)", "amount": 1200}
+      ],
+      "taxRate": 0,
+      "notes": "50% deposit required to begin work. Balance due on delivery. Premium editing with unlimited revisions. Draft — pending proposal acceptance.",
+      "dateIssued": "2026-02-15",
+      "dateDue": "2026-03-01",
+      "status": "draft"
+    }
+  ]
+}

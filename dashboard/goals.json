@@ -4,7 +4,7 @@
       "id": 1,
       "title": "Land first 5 paying clients",
       "category": "Clients",
-      "current": 0,
+      "current": 1,
       "target": 5,
       "unit": "clients",
       "deadline": "2026-03-15",
@@ -14,21 +14,21 @@
         {"text": "Launch website with portfolio", "done": true},
         {"text": "Cold outreach to 20 local businesses", "done": false},
         {"text": "Post 3 case studies / samples", "done": false},
-        {"text": "Close first paying client", "done": false}
+        {"text": "Close first paying client", "done": true}
       ]
     },
     {
       "id": 2,
       "title": "Hit $5K monthly revenue",
       "category": "Revenue",
-      "current": 0,
+      "current": 897,
       "target": 5000,
       "unit": "$",
       "deadline": "2026-04-01",
       "status": "in-progress",
       "subtasks": [
         {"text": "Define pricing tiers", "done": true},
-        {"text": "Land first retainer client", "done": false},
+        {"text": "Land first retainer client", "done": true},
         {"text": "Upsell existing clients", "done": false},
         {"text": "Reach $1K milestone", "done": false},
         {"text": "Reach $5K milestone", "done": false}
@@ -73,7 +73,7 @@
       "id": 5,
       "title": "Grow Instagram to 1,000 followers",
       "category": "Growth",
-      "current": 0,
+      "current": 47,
       "target": 1000,
       "unit": "followers",
       "deadline": "2026-04-01",

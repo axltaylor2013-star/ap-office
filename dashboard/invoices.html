@@ -5,6 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kermicle Media — Client Invoices</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>?</text></svg>">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0b0e14;--bg2:#1a1a2e;--card:#16213e;--card2:#1a2747;--gold:#d4a843;--gold2:#f0c966;--text:#e0e0e0;--dim:#8892a4;--border:#253255;--green:#4ade80;--red:#f87171;--blue:#60a5fa;--orange:#fbbf24}
@@ -230,12 +231,14 @@ let invoices=[];
 
 function loadData(){
   fetch('invoices.json?_='+Date.now()).then(r=>r.json()).then(d=>{
-    if(!localStorage.getItem('kermicle-invoices')){
-      invoices=d.invoices||[];
-      localStorage.setItem('kermicle-invoices',JSON.stringify(invoices));
-    } else {
-      invoices=JSON.parse(localStorage.getItem('kermicle-invoices'));
-    }
+    invoices=d.invoices||[];
+    // Merge any locally-created invoices not in the JSON
+    try{
+      const local=JSON.parse(localStorage.getItem('kermicle-invoices')||'[]');
+      const jsonIds=new Set(invoices.map(i=>i.id));
+      local.forEach(li=>{if(!jsonIds.has(li.id))invoices.push(li)});
+    }catch(e){}
+    save();
     render();
   }).catch(()=>{
     const s=localStorage.getItem('kermicle-invoices');

@@ -1,0 +1,3179 @@
+<roblox version="4">
+  <Item class="Lighting" referent="0">
+    <Properties>
+      <string name="Name">Lighting</string>
+    </Properties>
+  </Item>
+  <Item class="ReplicatedStorage" referent="1">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="Folder" referent="2">
+      <Properties>
+        <string name="Name">Modules</string>
+      </Properties>
+      <Item class="ModuleScript" referent="3">
+        <Properties>
+          <string name="Name">Config</string>
+          <string name="Source"><![CDATA[-- Config.lua (ModuleScript in ReplicatedStorage/Modules)
+-- Game-wide constants and settings
+
+local Config = {}
+
+-- === SKILLS ===
+Config.Skills = {
+	Mining = { maxLevel = 99, baseXP = 50 },
+	Woodcutting = { maxLevel = 99, baseXP = 45 },
+	Fishing = { maxLevel = 99, baseXP = 40 },
+	Smithing = { maxLevel = 99, baseXP = 60 },
+	Cooking = { maxLevel = 99, baseXP = 55 },
+	Combat = { maxLevel = 99, baseXP = 70 },
+}
+
+-- XP formula: XP needed for level N = floor(N^2 * 100)
+function Config.GetXPForLevel(level)
+	return math.floor(level * level * 100)
+end
+
+-- Get level from total XP
+function Config.GetLevelFromXP(totalXP)
+	local level = 1
+	while Config.GetXPForLevel(level + 1) <= totalXP and level < 99 do
+		level = level + 1
+	end
+	return level
+end
+
+-- === INVENTORY ===
+Config.MaxInventorySlots = 28 -- just like RuneScape
+Config.MaxBankSlots = 100
+
+-- === WILDERNESS ===
+Config.WildernessEnabled = true
+Config.SafeZoneOnDeath = true -- respawn in safe zone
+Config.LootDropDuration = 60 -- seconds before loot despawns
+
+-- === COMBAT ===
+Config.BaseHealth = 100
+Config.HealthPerCombatLevel = 5
+Config.RespawnTime = 5 -- seconds
+Config.AttackCooldown = 1.5 -- seconds between attacks
+
+-- === RESOURCE RESPAWN ===
+Config.ResourceRespawnTime = {
+	Tree = 15,
+	Rock = 20,
+	FishingSpot = 10,
+}
+
+-- === ZONES ===
+Config.Zones = {
+	SafeZone = "SafeZone",
+	Wilderness = "Wilderness",
+}
+
+return Config
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="4">
+        <Properties>
+          <string name="Name">DataManager</string>
+          <string name="Source"><![CDATA[-- DataManager.lua (ModuleScript in ReplicatedStorage/Modules)
+-- Handles saving/loading player data with DataStoreService
+
+local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+print("[DataManager] Loading...")
+local Config = require(script.Parent:WaitForChild("Config"))
+print("[DataManager] Config loaded!")
+
+-- Check if DataStore is available (requires published place)
+local dataStoreAvailable = false
+local PlayerStore
+pcall(function()
+	PlayerStore = DataStoreService:GetDataStore("PlayerData_v1")
+	dataStoreAvailable = true
+end)
+
+if not dataStoreAvailable then
+	warn("[DataManager] DataStore not available (place not published) — using in-memory storage. Data will NOT save between sessions.")
+end
+
+-- PlayerStore initialized above
+
+local DataManager = {}
+DataManager.PlayerData = {}
+
+local function getDefaultData()
+	return {
+		Skills = {
+			Mining = 0, Woodcutting = 0, Fishing = 0,
+			Smithing = 0, Cooking = 0, Combat = 0,
+		},
+		Inventory = {},
+		Bank = {},
+		Gold = 0,
+		TotalDeaths = 0,
+		TotalKills = 0,
+		PlayTime = 0,
+		PvPEnabled = true,
+		FirstJoin = os.time(),
+		LastSave = os.time(),
+	}
+end
+
+function DataManager.LoadData(player)
+	if dataStoreAvailable then
+		local key = "Player_" .. player.UserId
+		local success, data = pcall(function() return PlayerStore:GetAsync(key) end)
+		if success and data then
+			local defaults = getDefaultData()
+			for k, v in pairs(defaults) do
+				if data[k] == nil then data[k] = v end
+			end
+			for skillName, _ in pairs(defaults.Skills) do
+				if data.Skills[skillName] == nil then data.Skills[skillName] = 0 end
+			end
+			DataManager.PlayerData[player.UserId] = data
+			print("[DataManager] Loaded saved data for " .. player.Name)
+			return DataManager.PlayerData[player.UserId]
+		end
+	end
+	-- New player or DataStore unavailable
+	DataManager.PlayerData[player.UserId] = getDefaultData()
+	print("[DataManager] Created fresh data for " .. player.Name)
+	return DataManager.PlayerData[player.UserId]
+end
+
+function DataManager.SaveData(player)
+	local data = DataManager.PlayerData[player.UserId]
+	if not data then return end
+	data.LastSave = os.time()
+	if not dataStoreAvailable then return end -- skip save if no DataStore
+	local key = "Player_" .. player.UserId
+	local success, err = pcall(function() PlayerStore:SetAsync(key, data) end)
+	if success then
+		print("[DataManager] Saved data for " .. player.Name)
+	else
+		warn("[DataManager] FAILED to save for " .. player.Name .. ": " .. tostring(err))
+	end
+end
+
+function DataManager.GetData(player) return DataManager.PlayerData[player.UserId] end
+
+function DataManager.AddSkillXP(player, skillName, amount)
+	local data = DataManager.PlayerData[player.UserId]
+	if not data or not data.Skills[skillName] then return end
+	local oldLevel = Config.GetLevelFromXP(data.Skills[skillName])
+	data.Skills[skillName] = data.Skills[skillName] + amount
+	local newLevel = Config.GetLevelFromXP(data.Skills[skillName])
+	if newLevel > oldLevel then
+		local remote = ReplicatedStorage.Remotes:FindFirstChild("LevelUp")
+		if remote then remote:FireClient(player, skillName, newLevel) end
+		print("[Skills] " .. player.Name .. " reached " .. skillName .. " level " .. newLevel)
+	end
+	local xpRemote = ReplicatedStorage.Remotes:FindFirstChild("XPUpdate")
+	if xpRemote then xpRemote:FireClient(player, skillName, data.Skills[skillName], newLevel) end
+end
+
+function DataManager.GetSkillLevel(player, skillName)
+	local data = DataManager.PlayerData[player.UserId]
+	if not data or not data.Skills[skillName] then return 1 end
+	return Config.GetLevelFromXP(data.Skills[skillName])
+end
+
+function DataManager.AddToInventory(player, itemName, quantity)
+	local data = DataManager.PlayerData[player.UserId]
+	if not data then return false end
+	quantity = quantity or 1
+	for _, slot in ipairs(data.Inventory) do
+		if slot.name == itemName then slot.quantity = slot.quantity + quantity return true end
+	end
+	if #data.Inventory >= Config.MaxInventorySlots then return false end
+	table.insert(data.Inventory, { name = itemName, quantity = quantity })
+	return true
+end
+
+function DataManager.RemoveFromInventory(player, itemName, quantity)
+	local data = DataManager.PlayerData[player.UserId]
+	if not data then return false end
+	quantity = quantity or 1
+	for i, slot in ipairs(data.Inventory) do
+		if slot.name == itemName then
+			slot.quantity = slot.quantity - quantity
+			if slot.quantity <= 0 then table.remove(data.Inventory, i) end
+			return true
+		end
+	end
+	return false
+end
+
+function DataManager.HasItem(player, itemName, quantity)
+	local data = DataManager.PlayerData[player.UserId]
+	if not data then return false end
+	quantity = quantity or 1
+	for _, slot in ipairs(data.Inventory) do
+		if slot.name == itemName and slot.quantity >= quantity then return true end
+	end
+	return false
+end
+
+function DataManager.DepositToBank(player, itemName, quantity)
+	local data = DataManager.PlayerData[player.UserId]
+	if not data then return false end
+	if not DataManager.HasItem(player, itemName, quantity) then return false end
+	DataManager.RemoveFromInventory(player, itemName, quantity)
+	for _, slot in ipairs(data.Bank) do
+		if slot.name == itemName then slot.quantity = slot.quantity + quantity return true end
+	end
+	if #data.Bank >= Config.MaxBankSlots then
+		DataManager.AddToInventory(player, itemName, quantity)
+		return false
+	end
+	table.insert(data.Bank, { name = itemName, quantity = quantity })
+	return true
+end
+
+function DataManager.WithdrawFromBank(player, itemName, quantity)
+	local data = DataManager.PlayerData[player.UserId]
+	if not data then return false end
+	for i, slot in ipairs(data.Bank) do
+		if slot.name == itemName and slot.quantity >= quantity then
+			if #data.Inventory >= Config.MaxInventorySlots then
+				local found = false
+				for _, invSlot in ipairs(data.Inventory) do
+					if invSlot.name == itemName then found = true break end
+				end
+				if not found then return false end
+			end
+			slot.quantity = slot.quantity - quantity
+			if slot.quantity <= 0 then table.remove(data.Bank, i) end
+			DataManager.AddToInventory(player, itemName, quantity)
+			return true
+		end
+	end
+	return false
+end
+
+function DataManager.GetAndClearInventory(player)
+	local data = DataManager.PlayerData[player.UserId]
+	if not data then return {} end
+	local dropped = {}
+	for _, slot in ipairs(data.Inventory) do
+		table.insert(dropped, { name = slot.name, quantity = slot.quantity })
+	end
+	data.Inventory = {}
+	data.TotalDeaths = data.TotalDeaths + 1
+	return dropped
+end
+
+return DataManager
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="5">
+        <Properties>
+          <string name="Name">ItemDatabase</string>
+          <string name="Source"><![CDATA[-- ItemDatabase.lua (ModuleScript in ReplicatedStorage/Modules)
+-- Every item in the game defined here
+
+local ItemDatabase = {}
+
+ItemDatabase.Items = {
+	-- === ORES (from Mining) ===
+	["Copper Ore"] = {
+		id = "copper_ore",
+		type = "resource",
+		skill = "Mining",
+		levelReq = 1,
+		xp = 20,
+		stackable = true,
+		value = 5,
+		description = "A chunk of copper ore.",
+	},
+	["Iron Ore"] = {
+		id = "iron_ore",
+		type = "resource",
+		skill = "Mining",
+		levelReq = 15,
+		xp = 35,
+		stackable = true,
+		value = 15,
+		description = "A chunk of iron ore.",
+	},
+	["Gold Ore"] = {
+		id = "gold_ore",
+		type = "resource",
+		skill = "Mining",
+		levelReq = 40,
+		xp = 65,
+		stackable = true,
+		value = 50,
+		description = "A chunk of gold ore. Valuable.",
+	},
+	["Runite Ore"] = {
+		id = "runite_ore",
+		type = "resource",
+		skill = "Mining",
+		levelReq = 70,
+		xp = 125,
+		stackable = true,
+		value = 200,
+		description = "Extremely rare ore. Only found in the Wilderness.",
+		wildernessOnly = true,
+	},
+
+	-- === LOGS (from Woodcutting) ===
+	["Oak Log"] = {
+		id = "oak_log",
+		type = "resource",
+		skill = "Woodcutting",
+		levelReq = 1,
+		xp = 18,
+		stackable = true,
+		value = 4,
+		description = "A sturdy oak log.",
+	},
+	["Willow Log"] = {
+		id = "willow_log",
+		type = "resource",
+		skill = "Woodcutting",
+		levelReq = 20,
+		xp = 40,
+		stackable = true,
+		value = 12,
+		description = "A flexible willow log.",
+	},
+	["Yew Log"] = {
+		id = "yew_log",
+		type = "resource",
+		skill = "Woodcutting",
+		levelReq = 50,
+		xp = 80,
+		stackable = true,
+		value = 75,
+		description = "Dense yew wood. Prized by fletchers.",
+	},
+	["Magic Log"] = {
+		id = "magic_log",
+		type = "resource",
+		skill = "Woodcutting",
+		levelReq = 75,
+		xp = 150,
+		stackable = true,
+		value = 250,
+		description = "Pulsing with energy. Wilderness only.",
+		wildernessOnly = true,
+	},
+
+	-- === FISH (from Fishing) ===
+	["Shrimp"] = {
+		id = "shrimp",
+		type = "resource",
+		skill = "Fishing",
+		levelReq = 1,
+		xp = 15,
+		stackable = true,
+		value = 3,
+		cookable = true,
+		healAmount = 5,
+		description = "A small shrimp.",
+	},
+	["Trout"] = {
+		id = "trout",
+		type = "resource",
+		skill = "Fishing",
+		levelReq = 20,
+		xp = 35,
+		stackable = true,
+		value = 10,
+		cookable = true,
+		healAmount = 15,
+		description = "A fresh trout.",
+	},
+	["Lobster"] = {
+		id = "lobster",
+		type = "resource",
+		skill = "Fishing",
+		levelReq = 40,
+		xp = 60,
+		stackable = true,
+		value = 40,
+		cookable = true,
+		healAmount = 30,
+		description = "A large lobster.",
+	},
+	["Dark Crab"] = {
+		id = "dark_crab",
+		type = "resource",
+		skill = "Fishing",
+		levelReq = 70,
+		xp = 130,
+		stackable = true,
+		value = 180,
+		cookable = true,
+		healAmount = 50,
+		description = "Found only in Wilderness waters.",
+		wildernessOnly = true,
+	},
+
+	-- === BARS (from Smithing) ===
+	["Copper Bar"] = {
+		id = "copper_bar",
+		type = "crafted",
+		skill = "Smithing",
+		levelReq = 1,
+		xp = 25,
+		stackable = true,
+		value = 12,
+		recipe = { ["Copper Ore"] = 1 },
+		description = "A smelted copper bar.",
+	},
+	["Iron Bar"] = {
+		id = "iron_bar",
+		type = "crafted",
+		skill = "Smithing",
+		levelReq = 15,
+		xp = 45,
+		stackable = true,
+		value = 35,
+		recipe = { ["Iron Ore"] = 1 },
+		description = "A smelted iron bar.",
+	},
+	["Gold Bar"] = {
+		id = "gold_bar",
+		type = "crafted",
+		skill = "Smithing",
+		levelReq = 40,
+		xp = 75,
+		stackable = true,
+		value = 120,
+		recipe = { ["Gold Ore"] = 1 },
+		description = "A gleaming gold bar.",
+	},
+
+	-- === WEAPONS ===
+	["Copper Sword"] = {
+		id = "copper_sword",
+		type = "weapon",
+		skill = "Smithing",
+		levelReq = 1,
+		combatReq = 1,
+		xp = 50,
+		stackable = false,
+		value = 30,
+		damage = 8,
+		attackSpeed = 1.5,
+		recipe = { ["Copper Bar"] = 2 },
+		description = "A basic copper sword.",
+	},
+	["Iron Sword"] = {
+		id = "iron_sword",
+		type = "weapon",
+		skill = "Smithing",
+		levelReq = 20,
+		combatReq = 15,
+		xp = 80,
+		stackable = false,
+		value = 85,
+		damage = 15,
+		attackSpeed = 1.4,
+		recipe = { ["Iron Bar"] = 2 },
+		description = "A solid iron blade.",
+	},
+	["Gold Sword"] = {
+		id = "gold_sword",
+		type = "weapon",
+		skill = "Smithing",
+		levelReq = 45,
+		combatReq = 40,
+		xp = 120,
+		stackable = false,
+		value = 300,
+		damage = 25,
+		attackSpeed = 1.3,
+		recipe = { ["Gold Bar"] = 3 },
+		description = "A powerful gold sword.",
+	},
+
+	-- === COOKED FOOD ===
+	["Cooked Shrimp"] = {
+		id = "cooked_shrimp",
+		type = "food",
+		skill = "Cooking",
+		levelReq = 1,
+		xp = 20,
+		stackable = true,
+		value = 8,
+		healAmount = 10,
+		recipe = { ["Shrimp"] = 1 },
+		description = "Heals 10 HP.",
+	},
+	["Cooked Trout"] = {
+		id = "cooked_trout",
+		type = "food",
+		skill = "Cooking",
+		levelReq = 20,
+		xp = 40,
+		stackable = true,
+		value = 25,
+		healAmount = 25,
+		recipe = { ["Trout"] = 1 },
+		description = "Heals 25 HP.",
+	},
+	["Cooked Lobster"] = {
+		id = "cooked_lobster",
+		type = "food",
+		skill = "Cooking",
+		levelReq = 40,
+		xp = 65,
+		stackable = true,
+		value = 90,
+		healAmount = 45,
+		recipe = { ["Lobster"] = 1 },
+		description = "Heals 45 HP.",
+	},
+	["Cooked Dark Crab"] = {
+		id = "cooked_dark_crab",
+		type = "food",
+		skill = "Cooking",
+		levelReq = 70,
+		xp = 140,
+		stackable = true,
+		value = 350,
+		healAmount = 70,
+		recipe = { ["Dark Crab"] = 1 },
+		description = "Heals 70 HP. The best food in the game.",
+	},
+}
+
+-- Helper: get item by name
+function ItemDatabase.GetItem(name)
+	return ItemDatabase.Items[name]
+end
+
+-- Helper: get all items for a skill
+function ItemDatabase.GetItemsBySkill(skill)
+	local results = {}
+	for name, item in pairs(ItemDatabase.Items) do
+		if item.skill == skill then
+			results[name] = item
+		end
+	end
+	return results
+end
+
+-- Helper: get wilderness-only items
+function ItemDatabase.GetWildernessItems()
+	local results = {}
+	for name, item in pairs(ItemDatabase.Items) do
+		if item.wildernessOnly then
+			results[name] = item
+		end
+	end
+	return results
+end
+
+return ItemDatabase
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+    <Item class="Folder" referent="6">
+      <Properties>
+        <string name="Name">Remotes</string>
+      </Properties>
+      <Item class="RemoteEvent" referent="7">
+        <Properties>
+          <string name="Name">Attack</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="8">
+        <Properties>
+          <string name="Name">DamageDealt</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="9">
+        <Properties>
+          <string name="Name">EatFood</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="10">
+        <Properties>
+          <string name="Name">InventoryUpdate</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="11">
+        <Properties>
+          <string name="Name">LevelUp</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="12">
+        <Properties>
+          <string name="Name">XPUpdate</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="13">
+        <Properties>
+          <string name="Name">ZoneChanged</string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="14">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="Script" referent="15">
+      <Properties>
+        <string name="Name">BankManager</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[﻿-- BankManager.server.lua
+-- Bank NPC + deposit/withdraw system
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local DataManager = require(ReplicatedStorage.Modules.DataManager)
+local Config = require(ReplicatedStorage.Modules.Config)
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+
+-- Create bank remotes
+local bankOpenRemote = Instance.new("RemoteEvent")
+bankOpenRemote.Name = "BankOpen"
+bankOpenRemote.Parent = Remotes
+
+local bankActionRemote = Instance.new("RemoteEvent")
+bankActionRemote.Name = "BankAction"
+bankActionRemote.Parent = Remotes
+
+local bankUpdateRemote = Instance.new("RemoteEvent")
+bankUpdateRemote.Name = "BankUpdate"
+bankUpdateRemote.Parent = Remotes
+
+-- === CREATE BANK NPC ===
+task.wait(3) -- wait for MapSetup
+
+local function createBankNPC()
+	local safeZone = Workspace:FindFirstChild("SafeZone")
+	if not safeZone then
+		safeZone = Instance.new("Folder")
+		safeZone.Name = "SafeZone"
+		safeZone.Parent = Workspace
+	end
+
+	-- NPC body (positioned inside bank building at x=20, z=20)
+	local npcModel = Instance.new("Model")
+	npcModel.Name = "BankNPC"
+	npcModel.Parent = safeZone
+
+	-- Torso (main body)
+	local torso = Instance.new("Part")
+	torso.Name = "HumanoidRootPart"
+	torso.Size = Vector3.new(2, 2, 1)
+	torso.Position = Vector3.new(35, 1.5, 50)
+	torso.Anchored = true
+	torso.CanCollide = true
+	torso.BrickColor = BrickColor.new("Bright blue")
+	torso.Material = Enum.Material.SmoothPlastic
+	torso.Parent = npcModel
+
+	-- Head
+	local head = Instance.new("Part")
+	head.Name = "Head"
+	head.Shape = Enum.PartType.Ball
+	head.Size = Vector3.new(1.5, 1.5, 1.5)
+	head.Position = Vector3.new(35, 3, 50)
+	head.Anchored = true
+	head.CanCollide = false
+	head.BrickColor = BrickColor.new("Light orange")
+	head.Material = Enum.Material.SmoothPlastic
+	head.Parent = npcModel
+
+	-- Hat (banker hat)
+	local hat = Instance.new("Part")
+	hat.Name = "Hat"
+	hat.Size = Vector3.new(2, 0.5, 2)
+	hat.Position = Vector3.new(35, 3.8, 50)
+	hat.Anchored = true
+	hat.CanCollide = false
+	hat.BrickColor = BrickColor.new("Dark stone grey")
+	hat.Material = Enum.Material.SmoothPlastic
+	hat.Parent = npcModel
+
+	-- Legs
+	local leftLeg = Instance.new("Part")
+	leftLeg.Name = "LeftLeg"
+	leftLeg.Size = Vector3.new(0.8, 1, 0.8)
+	leftLeg.Position = Vector3.new(19.5, 0.25, 20)
+	leftLeg.Anchored = true
+	leftLeg.CanCollide = false
+	leftLeg.BrickColor = BrickColor.new("Dark stone grey")
+	leftLeg.Material = Enum.Material.SmoothPlastic
+	leftLeg.Parent = npcModel
+
+	local rightLeg = Instance.new("Part")
+	rightLeg.Name = "RightLeg"
+	rightLeg.Size = Vector3.new(0.8, 1, 0.8)
+	rightLeg.Position = Vector3.new(20.5, 0.25, 20)
+	rightLeg.Anchored = true
+	rightLeg.CanCollide = false
+	rightLeg.BrickColor = BrickColor.new("Dark stone grey")
+	rightLeg.Material = Enum.Material.SmoothPlastic
+	rightLeg.Parent = npcModel
+
+	-- Arms
+	local leftArm = Instance.new("Part")
+	leftArm.Name = "LeftArm"
+	leftArm.Size = Vector3.new(0.6, 1.8, 0.6)
+	leftArm.Position = Vector3.new(18.7, 1.5, 20)
+	leftArm.Anchored = true
+	leftArm.CanCollide = false
+	leftArm.BrickColor = BrickColor.new("Bright blue")
+	leftArm.Material = Enum.Material.SmoothPlastic
+	leftArm.Parent = npcModel
+
+	local rightArm = Instance.new("Part")
+	rightArm.Name = "RightArm"
+	rightArm.Size = Vector3.new(0.6, 1.8, 0.6)
+	rightArm.Position = Vector3.new(21.3, 1.5, 20)
+	rightArm.Anchored = true
+	rightArm.CanCollide = false
+	rightArm.BrickColor = BrickColor.new("Bright blue")
+	rightArm.Material = Enum.Material.SmoothPlastic
+	rightArm.Parent = npcModel
+
+	-- Bank booth (counter)
+	local counter = Instance.new("Part")
+	counter.Name = "BankCounter"
+	counter.Size = Vector3.new(6, 3, 2)
+	counter.Position = Vector3.new(35, 1.5, 48)
+	counter.Anchored = true
+	counter.CanCollide = true
+	counter.BrickColor = BrickColor.new("Reddish brown")
+	counter.Material = Enum.Material.Wood
+	counter.Parent = safeZone
+
+	-- Counter top
+	local counterTop = Instance.new("Part")
+	counterTop.Name = "CounterTop"
+	counterTop.Size = Vector3.new(6.5, 0.3, 2.5)
+	counterTop.Position = Vector3.new(35, 3.15, 48)
+	counterTop.Anchored = true
+	counterTop.CanCollide = true
+	counterTop.BrickColor = BrickColor.new("Dark stone grey")
+	counterTop.Material = Enum.Material.Marble
+	counterTop.Parent = safeZone
+
+	-- Gold bars on counter (decoration)
+	local goldStack = Instance.new("Part")
+	goldStack.Name = "GoldBars"
+	goldStack.Size = Vector3.new(1, 0.5, 0.5)
+	goldStack.Position = Vector3.new(36.5, 3.55, 48)
+	goldStack.Anchored = true
+	goldStack.CanCollide = false
+	goldStack.BrickColor = BrickColor.new("Bright yellow")
+	goldStack.Material = Enum.Material.Neon
+	goldStack.Transparency = 0.1
+	goldStack.Parent = safeZone
+
+	-- NPC Name billboard
+	local nameBillboard = Instance.new("BillboardGui")
+	nameBillboard.Size = UDim2.new(6, 0, 1.5, 0)
+	nameBillboard.StudsOffset = Vector3.new(0, 3, 0)
+	nameBillboard.Parent = head
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+	nameLabel.Position = UDim2.new(0, 0, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = "ðŸ¦ Banker"
+	nameLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+	nameLabel.TextScaled = true
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.TextStrokeTransparency = 0.5
+	nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	nameLabel.Parent = nameBillboard
+
+	local subLabel = Instance.new("TextLabel")
+	subLabel.Size = UDim2.new(1, 0, 0.4, 0)
+	subLabel.Position = UDim2.new(0, 0, 0.55, 0)
+	subLabel.BackgroundTransparency = 1
+	subLabel.Text = "Click to open bank"
+	subLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+	subLabel.TextScaled = true
+	subLabel.Font = Enum.Font.Gotham
+	subLabel.TextStrokeTransparency = 0.7
+	subLabel.Parent = nameBillboard
+
+	-- Click detector on torso
+	local clickDetector = Instance.new("ClickDetector")
+	clickDetector.MaxActivationDistance = 12
+	clickDetector.Parent = torso
+
+	-- Also add click detector to head for easier clicking
+	local headClick = Instance.new("ClickDetector")
+	headClick.MaxActivationDistance = 12
+	headClick.Parent = head
+
+	local function onBankClick(player)
+		-- Only allow in safe zone
+		local character = player.Character
+		if character then
+			local root = character:FindFirstChild("HumanoidRootPart")
+			if root and root.Position.Z < -100 then
+				-- In wilderness, can't use bank
+				return
+			end
+		end
+
+		local data = DataManager.GetData(player)
+		if not data then return end
+
+		-- Send bank data to client
+		bankOpenRemote:FireClient(player, data.Bank, data.Inventory)
+		print("[Bank] " .. player.Name .. " opened the bank")
+	end
+
+	clickDetector.MouseClick:Connect(onBankClick)
+	headClick.MouseClick:Connect(onBankClick)
+
+	print("[BankManager] Bank NPC created at safe zone")
+	return npcModel
+end
+
+-- === HANDLE BANK ACTIONS ===
+bankActionRemote.OnServerEvent:Connect(function(player, action, itemName, quantity)
+	if not player or not action or not itemName then return end
+	quantity = tonumber(quantity) or 1
+	if quantity < 1 then return end
+
+	local data = DataManager.GetData(player)
+	if not data then return end
+
+	local success = false
+
+	if action == "deposit" then
+		success = DataManager.DepositToBank(player, itemName, quantity)
+		if success then
+			print("[Bank] " .. player.Name .. " deposited " .. quantity .. "x " .. itemName)
+		end
+	elseif action == "withdraw" then
+		success = DataManager.WithdrawFromBank(player, itemName, quantity)
+		if success then
+			print("[Bank] " .. player.Name .. " withdrew " .. quantity .. "x " .. itemName)
+		end
+	elseif action == "deposit_all" then
+		-- Deposit entire inventory
+		local deposited = 0
+		-- Make a copy of inventory since we're modifying it
+		local invCopy = {}
+		for _, slot in ipairs(data.Inventory) do
+			table.insert(invCopy, { name = slot.name, quantity = slot.quantity })
+		end
+		for _, slot in ipairs(invCopy) do
+			if DataManager.DepositToBank(player, slot.name, slot.quantity) then
+				deposited = deposited + slot.quantity
+			end
+		end
+		success = deposited > 0
+		if success then
+			print("[Bank] " .. player.Name .. " deposited all (" .. deposited .. " items)")
+		end
+	end
+
+	-- Send updated bank + inventory data back
+	local updatedData = DataManager.GetData(player)
+	bankUpdateRemote:FireClient(player, updatedData.Bank, updatedData.Inventory, success, action)
+
+	-- Also update inventory UI
+	local invRemote = Remotes:FindFirstChild("InventoryUpdate")
+	if invRemote then
+		invRemote:FireClient(player, updatedData.Inventory)
+	end
+end)
+
+-- Create the NPC
+createBankNPC()
+
+print("[BankManager] Bank system active!")
+
+
+
+
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="16">
+      <Properties>
+        <string name="Name">CombatManager</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[-- CombatManager.server.lua
+-- Server-authoritative combat system for PvP
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Config = require(ReplicatedStorage.Modules.Config)
+local ItemDB = require(ReplicatedStorage.Modules.ItemDatabase)
+
+local DataManager = require(ReplicatedStorage.Modules.DataManager)
+
+-- Track attack cooldowns
+local attackCooldowns = {}
+
+-- Wilderness check
+local WILDERNESS_Z = -100
+local function isInWilderness(position)
+	return position.Z < WILDERNESS_Z
+end
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local attackRemote = Remotes:WaitForChild("Attack")
+local damageRemote = Remotes:WaitForChild("DamageDealt")
+
+-- Get player's equipped weapon damage
+local function getPlayerDamage(player)
+	local data = DataManager.GetData(player)
+	if not data then return 5 end
+
+	-- Find best weapon in inventory
+	local bestDamage = 5 -- fist damage
+	for _, slot in ipairs(data.Inventory) do
+		local item = ItemDB.GetItem(slot.name)
+		if item and item.type == "weapon" then
+			local combatLevel = DataManager.GetSkillLevel(player, "Combat")
+			if combatLevel >= (item.combatReq or 1) then
+				if item.damage > bestDamage then
+					bestDamage = item.damage
+				end
+			end
+		end
+	end
+
+	-- Add combat level bonus
+	local combatLevel = DataManager.GetSkillLevel(player, "Combat")
+	bestDamage = bestDamage + math.floor(combatLevel * 0.5)
+
+	return bestDamage
+end
+
+-- Get player's max health based on combat level
+local function getPlayerMaxHealth(player)
+	local combatLevel = DataManager.GetSkillLevel(player, "Combat")
+	return Config.BaseHealth + (combatLevel * Config.HealthPerCombatLevel)
+end
+
+-- Set up player health on spawn
+local function setupPlayerHealth(player, character)
+	local humanoid = character:WaitForChild("Humanoid")
+	local maxHP = getPlayerMaxHealth(player)
+	humanoid.MaxHealth = maxHP
+	humanoid.Health = maxHP
+end
+
+-- Handle attack request from client
+attackRemote.OnServerEvent:Connect(function(attacker, targetPlayer)
+	-- Validate target
+	if not targetPlayer or not targetPlayer:IsA("Player") then return end
+	if targetPlayer == attacker then return end
+
+	-- Cooldown check
+	local now = tick()
+	if attackCooldowns[attacker.UserId] and (now - attackCooldowns[attacker.UserId]) < Config.AttackCooldown then
+		return -- still on cooldown
+	end
+	attackCooldowns[attacker.UserId] = now
+
+	-- Both players must have characters
+	local attackerChar = attacker.Character
+	local targetChar = targetPlayer.Character
+	if not attackerChar or not targetChar then return end
+
+	local attackerRoot = attackerChar:FindFirstChild("HumanoidRootPart")
+	local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+	if not attackerRoot or not targetRoot then return end
+
+	-- Range check (must be within 10 studs)
+	local distance = (attackerRoot.Position - targetRoot.Position).Magnitude
+	if distance > 10 then return end
+
+	-- PvP zone check — both must be in wilderness
+	if not isInWilderness(attackerRoot.Position) or not isInWilderness(targetRoot.Position) then
+		return -- can't PvP in safe zone
+	end
+
+	-- Calculate damage
+	local damage = getPlayerDamage(attacker)
+
+	-- Apply some randomness (80%-120%)
+	local multiplier = 0.8 + (math.random() * 0.4)
+	damage = math.floor(damage * multiplier)
+
+	-- Apply damage
+	local targetHumanoid = targetChar:FindFirstChild("Humanoid")
+	if not targetHumanoid or targetHumanoid.Health <= 0 then return end
+
+	-- Tag the kill (so WildernessManager knows who killed them)
+	local tag = targetHumanoid:FindFirstChild("creator")
+	if not tag then
+		tag = Instance.new("ObjectValue")
+		tag.Name = "creator"
+		tag.Parent = targetHumanoid
+	end
+	tag.Value = attacker
+
+	-- Clear tag after 5 seconds
+	task.delay(5, function()
+		if tag and tag.Parent then
+			tag:Destroy()
+		end
+	end)
+
+	targetHumanoid:TakeDamage(damage)
+
+	-- Award combat XP to attacker
+	local xpGain = math.floor(damage * 1.5)
+	DataManager.AddSkillXP(attacker, "Combat", xpGain)
+
+	-- Notify both players
+	damageRemote:FireClient(attacker, "dealt", damage, targetPlayer.Name)
+	damageRemote:FireClient(targetPlayer, "received", damage, attacker.Name)
+
+	print("[Combat] " .. attacker.Name .. " hit " .. targetPlayer.Name .. " for " .. damage .. " damage")
+end)
+
+-- === EAT FOOD (healing) ===
+local eatRemote = Remotes:WaitForChild("EatFood")
+
+eatRemote.OnServerEvent:Connect(function(player, itemName)
+	local item = ItemDB.GetItem(itemName)
+	if not item or item.type ~= "food" then return end
+
+	-- Must have the food
+	if not DataManager.HasItem(player, itemName, 1) then return end
+
+	local character = player.Character
+	if not character then return end
+	local humanoid = character:FindFirstChild("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then return end
+
+	-- Already full health?
+	if humanoid.Health >= humanoid.MaxHealth then return end
+
+	-- Eat it!
+	DataManager.RemoveFromInventory(player, itemName, 1)
+	humanoid.Health = math.min(humanoid.Health + item.healAmount, humanoid.MaxHealth)
+
+	-- Update inventory
+	local invRemote = ReplicatedStorage.Remotes:FindFirstChild("InventoryUpdate")
+	if invRemote then
+		local data = DataManager.GetData(player)
+		invRemote:FireClient(player, data.Inventory)
+	end
+
+	print("[Combat] " .. player.Name .. " ate " .. itemName .. " and healed " .. item.healAmount .. " HP")
+end)
+
+-- === PLAYER SETUP ===
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		task.wait(0.5) -- wait for DataManager to load
+		setupPlayerHealth(player, character)
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	attackCooldowns[player.UserId] = nil
+end)
+
+print("[CombatManager] PvP combat system active!")
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="17">
+      <Properties>
+        <string name="Name">GameInit</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[-- GameInit.server.lua
+-- Bootstrap script: handles player join/leave, data loading, auto-save
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local DataManager = require(ReplicatedStorage.Modules.DataManager)
+
+Players.PlayerAdded:Connect(function(player)
+	DataManager.LoadData(player)
+	
+	-- Send initial inventory to client
+	player.CharacterAdded:Connect(function()
+		task.wait(1)
+		local data = DataManager.GetData(player)
+		if data then
+			local invRemote = ReplicatedStorage.Remotes:FindFirstChild("InventoryUpdate")
+			if invRemote then
+				invRemote:FireClient(player, data.Inventory)
+			end
+			-- Send initial skill levels
+			local xpRemote = ReplicatedStorage.Remotes:FindFirstChild("XPUpdate")
+			if xpRemote then
+				local Config = require(ReplicatedStorage.Modules.Config)
+				for skillName, xp in pairs(data.Skills) do
+					local level = Config.GetLevelFromXP(xp)
+					xpRemote:FireClient(player, skillName, xp, level)
+				end
+			end
+		end
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	DataManager.SaveData(player)
+	DataManager.PlayerData[player.UserId] = nil
+end)
+
+-- Auto-save every 5 minutes
+task.spawn(function()
+	while true do
+		task.wait(300)
+		for _, player in ipairs(Players:GetPlayers()) do
+			DataManager.SaveData(player)
+		end
+		print("[GameInit] Auto-save complete")
+	end
+end)
+
+game:BindToClose(function()
+	for _, player in ipairs(Players:GetPlayers()) do
+		DataManager.SaveData(player)
+	end
+end)
+
+print("[GameInit] Server initialized!")
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="18">
+      <Properties>
+        <string name="Name">MapSetup</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[-- MapSetup.server.lua
+-- Creates the entire game world: terrain, city, wilderness, ponds, mine, forests
+
+print("[MapSetup] Starting world generation...")
+local WS = game:GetService("Workspace")
+
+-- === HELPER FUNCTIONS ===
+local function makePart(name, size, position, color, material, parent, props)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.Position = position
+	p.Anchored = true
+	p.BrickColor = BrickColor.new(color)
+	p.Material = material or Enum.Material.SmoothPlastic
+	p.Parent = parent
+	if props then
+		for k, v in pairs(props) do
+			p[k] = v
+		end
+	end
+	return p
+end
+
+local function makeWedge(name, size, position, color, material, parent, props)
+	local w = Instance.new("WedgePart")
+	w.Name = name
+	w.Size = size
+	w.Position = position
+	w.Anchored = true
+	w.BrickColor = BrickColor.new(color)
+	w.Material = material or Enum.Material.SmoothPlastic
+	w.Parent = parent
+	if props then
+		for k, v in pairs(props) do
+			w[k] = v
+		end
+	end
+	return w
+end
+
+local function makeSign(parent, text, offset, size)
+	local bg = Instance.new("BillboardGui")
+	bg.Size = size or UDim2.new(8, 0, 2, 0)
+	bg.StudsOffset = offset or Vector3.new(0, 5, 0)
+	bg.Parent = parent
+	local tl = Instance.new("TextLabel")
+	tl.Size = UDim2.new(1, 0, 1, 0)
+	tl.BackgroundTransparency = 1
+	tl.Text = text
+	tl.TextColor3 = Color3.fromRGB(255, 255, 255)
+	tl.TextScaled = true
+	tl.Font = Enum.Font.GothamBold
+	tl.TextStrokeTransparency = 0.3
+	tl.Parent = bg
+	return bg
+end
+
+local function makeTorch(position, parent)
+	local pole = makePart("TorchPole", Vector3.new(0.5, 6, 0.5), position, "Reddish brown", Enum.Material.Wood, parent)
+	local flame = makePart("TorchFlame", Vector3.new(1, 1.5, 1), position + Vector3.new(0, 3.5, 0), "Bright orange", Enum.Material.Neon, parent, {Transparency = 0.2})
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 150, 50)
+	light.Brightness = 2
+	light.Range = 20
+	light.Parent = flame
+	return pole
+end
+
+local function makeLantern(position, parent)
+	local post = makePart("LanternPost", Vector3.new(0.4, 5, 0.4), position, "Dark stone grey", Enum.Material.Metal, parent)
+	local lamp = makePart("Lantern", Vector3.new(1.2, 1.5, 1.2), position + Vector3.new(0, 3.2, 0), "Bright yellow", Enum.Material.Neon, parent, {Transparency = 0.3})
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 220, 120)
+	light.Brightness = 1.5
+	light.Range = 25
+	light.Parent = lamp
+	return post
+end
+
+-- === FOLDERS ===
+local function getOrMake(parent, name)
+	local f = parent:FindFirstChild(name)
+	if not f then f = Instance.new("Folder") f.Name = name f.Parent = parent end
+	return f
+end
+
+local safeZone = getOrMake(WS, "SafeZone")
+local wilderness = getOrMake(WS, "Wilderness")
+local resourceNodes = getOrMake(WS, "ResourceNodes")
+
+-- ============================================================
+-- === GROUND / TERRAIN ===
+-- ============================================================
+
+-- Main baseplate (safe zone - green grass) — HUGE
+if not WS:FindFirstChild("Baseplate") then
+	local bp = Instance.new("Part")
+	bp.Name = "Baseplate"
+	bp.Size = Vector3.new(800, 1, 800)
+	bp.Position = Vector3.new(0, -0.5, 0)
+	bp.Anchored = true
+	bp.BrickColor = BrickColor.new("Bright green")
+	bp.Material = Enum.Material.Grass
+	bp.Parent = WS
+end
+
+-- Wilderness ground (darker, dead — extends north)
+if not WS:FindFirstChild("WildernessGround") then
+	local wg = Instance.new("Part")
+	wg.Name = "WildernessGround"
+	wg.Size = Vector3.new(800, 1.01, 600)
+	wg.Position = Vector3.new(0, -0.5, -400)
+	wg.Anchored = true
+	wg.BrickColor = BrickColor.new("Dark stone grey")
+	wg.Material = Enum.Material.Ground
+	wg.Parent = WS
+end
+
+-- === SPAWN POINT ===
+if not WS:FindFirstChild("SpawnLocation") then
+	local sp = Instance.new("SpawnLocation")
+	sp.Size = Vector3.new(12, 1, 12)
+	sp.Position = Vector3.new(0, 0.5, 60)
+	sp.Anchored = true
+	sp.BrickColor = BrickColor.new("White")
+	sp.Material = Enum.Material.Marble
+	sp.Parent = WS
+end
+
+-- === WILDERNESS BORDER ===
+if not WS:FindFirstChild("WildernessBorder") then
+	local b = makePart("WildernessBorder", Vector3.new(800, 30, 2), Vector3.new(0, 15, -100), "Really red", Enum.Material.Neon, WS, {Transparency = 0.7, CanCollide = false})
+	makeSign(b, "⚠️ WILDERNESS — FULL LOOT PVP ⚠️\nCross at your own risk!", Vector3.new(0, 8, 0))
+end
+
+-- ============================================================
+-- === THE CITY OF HAVEN ===
+-- ============================================================
+
+local cityFolder = getOrMake(safeZone, "City")
+
+-- ---- CITY WALLS (big stone perimeter) ----
+-- Back wall (north side, near wilderness)
+makePart("WallBack", Vector3.new(120, 14, 4), Vector3.new(0, 7, -10), "Medium stone grey", Enum.Material.Cobblestone, cityFolder)
+-- Left wall (west)
+makePart("WallLeft", Vector3.new(4, 14, 120), Vector3.new(-62, 7, 50), "Medium stone grey", Enum.Material.Cobblestone, cityFolder)
+-- Right wall (east)
+makePart("WallRight", Vector3.new(4, 14, 120), Vector3.new(62, 7, 50), "Medium stone grey", Enum.Material.Cobblestone, cityFolder)
+-- Front wall LEFT of gate
+makePart("WallFrontL", Vector3.new(48, 14, 4), Vector3.new(-36, 7, 108), "Medium stone grey", Enum.Material.Cobblestone, cityFolder)
+-- Front wall RIGHT of gate
+makePart("WallFrontR", Vector3.new(48, 14, 4), Vector3.new(36, 7, 108), "Medium stone grey", Enum.Material.Cobblestone, cityFolder)
+
+-- Wall towers (corners)
+makePart("TowerNW", Vector3.new(8, 18, 8), Vector3.new(-62, 9, -10), "Dark stone grey", Enum.Material.Cobblestone, cityFolder)
+makePart("TowerNE", Vector3.new(8, 18, 8), Vector3.new(62, 9, -10), "Dark stone grey", Enum.Material.Cobblestone, cityFolder)
+makePart("TowerSW", Vector3.new(8, 18, 8), Vector3.new(-62, 9, 108), "Dark stone grey", Enum.Material.Cobblestone, cityFolder)
+makePart("TowerSE", Vector3.new(8, 18, 8), Vector3.new(62, 9, 108), "Dark stone grey", Enum.Material.Cobblestone, cityFolder)
+-- Tower tops (crenellation feel)
+makePart("TowerTopNW", Vector3.new(10, 2, 10), Vector3.new(-62, 19, -10), "Dark stone grey", Enum.Material.Cobblestone, cityFolder)
+makePart("TowerTopNE", Vector3.new(10, 2, 10), Vector3.new(62, 19, -10), "Dark stone grey", Enum.Material.Cobblestone, cityFolder)
+makePart("TowerTopSW", Vector3.new(10, 2, 10), Vector3.new(-62, 19, 108), "Dark stone grey", Enum.Material.Cobblestone, cityFolder)
+makePart("TowerTopSE", Vector3.new(10, 2, 10), Vector3.new(62, 19, 108), "Dark stone grey", Enum.Material.Cobblestone, cityFolder)
+
+-- ---- MAIN GATE ----
+makePart("GateLeft", Vector3.new(6, 18, 6), Vector3.new(-10, 9, 108), "Dark stone grey", Enum.Material.Cobblestone, cityFolder)
+makePart("GateRight", Vector3.new(6, 18, 6), Vector3.new(10, 9, 108), "Dark stone grey", Enum.Material.Cobblestone, cityFolder)
+makePart("GateArch", Vector3.new(26, 4, 6), Vector3.new(0, 18, 108), "Dark stone grey", Enum.Material.Cobblestone, cityFolder)
+-- Gate portcullis (decorative iron bars)
+makePart("Portcullis", Vector3.new(14, 14, 0.5), Vector3.new(0, 10, 108), "Black", Enum.Material.DiamondPlate, cityFolder, {Transparency = 0.5})
+-- Gate sign
+local gateSign = makePart("GateSignPost", Vector3.new(1, 1, 1), Vector3.new(0, 22, 108), "Dark stone grey", Enum.Material.Cobblestone, cityFolder, {Transparency = 1})
+makeSign(gateSign, "🏰 HAVEN", Vector3.new(0, 0, 0), UDim2.new(10, 0, 3, 0))
+-- Gate torches
+makeTorch(Vector3.new(-7, 3, 112), cityFolder)
+makeTorch(Vector3.new(7, 3, 112), cityFolder)
+
+-- ---- CITY GROUND ----
+makePart("CityFloor", Vector3.new(120, 0.2, 116), Vector3.new(0, 0.1, 49), "Medium stone grey", Enum.Material.Cobblestone, cityFolder)
+
+-- ---- MAIN ROAD (gate to town square and beyond) ----
+makePart("MainRoad", Vector3.new(8, 0.15, 60), Vector3.new(0, 0.12, 78), "Institutional white", Enum.Material.Cobblestone, cityFolder)
+-- East-west crossroad
+makePart("CrossRoad", Vector3.new(100, 0.15, 6), Vector3.new(0, 0.12, 50), "Institutional white", Enum.Material.Cobblestone, cityFolder)
+
+-- ============================================================
+-- === TOWN SQUARE (center) ===
+-- ============================================================
+
+-- Big fountain
+makePart("FountainBase", Vector3.new(14, 3, 14), Vector3.new(0, 1.5, 50), "Medium stone grey", Enum.Material.Marble, cityFolder)
+makePart("FountainInner", Vector3.new(10, 0.5, 10), Vector3.new(0, 3.25, 50), "Medium stone grey", Enum.Material.Marble, cityFolder)
+makePart("FountainWater", Vector3.new(9, 0.4, 9), Vector3.new(0, 3, 50), "Cyan", Enum.Material.Neon, cityFolder, {Transparency = 0.4})
+makePart("FountainPillar", Vector3.new(2, 8, 2), Vector3.new(0, 7, 50), "Medium stone grey", Enum.Material.Marble, cityFolder)
+makePart("FountainTop", Vector3.new(6, 1, 6), Vector3.new(0, 11.5, 50), "Medium stone grey", Enum.Material.Marble, cityFolder)
+makePart("FountainTopWater", Vector3.new(4, 0.3, 4), Vector3.new(0, 11.8, 50), "Cyan", Enum.Material.Neon, cityFolder, {Transparency = 0.3})
+
+local squareSign = makePart("SquareSign", Vector3.new(1, 1, 1), Vector3.new(0, 13, 50), "White", nil, cityFolder, {Transparency = 1})
+makeSign(squareSign, "⛲ Town Square", Vector3.new(0, 0, 0))
+
+-- Benches around fountain
+makePart("Bench1", Vector3.new(5, 1.5, 1.5), Vector3.new(-10, 0.75, 50), "Reddish brown", Enum.Material.Wood, cityFolder)
+makePart("Bench2", Vector3.new(5, 1.5, 1.5), Vector3.new(10, 0.75, 50), "Reddish brown", Enum.Material.Wood, cityFolder)
+makePart("Bench3", Vector3.new(1.5, 1.5, 5), Vector3.new(0, 0.75, 40), "Reddish brown", Enum.Material.Wood, cityFolder)
+makePart("Bench4", Vector3.new(1.5, 1.5, 5), Vector3.new(0, 0.75, 60), "Reddish brown", Enum.Material.Wood, cityFolder)
+
+-- Town square lanterns
+makeLantern(Vector3.new(-10, 0, 44), cityFolder)
+makeLantern(Vector3.new(10, 0, 44), cityFolder)
+makeLantern(Vector3.new(-10, 0, 56), cityFolder)
+makeLantern(Vector3.new(10, 0, 56), cityFolder)
+
+-- ============================================================
+-- === BANK OF HAVEN (east side) ===
+-- ============================================================
+local bankBuilding = getOrMake(cityFolder, "BankBuilding")
+-- Foundation
+makePart("BankFoundation", Vector3.new(22, 1, 18), Vector3.new(35, 0.5, 50), "Dark stone grey", Enum.Material.Cobblestone, bankBuilding)
+-- Floor
+makePart("BankFloor", Vector3.new(20, 0.3, 16), Vector3.new(35, 1.15, 50), "Reddish brown", Enum.Material.WoodPlanks, bankBuilding)
+-- Walls
+makePart("BankWallBack", Vector3.new(20, 12, 1), Vector3.new(35, 7, 42), "Brick yellow", Enum.Material.Brick, bankBuilding)
+makePart("BankWallLeft", Vector3.new(1, 12, 16), Vector3.new(25, 7, 50), "Brick yellow", Enum.Material.Brick, bankBuilding)
+makePart("BankWallRight", Vector3.new(1, 12, 16), Vector3.new(45, 7, 50), "Brick yellow", Enum.Material.Brick, bankBuilding)
+-- Front wall with gap for door
+makePart("BankFrontL", Vector3.new(7, 12, 1), Vector3.new(28.5, 7, 58), "Brick yellow", Enum.Material.Brick, bankBuilding)
+makePart("BankFrontR", Vector3.new(7, 12, 1), Vector3.new(41.5, 7, 58), "Brick yellow", Enum.Material.Brick, bankBuilding)
+makePart("BankFrontTop", Vector3.new(6, 4, 1), Vector3.new(35, 11, 58), "Brick yellow", Enum.Material.Brick, bankBuilding)
+-- Roof
+makePart("BankRoof", Vector3.new(24, 1.5, 20), Vector3.new(35, 13.75, 50), "Dark stone grey", Enum.Material.Slate, bankBuilding)
+-- Peaked roof
+makeWedge("BankRoofPeakL", Vector3.new(20, 6, 12), Vector3.new(35, 17.5, 44), "Dark stone grey", Enum.Material.Slate, bankBuilding, {Orientation = Vector3.new(0, 0, 0)})
+-- Gold trim along roofline
+makePart("BankGoldTrim", Vector3.new(24, 0.5, 0.5), Vector3.new(35, 14.75, 60), "Bright yellow", Enum.Material.Metal, bankBuilding)
+-- Bank counter inside
+makePart("BankCounter", Vector3.new(12, 3, 2), Vector3.new(35, 2.5, 48), "Reddish brown", Enum.Material.WoodPlanks, bankBuilding)
+-- Gold bars on counter
+makePart("GoldBar1", Vector3.new(1, 0.5, 0.5), Vector3.new(33, 4.25, 48), "Bright yellow", Enum.Material.Metal, bankBuilding)
+makePart("GoldBar2", Vector3.new(1, 0.5, 0.5), Vector3.new(35, 4.25, 48), "Bright yellow", Enum.Material.Metal, bankBuilding)
+makePart("GoldBar3", Vector3.new(1, 0.5, 0.5), Vector3.new(37, 4.25, 48), "Bright yellow", Enum.Material.Metal, bankBuilding)
+-- Bank sign
+local bankSign = makePart("BankSign", Vector3.new(1, 1, 1), Vector3.new(35, 16, 58), "White", nil, bankBuilding, {Transparency = 1})
+makeSign(bankSign, "🏦 BANK OF HAVEN", Vector3.new(0, 0, 0), UDim2.new(10, 0, 2, 0))
+-- Bank torches
+makeTorch(Vector3.new(26, 3, 58), bankBuilding)
+makeTorch(Vector3.new(44, 3, 58), bankBuilding)
+
+-- ============================================================
+-- === GENERAL STORE (west side) ===
+-- ============================================================
+local shopBuilding = getOrMake(cityFolder, "ShopBuilding")
+makePart("ShopFoundation", Vector3.new(18, 1, 14), Vector3.new(-35, 0.5, 50), "Dark stone grey", Enum.Material.Cobblestone, shopBuilding)
+makePart("ShopFloor", Vector3.new(16, 0.3, 12), Vector3.new(-35, 1.15, 50), "Reddish brown", Enum.Material.WoodPlanks, shopBuilding)
+makePart("ShopWallBack", Vector3.new(16, 10, 1), Vector3.new(-35, 6, 44), "Brick yellow", Enum.Material.Brick, shopBuilding)
+makePart("ShopWallLeft", Vector3.new(1, 10, 12), Vector3.new(-43, 6, 50), "Brick yellow", Enum.Material.Brick, shopBuilding)
+makePart("ShopWallRight", Vector3.new(1, 10, 12), Vector3.new(-27, 6, 50), "Brick yellow", Enum.Material.Brick, shopBuilding)
+makePart("ShopRoof", Vector3.new(20, 1, 16), Vector3.new(-35, 11.5, 50), "Reddish brown", Enum.Material.Wood, shopBuilding)
+-- Awning over door
+makePart("ShopAwning", Vector3.new(10, 0.3, 4), Vector3.new(-35, 8, 58), "Bright red", Enum.Material.Fabric, shopBuilding)
+-- Display shelves outside
+makePart("ShopShelf1", Vector3.new(3, 3, 1), Vector3.new(-30, 1.5, 57), "Reddish brown", Enum.Material.Wood, shopBuilding)
+makePart("ShopShelf2", Vector3.new(3, 3, 1), Vector3.new(-40, 1.5, 57), "Reddish brown", Enum.Material.Wood, shopBuilding)
+-- Barrels
+makePart("Barrel1", Vector3.new(2, 3, 2), Vector3.new(-44, 1.5, 55), "Reddish brown", Enum.Material.Wood, shopBuilding)
+makePart("Barrel2", Vector3.new(2, 3, 2), Vector3.new(-44, 1.5, 52), "Reddish brown", Enum.Material.Wood, shopBuilding)
+makePart("Barrel3", Vector3.new(2, 3, 2), Vector3.new(-44, 4.3, 53.5), "Reddish brown", Enum.Material.Wood, shopBuilding)
+local shopSign = makePart("ShopSign", Vector3.new(1, 1, 1), Vector3.new(-35, 13, 56), "White", nil, shopBuilding, {Transparency = 1})
+makeSign(shopSign, "🏪 General Store", Vector3.new(0, 0, 0))
+makeTorch(Vector3.new(-27, 3, 56), shopBuilding)
+makeTorch(Vector3.new(-43, 3, 56), shopBuilding)
+
+-- ============================================================
+-- === SMITHY & KITCHEN (northwest area) ===
+-- ============================================================
+local smithy = getOrMake(cityFolder, "Smithy")
+makePart("SmithyFoundation", Vector3.new(20, 1, 16), Vector3.new(-35, 0.5, 20), "Dark stone grey", Enum.Material.Cobblestone, smithy)
+makePart("SmithyFloor", Vector3.new(18, 0.3, 14), Vector3.new(-35, 1.15, 20), "Dark stone grey", Enum.Material.Slate, smithy)
+-- Walls (open front for smoke/heat)
+makePart("SmithyWallBack", Vector3.new(18, 10, 1), Vector3.new(-35, 6, 13), "Dark stone grey", Enum.Material.Cobblestone, smithy)
+makePart("SmithyWallLeft", Vector3.new(1, 10, 14), Vector3.new(-44, 6, 20), "Dark stone grey", Enum.Material.Cobblestone, smithy)
+makePart("SmithyWallRight", Vector3.new(1, 10, 8), Vector3.new(-26, 6, 17), "Dark stone grey", Enum.Material.Cobblestone, smithy)
+makePart("SmithyRoof", Vector3.new(22, 1, 18), Vector3.new(-35, 11.5, 20), "Dark stone grey", Enum.Material.Slate, smithy)
+-- Chimney
+makePart("Chimney", Vector3.new(4, 8, 4), Vector3.new(-40, 16, 15), "Dark stone grey", Enum.Material.Cobblestone, smithy)
+makePart("ChimneySmoke", Vector3.new(2, 2, 2), Vector3.new(-40, 21, 15), "Medium stone grey", Enum.Material.SmoothPlastic, smithy, {Transparency = 0.6})
+-- Forge (big glowing furnace)
+makePart("ForgeBase", Vector3.new(5, 3, 4), Vector3.new(-40, 2.5, 15), "Dark stone grey", Enum.Material.Cobblestone, smithy)
+makePart("ForgeFire", Vector3.new(3, 2, 2), Vector3.new(-40, 2, 15), "Bright red", Enum.Material.Neon, smithy, {Transparency = 0.2})
+local forgeLight = Instance.new("PointLight")
+forgeLight.Color = Color3.fromRGB(255, 100, 30)
+forgeLight.Brightness = 3
+forgeLight.Range = 20
+forgeLight.Parent = smithy:FindFirstChild("ForgeFire")
+-- Anvil
+makePart("Anvil", Vector3.new(2, 1.5, 3), Vector3.new(-35, 1.75, 18), "Black", Enum.Material.Metal, smithy)
+makePart("AnvilHorn", Vector3.new(1, 0.5, 1), Vector3.new(-35, 2.75, 16.5), "Black", Enum.Material.Metal, smithy)
+-- Weapon rack
+makePart("WeaponRack", Vector3.new(0.5, 6, 4), Vector3.new(-43.5, 4, 18), "Reddish brown", Enum.Material.Wood, smithy)
+makePart("RackSword1", Vector3.new(0.3, 4, 0.3), Vector3.new(-43.5, 4.5, 19.5), "Medium stone grey", Enum.Material.Metal, smithy)
+makePart("RackSword2", Vector3.new(0.3, 3.5, 0.3), Vector3.new(-43.5, 4.5, 17.5), "Medium stone grey", Enum.Material.Metal, smithy)
+-- Cooking range (next to smithy)
+makePart("CookingRange", Vector3.new(4, 2, 4), Vector3.new(-30, 2, 18), "Bright orange", Enum.Material.Neon, smithy, {Transparency = 0.3})
+makePart("CookingPot", Vector3.new(2, 1.5, 2), Vector3.new(-30, 3.5, 18), "Dark stone grey", Enum.Material.Metal, smithy)
+local smithySign = makePart("SmithySign", Vector3.new(1, 1, 1), Vector3.new(-35, 13, 27), "White", nil, smithy, {Transparency = 1})
+makeSign(smithySign, "🔨 Smithy & Kitchen", Vector3.new(0, 0, 0))
+
+-- ============================================================
+-- === CHAPEL OF LIGHT (northeast area) ===
+-- ============================================================
+local church = getOrMake(cityFolder, "Church")
+makePart("ChurchFoundation", Vector3.new(16, 1, 22), Vector3.new(35, 0.5, 25), "White", Enum.Material.Marble, church)
+makePart("ChurchFloor", Vector3.new(14, 0.3, 20), Vector3.new(35, 1.15, 25), "White", Enum.Material.Marble, church)
+-- Walls
+makePart("ChurchWallBack", Vector3.new(14, 14, 1), Vector3.new(35, 8, 15), "White", Enum.Material.Brick, church)
+makePart("ChurchWallLeft", Vector3.new(1, 14, 20), Vector3.new(28, 8, 25), "White", Enum.Material.Brick, church)
+makePart("ChurchWallRight", Vector3.new(1, 14, 20), Vector3.new(42, 8, 25), "White", Enum.Material.Brick, church)
+-- Stained glass windows (colored panels)
+makePart("StainedGlass1", Vector3.new(0.3, 4, 2), Vector3.new(28, 9, 22), "Bright blue", Enum.Material.Neon, church, {Transparency = 0.4})
+makePart("StainedGlass2", Vector3.new(0.3, 4, 2), Vector3.new(42, 9, 22), "Bright violet", Enum.Material.Neon, church, {Transparency = 0.4})
+makePart("StainedGlass3", Vector3.new(0.3, 4, 2), Vector3.new(28, 9, 28), "Bright green", Enum.Material.Neon, church, {Transparency = 0.4})
+makePart("StainedGlass4", Vector3.new(0.3, 4, 2), Vector3.new(42, 9, 28), "Bright red", Enum.Material.Neon, church, {Transparency = 0.4})
+-- Roof
+makePart("ChurchRoof", Vector3.new(18, 1.5, 24), Vector3.new(35, 15.75, 25), "Dark stone grey", Enum.Material.Slate, church)
+-- Steeple
+makePart("Steeple", Vector3.new(6, 12, 6), Vector3.new(35, 22, 18), "Dark stone grey", Enum.Material.Slate, church)
+makePart("SteepleTop", Vector3.new(3, 6, 3), Vector3.new(35, 31, 18), "Dark stone grey", Enum.Material.Slate, church)
+-- Cross on top
+makePart("CrossV", Vector3.new(0.5, 4, 0.5), Vector3.new(35, 36, 18), "Bright yellow", Enum.Material.Metal, church)
+makePart("CrossH", Vector3.new(2.5, 0.5, 0.5), Vector3.new(35, 37, 18), "Bright yellow", Enum.Material.Metal, church)
+-- Interior altar
+makePart("Altar", Vector3.new(4, 3, 2), Vector3.new(35, 2.5, 16), "White", Enum.Material.Marble, church)
+makePart("AltarCloth", Vector3.new(4.2, 0.1, 2.2), Vector3.new(35, 4.05, 16), "Bright violet", Enum.Material.Fabric, church)
+-- Pews
+for i = 1, 4 do
+	makePart("Pew" .. i, Vector3.new(8, 2, 1.5), Vector3.new(35, 1, 20 + i * 3), "Reddish brown", Enum.Material.Wood, church)
+end
+local churchSign = makePart("ChurchSign", Vector3.new(1, 1, 1), Vector3.new(35, 17, 35), "White", nil, church, {Transparency = 1})
+makeSign(churchSign, "⛪ Chapel of Light", Vector3.new(0, 0, 0))
+
+-- ============================================================
+-- === TAVERN (south-central, near gate) ===
+-- ============================================================
+local tavern = getOrMake(cityFolder, "Tavern")
+makePart("TavernFoundation", Vector3.new(18, 1, 14), Vector3.new(-15, 0.5, 85), "Dark stone grey", Enum.Material.Cobblestone, tavern)
+makePart("TavernFloor", Vector3.new(16, 0.3, 12), Vector3.new(-15, 1.15, 85), "Reddish brown", Enum.Material.WoodPlanks, tavern)
+makePart("TavernWallBack", Vector3.new(16, 10, 1), Vector3.new(-15, 6, 79), "Brown", Enum.Material.Wood, tavern)
+makePart("TavernWallLeft", Vector3.new(1, 10, 12), Vector3.new(-23, 6, 85), "Brown", Enum.Material.Wood, tavern)
+makePart("TavernWallRight", Vector3.new(1, 10, 12), Vector3.new(-7, 6, 85), "Brown", Enum.Material.Wood, tavern)
+makePart("TavernRoof", Vector3.new(20, 1, 16), Vector3.new(-15, 11.5, 85), "Reddish brown", Enum.Material.Wood, tavern)
+-- Second floor
+makePart("TavernFloor2", Vector3.new(16, 0.5, 12), Vector3.new(-15, 6, 85), "Reddish brown", Enum.Material.WoodPlanks, tavern, {Transparency = 0.1})
+-- Bar counter
+makePart("BarCounter", Vector3.new(10, 3, 2), Vector3.new(-15, 2.5, 81), "Reddish brown", Enum.Material.WoodPlanks, tavern)
+-- Tables
+makePart("Table1", Vector3.new(3, 2, 3), Vector3.new(-19, 2, 86), "Reddish brown", Enum.Material.Wood, tavern)
+makePart("Table2", Vector3.new(3, 2, 3), Vector3.new(-11, 2, 86), "Reddish brown", Enum.Material.Wood, tavern)
+-- Kegs behind bar
+makePart("Keg1", Vector3.new(2, 3, 2), Vector3.new(-19, 1.5, 80), "Reddish brown", Enum.Material.Wood, tavern)
+makePart("Keg2", Vector3.new(2, 3, 2), Vector3.new(-17, 1.5, 80), "Reddish brown", Enum.Material.Wood, tavern)
+local tavernSign = makePart("TavernSign", Vector3.new(1, 1, 1), Vector3.new(-15, 13, 91), "White", nil, tavern, {Transparency = 1})
+makeSign(tavernSign, "🍺 The Rusty Blade Tavern", Vector3.new(0, 0, 0))
+makeTorch(Vector3.new(-7, 3, 91), tavern)
+makeTorch(Vector3.new(-23, 3, 91), tavern)
+
+-- ============================================================
+-- === GUARD TOWER (near gate, east side) ===
+-- ============================================================
+local guardTower = getOrMake(cityFolder, "GuardTower")
+makePart("GTBase", Vector3.new(8, 20, 8), Vector3.new(15, 10, 85), "Medium stone grey", Enum.Material.Cobblestone, guardTower)
+makePart("GTTop", Vector3.new(10, 1, 10), Vector3.new(15, 20.5, 85), "Dark stone grey", Enum.Material.Cobblestone, guardTower)
+makePart("GTRail1", Vector3.new(10, 3, 0.5), Vector3.new(15, 22.5, 80), "Dark stone grey", Enum.Material.Cobblestone, guardTower)
+makePart("GTRail2", Vector3.new(10, 3, 0.5), Vector3.new(15, 22.5, 90), "Dark stone grey", Enum.Material.Cobblestone, guardTower)
+makePart("GTRail3", Vector3.new(0.5, 3, 10), Vector3.new(10, 22.5, 85), "Dark stone grey", Enum.Material.Cobblestone, guardTower)
+makePart("GTRail4", Vector3.new(0.5, 3, 10), Vector3.new(20, 22.5, 85), "Dark stone grey", Enum.Material.Cobblestone, guardTower)
+-- Ladder
+makePart("Ladder", Vector3.new(0.5, 20, 2), Vector3.new(19, 10, 85), "Reddish brown", Enum.Material.Wood, guardTower)
+local gtSign = makePart("GTSign", Vector3.new(1, 1, 1), Vector3.new(15, 25, 85), "White", nil, guardTower, {Transparency = 1})
+makeSign(gtSign, "🛡️ Guard Tower", Vector3.new(0, 0, 0))
+
+-- ============================================================
+-- === MARKETPLACE (south-west area) ===
+-- ============================================================
+local market = getOrMake(cityFolder, "Market")
+-- Market stalls
+for i = 0, 3 do
+	local xOff = -50 + i * 10
+	local stallColor = ({"Bright red", "Bright blue", "Bright green", "Bright yellow"})[i + 1]
+	-- Posts
+	makePart("Stall" .. i .. "PostL", Vector3.new(0.5, 6, 0.5), Vector3.new(xOff - 3, 3, 75), "Reddish brown", Enum.Material.Wood, market)
+	makePart("Stall" .. i .. "PostR", Vector3.new(0.5, 6, 0.5), Vector3.new(xOff + 3, 3, 75), "Reddish brown", Enum.Material.Wood, market)
+	-- Awning
+	makePart("Stall" .. i .. "Awning", Vector3.new(7, 0.2, 5), Vector3.new(xOff, 6.5, 75), stallColor, Enum.Material.Fabric, market)
+	-- Counter
+	makePart("Stall" .. i .. "Counter", Vector3.new(6, 3, 2), Vector3.new(xOff, 1.5, 76), "Reddish brown", Enum.Material.WoodPlanks, market)
+end
+local marketSign = makePart("MarketSign", Vector3.new(1, 1, 1), Vector3.new(-35, 8, 75), "White", nil, market, {Transparency = 1})
+makeSign(marketSign, "🏪 Marketplace", Vector3.new(0, 0, 0))
+
+-- ============================================================
+-- === FISHING POND (south-east, inside walls) ===
+-- ============================================================
+local pond = getOrMake(safeZone, "FishingPond")
+-- Pond water
+makePart("PondWater", Vector3.new(30, 0.5, 20), Vector3.new(80, -0.25, 80), "Cyan", Enum.Material.Neon, pond, {Transparency = 0.4})
+-- Pond banks (dirt edges)
+makePart("PondBankN", Vector3.new(34, 1, 3), Vector3.new(80, 0, 69), "Brown", Enum.Material.Ground, pond)
+makePart("PondBankS", Vector3.new(34, 1, 3), Vector3.new(80, 0, 91), "Brown", Enum.Material.Ground, pond)
+makePart("PondBankW", Vector3.new(3, 1, 20), Vector3.new(64, 0, 80), "Brown", Enum.Material.Ground, pond)
+makePart("PondBankE", Vector3.new(3, 1, 20), Vector3.new(96, 0, 80), "Brown", Enum.Material.Ground, pond)
+-- Reeds / cattails
+for i = 1, 6 do
+	local rx = 64 + math.random(0, 30)
+	local rz = 70 + math.random(0, 18)
+	makePart("Reed" .. i, Vector3.new(0.3, 3 + math.random(), 0.3), Vector3.new(rx, 1.5, rz), "Earth green", Enum.Material.Grass, pond)
+end
+-- Dock / pier
+makePart("Dock", Vector3.new(4, 0.5, 12), Vector3.new(80, 0.5, 86), "Reddish brown", Enum.Material.WoodPlanks, pond)
+makePart("DockPost1", Vector3.new(0.5, 3, 0.5), Vector3.new(78, 0.5, 92), "Reddish brown", Enum.Material.Wood, pond)
+makePart("DockPost2", Vector3.new(0.5, 3, 0.5), Vector3.new(82, 0.5, 92), "Reddish brown", Enum.Material.Wood, pond)
+local pondSign = makePart("PondSign", Vector3.new(1, 1, 1), Vector3.new(80, 3, 68), "White", nil, pond, {Transparency = 1})
+makeSign(pondSign, "🎣 Haven Pond", Vector3.new(0, 0, 0))
+
+-- Second smaller pond (lily pond)
+makePart("LilyPond", Vector3.new(14, 0.5, 10), Vector3.new(110, -0.25, 60), "Cyan", Enum.Material.Neon, pond, {Transparency = 0.5})
+makePart("LilyPondBank", Vector3.new(18, 0.8, 14), Vector3.new(110, -0.1, 60), "Brown", Enum.Material.Ground, pond)
+-- Lily pads
+for i = 1, 4 do
+	makePart("LilyPad" .. i, Vector3.new(2, 0.1, 2), Vector3.new(106 + i * 2, 0.1, 58 + math.random(-3, 3)), "Earth green", Enum.Material.Grass, pond)
+end
+
+-- ============================================================
+-- === MINING CAVE (west side, outside walls) ===
+-- ============================================================
+local mine = getOrMake(safeZone, "MiningCave")
+-- Cave entrance (big rocky arch)
+makePart("CaveWallL", Vector3.new(6, 16, 8), Vector3.new(-100, 8, 30), "Dark stone grey", Enum.Material.Slate, mine)
+makePart("CaveWallR", Vector3.new(6, 16, 8), Vector3.new(-86, 8, 30), "Dark stone grey", Enum.Material.Slate, mine)
+makePart("CaveArch", Vector3.new(20, 5, 8), Vector3.new(-93, 18.5, 30), "Dark stone grey", Enum.Material.Slate, mine)
+-- Cave interior (hollowed out area)
+makePart("CaveFloor", Vector3.new(30, 0.3, 30), Vector3.new(-93, 0.15, 15), "Dark stone grey", Enum.Material.Slate, mine)
+makePart("CaveRoof", Vector3.new(34, 2, 34), Vector3.new(-93, 14, 15), "Dark stone grey", Enum.Material.Slate, mine)
+makePart("CaveWallBack", Vector3.new(34, 14, 2), Vector3.new(-93, 7, -1), "Dark stone grey", Enum.Material.Slate, mine)
+makePart("CaveWallSideL", Vector3.new(2, 14, 34), Vector3.new(-110, 7, 15), "Dark stone grey", Enum.Material.Slate, mine)
+makePart("CaveWallSideR", Vector3.new(2, 14, 34), Vector3.new(-76, 7, 15), "Dark stone grey", Enum.Material.Slate, mine)
+-- Cave supports (wooden beams)
+makePart("Support1", Vector3.new(1, 12, 1), Vector3.new(-100, 6, 20), "Reddish brown", Enum.Material.Wood, mine)
+makePart("Support2", Vector3.new(1, 12, 1), Vector3.new(-86, 6, 20), "Reddish brown", Enum.Material.Wood, mine)
+makePart("SupportBeam", Vector3.new(16, 1, 1), Vector3.new(-93, 12, 20), "Reddish brown", Enum.Material.Wood, mine)
+makePart("Support3", Vector3.new(1, 12, 1), Vector3.new(-100, 6, 8), "Reddish brown", Enum.Material.Wood, mine)
+makePart("Support4", Vector3.new(1, 12, 1), Vector3.new(-86, 6, 8), "Reddish brown", Enum.Material.Wood, mine)
+makePart("SupportBeam2", Vector3.new(16, 1, 1), Vector3.new(-93, 12, 8), "Reddish brown", Enum.Material.Wood, mine)
+-- Mine cart tracks
+makePart("Track1", Vector3.new(0.3, 0.2, 30), Vector3.new(-91.5, 0.3, 15), "Dark stone grey", Enum.Material.Metal, mine)
+makePart("Track2", Vector3.new(0.3, 0.2, 30), Vector3.new(-94.5, 0.3, 15), "Dark stone grey", Enum.Material.Metal, mine)
+-- Mine cart
+makePart("CartBody", Vector3.new(3, 2, 4), Vector3.new(-93, 1.5, 22), "Dark stone grey", Enum.Material.Metal, mine)
+makePart("CartWheel1", Vector3.new(1.5, 1.5, 0.3), Vector3.new(-91.5, 0.8, 24), "Black", Enum.Material.Metal, mine)
+makePart("CartWheel2", Vector3.new(1.5, 1.5, 0.3), Vector3.new(-94.5, 0.8, 24), "Black", Enum.Material.Metal, mine)
+-- Torch lighting inside cave
+makeTorch(Vector3.new(-100, 3, 15), mine)
+makeTorch(Vector3.new(-86, 3, 15), mine)
+makeTorch(Vector3.new(-100, 3, 5), mine)
+makeTorch(Vector3.new(-86, 3, 5), mine)
+-- Ore veins (visual, the actual clickable nodes are from SkillManager)
+makePart("OreVeinCopper", Vector3.new(3, 3, 1), Vector3.new(-109, 3, 10), "Nougat", Enum.Material.Slate, mine)
+makePart("OreVeinIron", Vector3.new(2, 4, 1), Vector3.new(-109, 4, 18), "Dark stone grey", Enum.Material.Slate, mine)
+local mineSign = makePart("MineSign", Vector3.new(1, 1, 1), Vector3.new(-93, 22, 34), "White", nil, mine, {Transparency = 1})
+makeSign(mineSign, "⛏️ Haven Mine", Vector3.new(0, 0, 0), UDim2.new(10, 0, 2, 0))
+
+-- ============================================================
+-- === FOREST (east side, outside walls) ===
+-- ============================================================
+local forest = getOrMake(safeZone, "Forest")
+-- Grass clearing floor
+makePart("ForestFloor", Vector3.new(80, 0.15, 80), Vector3.new(130, 0.08, 30), "Earth green", Enum.Material.Grass, forest)
+-- Scattered decorative trees (non-clickable, just scenery)
+local function makeSceneryTree(pos, scale, leafColor)
+	scale = scale or 1
+	leafColor = leafColor or "Forest green"
+	makePart("STree", Vector3.new(2*scale, 10*scale, 2*scale), pos + Vector3.new(0, 5*scale, 0), "Reddish brown", Enum.Material.Wood, forest)
+	makePart("SLeaf", Vector3.new(10*scale, 10*scale, 10*scale), pos + Vector3.new(0, 11*scale, 0), leafColor, Enum.Material.Grass, forest)
+end
+-- Dense forest — many trees
+local treePositions = {
+	{100, 0, 10}, {110, 0, 15}, {120, 0, 5}, {105, 0, 25}, {115, 0, 30},
+	{130, 0, 10}, {140, 0, 20}, {150, 0, 15}, {135, 0, 35}, {145, 0, 40},
+	{100, 0, 45}, {110, 0, 50}, {125, 0, 55}, {155, 0, 30}, {160, 0, 45},
+	{115, 0, 60}, {130, 0, 65}, {145, 0, 55}, {150, 0, 65}, {105, 0, 70},
+}
+for _, tp in ipairs(treePositions) do
+	local scale = 0.7 + math.random() * 0.6
+	local colors = {"Forest green", "Earth green", "Dark green", "Bright green"}
+	makeSceneryTree(Vector3.new(tp[1], tp[2], tp[3]), scale, colors[math.random(#colors)])
+end
+-- Path into forest
+makePart("ForestPath", Vector3.new(4, 0.12, 40), Vector3.new(90, 0.06, 30), "Brown", Enum.Material.Ground, forest)
+local forestSign = makePart("ForestSign", Vector3.new(1, 1, 1), Vector3.new(90, 4, 50), "White", nil, forest, {Transparency = 1})
+makeSign(forestSign, "🌲 Haven Forest", Vector3.new(0, 0, 0))
+
+-- ============================================================
+-- === WILDERNESS DECORATIONS ===
+-- ============================================================
+
+-- Dead trees scattered
+local function makeDeadTree(position)
+	makePart("DeadTrunk", Vector3.new(1.5, 7, 1.5), position + Vector3.new(0, 3.5, 0), "Dark stone grey", Enum.Material.Wood, wilderness)
+	makePart("DeadBranch1", Vector3.new(0.5, 3, 0.5), position + Vector3.new(1.5, 6, 0), "Dark stone grey", Enum.Material.Wood, wilderness, {Orientation = Vector3.new(0, 0, 30)})
+	makePart("DeadBranch2", Vector3.new(0.5, 2.5, 0.5), position + Vector3.new(-1, 5, 0.5), "Dark stone grey", Enum.Material.Wood, wilderness, {Orientation = Vector3.new(0, 0, -25)})
+end
+
+local deadTreePos = {
+	{20, 0, -120}, {-30, 0, -140}, {50, 0, -160}, {-15, 0, -180},
+	{35, 0, -200}, {-45, 0, -220}, {70, 0, -130}, {-60, 0, -170},
+	{10, 0, -250}, {-40, 0, -280}, {80, 0, -210}, {-70, 0, -240},
+}
+for _, dt in ipairs(deadTreePos) do
+	makeDeadTree(Vector3.new(dt[1], dt[2], dt[3]))
+end
+
+-- Skull warning signs
+local function makeWarningSign(position)
+	local post = makePart("SignPost", Vector3.new(0.5, 4, 0.5), position + Vector3.new(0, 2, 0), "Reddish brown", Enum.Material.Wood, wilderness)
+	local board = makePart("SignBoard", Vector3.new(3, 2, 0.3), position + Vector3.new(0, 4.5, 0), "Brown", Enum.Material.Wood, wilderness)
+	makeSign(board, "☠️ DANGER", Vector3.new(0, 1, 0))
+end
+makeWarningSign(Vector3.new(25, 0, -105))
+makeWarningSign(Vector3.new(-25, 0, -105))
+makeWarningSign(Vector3.new(0, 0, -105))
+makeWarningSign(Vector3.new(60, 0, -105))
+makeWarningSign(Vector3.new(-60, 0, -105))
+
+-- Ancient ruins (bigger)
+local ruins = getOrMake(wilderness, "AncientRuins")
+makePart("RuinWall1", Vector3.new(6, 10, 1.5), Vector3.new(60, 5, -170), "Medium stone grey", Enum.Material.Cobblestone, ruins)
+makePart("RuinWall2", Vector3.new(1.5, 8, 10), Vector3.new(66, 4, -175), "Medium stone grey", Enum.Material.Cobblestone, ruins)
+makePart("RuinWall3", Vector3.new(6, 5, 1.5), Vector3.new(60, 2.5, -180), "Medium stone grey", Enum.Material.Cobblestone, ruins)
+makePart("RuinFloor", Vector3.new(14, 0.3, 14), Vector3.new(61, 0.15, -175), "Medium stone grey", Enum.Material.Cobblestone, ruins)
+-- Broken pillars
+makePart("Pillar1", Vector3.new(2, 8, 2), Vector3.new(55, 4, -172), "Medium stone grey", Enum.Material.Marble, ruins)
+makePart("Pillar2", Vector3.new(2, 5, 2), Vector3.new(67, 2.5, -178), "Medium stone grey", Enum.Material.Marble, ruins)
+makePart("PillarBroken", Vector3.new(2, 3, 2), Vector3.new(55, 1.5, -178), "Medium stone grey", Enum.Material.Marble, ruins)
+local ruinSign = makePart("RuinSign", Vector3.new(1, 1, 1), Vector3.new(61, 12, -175), "White", nil, ruins, {Transparency = 1})
+makeSign(ruinSign, "🏛️ Ancient Ruins", Vector3.new(0, 0, 0))
+
+-- Wilderness graveyard
+local graveyard = getOrMake(wilderness, "Graveyard")
+for i = 1, 8 do
+	local gx = -50 + (i % 4) * 8
+	local gz = -145 - math.floor(i / 4) * 8
+	makePart("Grave" .. i, Vector3.new(2, 3, 0.5), Vector3.new(gx, 1.5, gz), "Medium stone grey", Enum.Material.Cobblestone, graveyard)
+	makePart("GraveMound" .. i, Vector3.new(3, 0.5, 4), Vector3.new(gx, 0.25, gz + 2.5), "Brown", Enum.Material.Ground, graveyard)
+end
+-- Spooky fence
+makePart("GraveFence1", Vector3.new(40, 3, 0.3), Vector3.new(-34, 1.5, -140), "Black", Enum.Material.Metal, graveyard)
+makePart("GraveFence2", Vector3.new(0.3, 3, 20), Vector3.new(-54, 1.5, -150), "Black", Enum.Material.Metal, graveyard)
+makePart("GraveFence3", Vector3.new(0.3, 3, 20), Vector3.new(-14, 1.5, -150), "Black", Enum.Material.Metal, graveyard)
+local graveSign = makePart("GraveSign", Vector3.new(1, 1, 1), Vector3.new(-34, 5, -140), "White", nil, graveyard, {Transparency = 1})
+makeSign(graveSign, "💀 Forgotten Graveyard", Vector3.new(0, 0, 0))
+
+-- Lava pit (deep wilderness)
+makePart("LavaRim", Vector3.new(20, 1, 20), Vector3.new(0, 0.5, -260), "Dark stone grey", Enum.Material.Slate, wilderness)
+makePart("LavaPit", Vector3.new(16, 0.5, 16), Vector3.new(0, 0.1, -260), "Bright red", Enum.Material.Neon, wilderness, {Transparency = 0.2})
+local lavaLight = Instance.new("PointLight")
+lavaLight.Color = Color3.fromRGB(255, 60, 20)
+lavaLight.Brightness = 4
+lavaLight.Range = 40
+lavaLight.Parent = wilderness:FindFirstChild("LavaPit") or wilderness
+-- Lava rocks around pit
+makePart("LavaRock1", Vector3.new(4, 3, 3), Vector3.new(12, 1.5, -255), "Black", Enum.Material.Slate, wilderness)
+makePart("LavaRock2", Vector3.new(3, 4, 4), Vector3.new(-10, 2, -265), "Black", Enum.Material.Slate, wilderness)
+makePart("LavaRock3", Vector3.new(5, 2, 3), Vector3.new(5, 1, -270), "Black", Enum.Material.Slate, wilderness)
+
+-- Wilderness dark pond (for dark crabs)
+local darkPond = getOrMake(wilderness, "DarkPond")
+makePart("DarkPondWater", Vector3.new(20, 0.5, 14), Vector3.new(-60, -0.25, -210), "Really black", Enum.Material.Neon, darkPond, {Transparency = 0.3})
+makePart("DarkPondBank", Vector3.new(24, 0.8, 18), Vector3.new(-60, -0.1, -210), "Dark stone grey", Enum.Material.Ground, darkPond)
+-- Glowing mushrooms around dark pond
+for i = 1, 5 do
+	local mx = -68 + math.random(0, 16)
+	local mz = -218 + math.random(0, 16)
+	local shroom = makePart("Mushroom" .. i, Vector3.new(1, 1.5, 1), Vector3.new(mx, 0.75, mz), "Bright violet", Enum.Material.Neon, darkPond, {Transparency = 0.3})
+	local shroomLight = Instance.new("PointLight")
+	shroomLight.Color = Color3.fromRGB(180, 50, 255)
+	shroomLight.Brightness = 1
+	shroomLight.Range = 8
+	shroomLight.Parent = shroom
+end
+local darkPondSign = makePart("DPSign", Vector3.new(1, 1, 1), Vector3.new(-60, 3, -200), "White", nil, darkPond, {Transparency = 1})
+makeSign(darkPondSign, "🌑 Dark Waters", Vector3.new(0, 0, 0))
+
+-- Scattered boulders in wilderness
+for i = 1, 10 do
+	local bx = math.random(-150, 150)
+	local bz = math.random(-300, -110)
+	local bs = 3 + math.random() * 4
+	makePart("Boulder" .. i, Vector3.new(bs, bs * 0.7, bs), Vector3.new(bx, bs * 0.35, bz), "Dark stone grey", Enum.Material.Slate, wilderness)
+end
+
+-- ============================================================
+-- === LIGHTING ===
+-- ============================================================
+local Lighting = game:GetService("Lighting")
+Lighting.Ambient = Color3.fromRGB(80, 80, 100)
+Lighting.OutdoorAmbient = Color3.fromRGB(100, 100, 120)
+Lighting.Brightness = 2
+Lighting.ClockTime = 10
+Lighting.FogEnd = 1200
+Lighting.FogColor = Color3.fromRGB(180, 200, 220)
+
+-- ============================================================
+print("[MapSetup] World generation complete!")
+print("[MapSetup] City: Haven — walls, gate, bank, shop, smithy, chapel, tavern, guard tower, marketplace")
+print("[MapSetup] Outside: Haven Pond, Haven Mine, Haven Forest")
+print("[MapSetup] Wilderness: dead trees, graveyard, ruins, dark pond, lava pit, boulders")
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="19">
+      <Properties>
+        <string name="Name">SkillManager</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[-- SkillManager.server.lua
+-- Handles resource gathering (mining, woodcutting, fishing)
+
+print("[SkillManager] Starting...")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Modules = ReplicatedStorage:WaitForChild("Modules", 10)
+print("[SkillManager] Modules folder found: " .. tostring(Modules ~= nil))
+
+local ok1, Config = pcall(function() return require(Modules:WaitForChild("Config", 10)) end)
+print("[SkillManager] Config loaded: " .. tostring(ok1))
+
+local ok2, ItemDB = pcall(function() return require(Modules:WaitForChild("ItemDatabase", 10)) end)
+print("[SkillManager] ItemDB loaded: " .. tostring(ok2))
+
+local ok3, DataManager = pcall(function() return require(Modules:WaitForChild("DataManager", 10)) end)
+print("[SkillManager] DataManager loaded: " .. tostring(ok3))
+
+if not ok1 or not ok2 or not ok3 then
+	warn("[SkillManager] FAILED to load modules! Config=" .. tostring(ok1) .. " ItemDB=" .. tostring(ok2) .. " DataManager=" .. tostring(ok3))
+	return
+end
+
+-- Create a remote for gather feedback
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+local gatherRemote = Instance.new("RemoteEvent")
+gatherRemote.Name = "GatherFeedback"
+gatherRemote.Parent = Remotes
+
+-- Skill mapping
+local skillMap = {
+	Rock = "Mining",
+	Tree = "Woodcutting",
+	FishingSpot = "Fishing",
+}
+
+-- === RESOURCE NODE SETUP ===
+local function createResourceNode(name, nodeType, position, parent, levelReq, itemDrop, xpReward)
+	-- Use a Model to group all parts together
+	local model = Instance.new("Model")
+	model.Name = name
+	model.Parent = parent
+
+	local mainPart -- the part that gets the ClickDetector
+
+	if nodeType == "Rock" then
+		mainPart = Instance.new("Part")
+		mainPart.Name = "Rock"
+		mainPart.Size = Vector3.new(4, 3, 4)
+		mainPart.Position = position + Vector3.new(0, 1.5, 0)
+		mainPart.Anchored = true
+		mainPart.CanCollide = true
+		mainPart.BrickColor = BrickColor.new("Dark stone grey")
+		mainPart.Material = Enum.Material.Slate
+		mainPart.Parent = model
+
+		-- Add a smaller rock next to it for visual interest
+		local rock2 = Instance.new("Part")
+		rock2.Name = "RockSmall"
+		rock2.Size = Vector3.new(2, 2, 2)
+		rock2.Position = position + Vector3.new(2.5, 1, 1)
+		rock2.Anchored = true
+		rock2.CanCollide = true
+		rock2.BrickColor = BrickColor.new("Medium stone grey")
+		rock2.Material = Enum.Material.Slate
+		rock2.Parent = model
+
+	elseif nodeType == "Tree" then
+		-- Trunk (upright block, NOT a rotated cylinder)
+		mainPart = Instance.new("Part")
+		mainPart.Name = "Trunk"
+		mainPart.Size = Vector3.new(2, 8, 2)
+		mainPart.Position = position + Vector3.new(0, 4, 0)
+		mainPart.Anchored = true
+		mainPart.CanCollide = true
+		mainPart.BrickColor = BrickColor.new("Reddish brown")
+		mainPart.Material = Enum.Material.Wood
+		mainPart.Parent = model
+
+		-- Leaves (big green ball on top)
+		local leaves = Instance.new("Part")
+		leaves.Name = "Leaves"
+		leaves.Shape = Enum.PartType.Ball
+		leaves.Size = Vector3.new(10, 10, 10)
+		leaves.Position = position + Vector3.new(0, 10, 0)
+		leaves.Anchored = true
+		leaves.CanCollide = false
+		leaves.BrickColor = BrickColor.new("Forest green")
+		leaves.Material = Enum.Material.Grass
+		leaves.Parent = model
+
+		-- ALSO add ClickDetector to leaves so clicking the canopy works
+		local leavesClick = Instance.new("ClickDetector")
+		leavesClick.MaxActivationDistance = 16
+		leavesClick.Parent = leaves
+
+		-- Connect leaves click to same handler (set up below)
+		leaves:SetAttribute("IsGatherNode", true)
+
+	elseif nodeType == "FishingSpot" then
+		-- Flat circle on the ground (easier to click than thin cylinder)
+		mainPart = Instance.new("Part")
+		mainPart.Name = "FishingSpot"
+		mainPart.Size = Vector3.new(6, 0.5, 6)
+		mainPart.Position = position + Vector3.new(0, 0.25, 0)
+		mainPart.Anchored = true
+		mainPart.CanCollide = false
+		mainPart.BrickColor = BrickColor.new("Cyan")
+		mainPart.Material = Enum.Material.Neon
+		mainPart.Transparency = 0.3
+		mainPart.Parent = model
+
+		-- Bobbing effect marker
+		local bobber = Instance.new("Part")
+		bobber.Name = "Bobber"
+		bobber.Shape = Enum.PartType.Ball
+		bobber.Size = Vector3.new(1, 1, 1)
+		bobber.Position = position + Vector3.new(0, 0.8, 0)
+		bobber.Anchored = true
+		bobber.CanCollide = false
+		bobber.BrickColor = BrickColor.new("Bright red")
+		bobber.Material = Enum.Material.SmoothPlastic
+		bobber.Parent = model
+	end
+
+	if not mainPart then
+		warn("[SkillManager] Failed to create main part for " .. name)
+		return
+	end
+
+	-- ClickDetector on main part
+	local clickDetector = Instance.new("ClickDetector")
+	clickDetector.MaxActivationDistance = 16
+	clickDetector.Parent = mainPart
+
+	-- Floating label showing what it is
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.new(5, 0, 1, 0)
+	billboard.StudsOffset = Vector3.new(0, 3, 0)
+	billboard.Parent = mainPart
+
+	local skillEmojis = {Rock = "⛏️", Tree = "🪓", FishingSpot = "🎣"}
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = (skillEmojis[nodeType] or "") .. " " .. itemDrop .. " (Lv " .. levelReq .. ")"
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.TextStrokeTransparency = 0.5
+	label.Parent = billboard
+
+	-- Node state
+	local nodeData = { active = true }
+
+	-- Gather handler
+	local function onGather(player)
+		if not nodeData.active then return end
+
+		local skill = skillMap[nodeType]
+		if not skill then return end
+
+		-- Check level requirement
+		local playerLevel = DataManager.GetSkillLevel(player, skill)
+		if playerLevel < levelReq then
+			gatherRemote:FireClient(player, "level", itemDrop, levelReq)
+			return
+		end
+
+		-- Add to inventory
+		local added = DataManager.AddToInventory(player, itemDrop, 1)
+		if not added then
+			gatherRemote:FireClient(player, "full", itemDrop, 0)
+			return
+		end
+
+		-- Award XP
+		DataManager.AddSkillXP(player, skill, xpReward)
+
+		-- Notify client
+		gatherRemote:FireClient(player, "gather", itemDrop, xpReward)
+
+		-- Update client inventory
+		local invRemote = Remotes:FindFirstChild("InventoryUpdate")
+		if invRemote then
+			local data = DataManager.GetData(player)
+			invRemote:FireClient(player, data.Inventory)
+		end
+
+		-- Deplete resource
+		nodeData.active = false
+		for _, child in ipairs(model:GetChildren()) do
+			if child:IsA("BasePart") then
+				child.Transparency = 0.8
+			end
+		end
+		-- Hide label
+		label.TextTransparency = 1
+
+		-- Respawn
+		local respawnTime = Config.ResourceRespawnTime[nodeType] or 15
+		task.delay(respawnTime, function()
+			nodeData.active = true
+			for _, child in ipairs(model:GetChildren()) do
+				if child:IsA("BasePart") then
+					if child.Name == "FishingSpot" then
+						child.Transparency = 0.3
+					elseif child.Name == "Leaves" then
+						child.Transparency = 0
+					else
+						child.Transparency = 0
+					end
+				end
+			end
+			label.TextTransparency = 0
+		end)
+	end
+
+	-- Connect main click
+	clickDetector.MouseClick:Connect(onGather)
+
+	-- Connect leaf clicks for trees
+	if nodeType == "Tree" then
+		for _, child in ipairs(model:GetChildren()) do
+			local childClick = child:FindFirstChild("ClickDetector")
+			if childClick and child ~= mainPart then
+				childClick.MouseClick:Connect(onGather)
+			end
+		end
+	end
+
+	return model
+end
+
+-- === SPAWN RESOURCE NODES ===
+local WS = game:GetService("Workspace")
+
+-- Wait for MapSetup to run
+task.wait(2)
+local resourceFolder = WS:FindFirstChild("ResourceNodes")
+if not resourceFolder then
+	resourceFolder = Instance.new("Folder")
+	resourceFolder.Name = "ResourceNodes"
+	resourceFolder.Parent = WS
+end
+print("[SkillManager] ResourceNodes folder ready, spawning nodes...")
+
+-- ============================================================
+-- SAFE ZONE RESOURCES
+-- ============================================================
+
+-- === HAVEN MINE (copper + iron rocks inside cave) ===
+createResourceNode("CopperRock1", "Rock", Vector3.new(-105, 0, 20), resourceFolder, 1, "Copper Ore", 20)
+createResourceNode("CopperRock2", "Rock", Vector3.new(-100, 0, 10), resourceFolder, 1, "Copper Ore", 20)
+createResourceNode("CopperRock3", "Rock", Vector3.new(-95, 0, 5), resourceFolder, 1, "Copper Ore", 20)
+createResourceNode("CopperRock4", "Rock", Vector3.new(-88, 0, 15), resourceFolder, 1, "Copper Ore", 20)
+createResourceNode("CopperRock5", "Rock", Vector3.new(-82, 0, 8), resourceFolder, 1, "Copper Ore", 20)
+
+createResourceNode("IronRock1", "Rock", Vector3.new(-105, 0, 3), resourceFolder, 15, "Iron Ore", 35)
+createResourceNode("IronRock2", "Rock", Vector3.new(-85, 0, 2), resourceFolder, 15, "Iron Ore", 35)
+createResourceNode("IronRock3", "Rock", Vector3.new(-93, 0, 0), resourceFolder, 15, "Iron Ore", 35)
+
+-- A few rocks outside the mine too
+createResourceNode("CopperRockOutside1", "Rock", Vector3.new(-80, 0, 40), resourceFolder, 1, "Copper Ore", 20)
+createResourceNode("IronRockOutside1", "Rock", Vector3.new(-75, 0, 50), resourceFolder, 15, "Iron Ore", 35)
+
+-- === HAVEN FOREST (oak + willow trees) ===
+createResourceNode("OakTree1", "Tree", Vector3.new(100, 0, 25), resourceFolder, 1, "Oak Log", 18)
+createResourceNode("OakTree2", "Tree", Vector3.new(112, 0, 35), resourceFolder, 1, "Oak Log", 18)
+createResourceNode("OakTree3", "Tree", Vector3.new(125, 0, 20), resourceFolder, 1, "Oak Log", 18)
+createResourceNode("OakTree4", "Tree", Vector3.new(108, 0, 45), resourceFolder, 1, "Oak Log", 18)
+createResourceNode("OakTree5", "Tree", Vector3.new(135, 0, 50), resourceFolder, 1, "Oak Log", 18)
+createResourceNode("OakTree6", "Tree", Vector3.new(140, 0, 30), resourceFolder, 1, "Oak Log", 18)
+
+createResourceNode("WillowTree1", "Tree", Vector3.new(150, 0, 25), resourceFolder, 20, "Willow Log", 40)
+createResourceNode("WillowTree2", "Tree", Vector3.new(155, 0, 45), resourceFolder, 20, "Willow Log", 40)
+createResourceNode("WillowTree3", "Tree", Vector3.new(145, 0, 60), resourceFolder, 20, "Willow Log", 40)
+
+-- === HAVEN POND (shrimp + trout fishing) ===
+createResourceNode("ShrimpSpot1", "FishingSpot", Vector3.new(75, 0, 82), resourceFolder, 1, "Shrimp", 15)
+createResourceNode("ShrimpSpot2", "FishingSpot", Vector3.new(85, 0, 78), resourceFolder, 1, "Shrimp", 15)
+createResourceNode("ShrimpSpot3", "FishingSpot", Vector3.new(80, 0, 88), resourceFolder, 1, "Shrimp", 15)
+createResourceNode("TroutSpot1", "FishingSpot", Vector3.new(72, 0, 75), resourceFolder, 20, "Trout", 35)
+createResourceNode("TroutSpot2", "FishingSpot", Vector3.new(88, 0, 85), resourceFolder, 20, "Trout", 35)
+
+-- Lily pond has trout too
+createResourceNode("TroutSpot3", "FishingSpot", Vector3.new(108, 0, 58), resourceFolder, 20, "Trout", 35)
+createResourceNode("TroutSpot4", "FishingSpot", Vector3.new(114, 0, 62), resourceFolder, 20, "Trout", 35)
+
+-- ============================================================
+-- WILDERNESS RESOURCES — better loot, more risk
+-- ============================================================
+
+-- Gold Rocks (scattered in mid-wilderness)
+createResourceNode("GoldRock1", "Rock", Vector3.new(30, 0, -130), resourceFolder, 40, "Gold Ore", 65)
+createResourceNode("GoldRock2", "Rock", Vector3.new(45, 0, -145), resourceFolder, 40, "Gold Ore", 65)
+createResourceNode("GoldRock3", "Rock", Vector3.new(-20, 0, -135), resourceFolder, 40, "Gold Ore", 65)
+
+-- Runite Rocks (deep wilderness — high risk, high reward)
+createResourceNode("RuniteRock1", "Rock", Vector3.new(55, 0, -200), resourceFolder, 70, "Runite Ore", 125)
+createResourceNode("RuniteRock2", "Rock", Vector3.new(-40, 0, -230), resourceFolder, 70, "Runite Ore", 125)
+createResourceNode("RuniteRock3", "Rock", Vector3.new(10, 0, -270), resourceFolder, 70, "Runite Ore", 125)
+
+-- Yew Trees (mid wilderness)
+createResourceNode("YewTree1", "Tree", Vector3.new(-30, 0, -130), resourceFolder, 50, "Yew Log", 80)
+createResourceNode("YewTree2", "Tree", Vector3.new(-45, 0, -155), resourceFolder, 50, "Yew Log", 80)
+createResourceNode("YewTree3", "Tree", Vector3.new(40, 0, -140), resourceFolder, 50, "Yew Log", 80)
+
+-- Magic Trees (deep wilderness — rarest resource)
+createResourceNode("MagicTree1", "Tree", Vector3.new(-55, 0, -205), resourceFolder, 75, "Magic Log", 150)
+createResourceNode("MagicTree2", "Tree", Vector3.new(70, 0, -240), resourceFolder, 75, "Magic Log", 150)
+
+-- Lobster Spots (mid wilderness)
+createResourceNode("LobsterSpot1", "FishingSpot", Vector3.new(20, 0, -140), resourceFolder, 40, "Lobster", 60)
+createResourceNode("LobsterSpot2", "FishingSpot", Vector3.new(-15, 0, -150), resourceFolder, 40, "Lobster", 60)
+
+-- Dark Crab (deep wilderness dark pond)
+createResourceNode("DarkCrabSpot1", "FishingSpot", Vector3.new(-55, 0, -208), resourceFolder, 70, "Dark Crab", 130)
+createResourceNode("DarkCrabSpot2", "FishingSpot", Vector3.new(-65, 0, -214), resourceFolder, 70, "Dark Crab", 130)
+
+local totalNodes = 0
+for _, _ in ipairs(resourceFolder:GetChildren()) do totalNodes = totalNodes + 1 end
+print("[SkillManager] Resource nodes spawned - " .. totalNodes .. " nodes total")
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="20">
+      <Properties>
+        <string name="Name">WildernessManager</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[-- WildernessManager.server.lua
+-- Handles PvP zone detection, full-loot death, and loot drops
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local Config = require(ReplicatedStorage.Modules.Config)
+
+local DataManager = require(ReplicatedStorage.Modules.DataManager)
+
+-- Track which players are in the wilderness
+local playersInWilderness = {}
+
+-- Wilderness boundary (Z < -100)
+local WILDERNESS_Z = -100
+
+-- === ZONE DETECTION ===
+local function isInWilderness(position)
+	return position.Z < WILDERNESS_Z
+end
+
+print("[WildernessManager] Waiting for Remotes...")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+if not Remotes then
+	warn("[WildernessManager] ERROR: Remotes folder not found!")
+end
+local zoneRemote = Remotes and Remotes:WaitForChild("ZoneChanged", 10)
+if not zoneRemote then
+	warn("[WildernessManager] ERROR: ZoneChanged remote not found!")
+end
+print("[WildernessManager] Remotes connected!")
+
+-- Monitor player positions
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		for _, player in ipairs(Players:GetPlayers()) do
+			local character = player.Character
+			if character then
+				local root = character:FindFirstChild("HumanoidRootPart")
+				if root then
+					local wasInWild = playersInWilderness[player.UserId]
+					local isInWild = isInWilderness(root.Position)
+
+					if isInWild and not wasInWild then
+						-- Entered wilderness
+						playersInWilderness[player.UserId] = true
+						zoneRemote:FireClient(player, "Wilderness")
+						print("[Wilderness] " .. player.Name .. " entered the Wilderness!")
+					elseif not isInWild and wasInWild then
+						-- Left wilderness
+						playersInWilderness[player.UserId] = false
+						zoneRemote:FireClient(player, "SafeZone")
+						print("[Wilderness] " .. player.Name .. " returned to safety.")
+					end
+				end
+			end
+		end
+	end
+end)
+
+-- === LOOT DROP SYSTEM ===
+
+local function createLootPile(position, items, killerName)
+	if #items == 0 then return end
+
+	local lootPart = Instance.new("Part")
+	lootPart.Name = "LootPile"
+	lootPart.Size = Vector3.new(3, 1, 3)
+	lootPart.Position = position + Vector3.new(0, 1, 0)
+	lootPart.Anchored = true
+	lootPart.CanCollide = false
+	lootPart.BrickColor = BrickColor.new("Bright yellow")
+	lootPart.Material = Enum.Material.Neon
+	lootPart.Shape = Enum.PartType.Cylinder
+	lootPart.Transparency = 0.3
+	lootPart.Parent = Workspace
+
+	-- Floating text
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.new(4, 0, 1, 0)
+	billboard.StudsOffset = Vector3.new(0, 3, 0)
+	billboard.Parent = lootPart
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = "💀 Loot Pile (" .. #items .. " items)"
+	label.TextColor3 = Color3.fromRGB(255, 215, 0)
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = billboard
+
+	-- Click to loot
+	local clickDetector = Instance.new("ClickDetector")
+	clickDetector.MaxActivationDistance = 10
+	clickDetector.Parent = lootPart
+
+	local looted = false
+	clickDetector.MouseClick:Connect(function(player)
+		if looted then return end
+		looted = true
+
+		-- Give all items to the player who clicked
+		local itemsGiven = 0
+		for _, item in ipairs(items) do
+			local added = DataManager.AddToInventory(player, item.name, item.quantity)
+			if added then
+				itemsGiven = itemsGiven + 1
+			end
+		end
+
+		-- Update their inventory UI
+		local invRemote = ReplicatedStorage.Remotes:FindFirstChild("InventoryUpdate")
+		if invRemote then
+			local data = DataManager.GetData(player)
+			invRemote:FireClient(player, data.Inventory)
+		end
+
+		print("[Loot] " .. player.Name .. " looted " .. itemsGiven .. " items from a pile")
+		lootPart:Destroy()
+	end)
+
+	-- Auto-despawn after duration
+	task.delay(Config.LootDropDuration, function()
+		if lootPart and lootPart.Parent then
+			lootPart:Destroy()
+			print("[Loot] A loot pile despawned")
+		end
+	end)
+end
+
+-- === PVP DEATH HANDLER ===
+
+local function onCharacterDied(player, character)
+	if not DataManager then return end
+
+	local humanoid = character:FindFirstChild("Humanoid")
+	if not humanoid then return end
+
+	-- Check if player died in wilderness
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+
+	if not isInWilderness(root.Position) then
+		-- Died in safe zone — no loot drop
+		return
+	end
+
+	-- FULL LOOT DROP — drop everything!
+	local droppedItems = DataManager.GetAndClearInventory(player)
+	
+	if #droppedItems > 0 then
+		-- Find who killed them (for tracking)
+		local killerName = "Unknown"
+		-- Check the damage tag
+		local tag = humanoid:FindFirstChild("creator")
+		if tag and tag.Value then
+			killerName = tag.Value.Name
+			-- Award kill to the killer
+			local killerData = DataManager.GetData(tag.Value)
+			if killerData then
+				killerData.TotalKills = killerData.TotalKills + 1
+			end
+		end
+
+		-- Create loot pile at death location
+		createLootPile(root.Position, droppedItems, killerName)
+		
+		print("[PvP] " .. player.Name .. " was killed by " .. killerName .. " — dropped " .. #droppedItems .. " item stacks!")
+	end
+
+	-- Update victim's empty inventory
+	local invRemote = ReplicatedStorage.Remotes:FindFirstChild("InventoryUpdate")
+	if invRemote then
+		invRemote:FireClient(player, {})
+	end
+end
+
+-- === PLAYER SETUP ===
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		local humanoid = character:WaitForChild("Humanoid")
+		humanoid.Died:Connect(function()
+			onCharacterDied(player, character)
+		end)
+	end)
+end)
+
+-- Cleanup on leave
+Players.PlayerRemoving:Connect(function(player)
+	playersInWilderness[player.UserId] = nil
+end)
+
+print("[WildernessManager] Full-loot PvP system active!")
+]]></string>
+      </Properties>
+    </Item>
+  </Item>
+  <Item class="StarterGui" referent="21">
+    <Properties>
+      <string name="Name">StarterGui</string>
+    </Properties>
+  </Item>
+  <Item class="StarterPlayer" referent="22">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="23">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="LocalScript" referent="24">
+        <Properties>
+          <string name="Name">BankUI</string>
+          <string name="Source"><![CDATA[-- BankUI.client.lua
+-- Full bank interface with deposit/withdraw
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+
+-- Wait for bank remotes (created by BankManager)
+local bankOpenRemote
+local bankActionRemote
+local bankUpdateRemote
+
+task.spawn(function()
+	bankOpenRemote = Remotes:WaitForChild("BankOpen", 15)
+	bankActionRemote = Remotes:WaitForChild("BankAction", 15)
+	bankUpdateRemote = Remotes:WaitForChild("BankUpdate", 15)
+	if bankOpenRemote and bankActionRemote and bankUpdateRemote then
+		print("[BankUI] Bank remotes connected")
+	else
+		warn("[BankUI] Some bank remotes not found!")
+	end
+end)
+
+-- === COLORS ===
+local COLORS = {
+	bg = Color3.fromRGB(15, 15, 25),
+	panel = Color3.fromRGB(25, 25, 40),
+	item = Color3.fromRGB(35, 35, 55),
+	itemHover = Color3.fromRGB(50, 50, 75),
+	gold = Color3.fromRGB(255, 215, 0),
+	white = Color3.fromRGB(220, 220, 220),
+	green = Color3.fromRGB(80, 200, 80),
+	red = Color3.fromRGB(200, 80, 80),
+	blue = Color3.fromRGB(80, 130, 220),
+	dimText = Color3.fromRGB(140, 140, 160),
+}
+
+-- === MAIN SCREEN GUI ===
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BankUI"
+screenGui.ResetOnSpawn = false
+screenGui.DisplayOrder = 10
+screenGui.Parent = playerGui
+
+-- === BANK WINDOW (hidden by default) ===
+local bankFrame = Instance.new("Frame")
+bankFrame.Name = "BankWindow"
+bankFrame.Size = UDim2.new(0, 700, 0, 500)
+bankFrame.Position = UDim2.new(0.5, -350, 0.5, -250)
+bankFrame.BackgroundColor3 = COLORS.bg
+bankFrame.BackgroundTransparency = 0.05
+bankFrame.BorderSizePixel = 0
+bankFrame.Visible = false
+bankFrame.Parent = screenGui
+
+local bankCorner = Instance.new("UICorner")
+bankCorner.CornerRadius = UDim.new(0, 12)
+bankCorner.Parent = bankFrame
+
+-- Gold border effect
+local bankStroke = Instance.new("UIStroke")
+bankStroke.Color = COLORS.gold
+bankStroke.Thickness = 2
+bankStroke.Transparency = 0.3
+bankStroke.Parent = bankFrame
+
+-- === TITLE BAR ===
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 45)
+titleBar.BackgroundColor3 = COLORS.panel
+titleBar.BorderSizePixel = 0
+titleBar.Parent = bankFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 12)
+titleCorner.Parent = titleBar
+
+-- Fix bottom corners of title bar
+local titleFix = Instance.new("Frame")
+titleFix.Size = UDim2.new(1, 0, 0, 12)
+titleFix.Position = UDim2.new(0, 0, 1, -12)
+titleFix.BackgroundColor3 = COLORS.panel
+titleFix.BorderSizePixel = 0
+titleFix.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -50, 1, 0)
+titleLabel.Position = UDim2.new(0, 15, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "🏦 BANK OF WILDERNESS"
+titleLabel.TextColor3 = COLORS.gold
+titleLabel.TextScaled = true
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = titleBar
+
+-- Close button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 35, 0, 35)
+closeBtn.Position = UDim2.new(1, -40, 0, 5)
+closeBtn.BackgroundColor3 = COLORS.red
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = COLORS.white
+closeBtn.TextScaled = true
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = titleBar
+
+local closeBtnCorner = Instance.new("UICorner")
+closeBtnCorner.CornerRadius = UDim.new(0, 6)
+closeBtnCorner.Parent = closeBtn
+
+closeBtn.MouseButton1Click:Connect(function()
+	bankFrame.Visible = false
+end)
+
+-- === STATUS BAR ===
+local statusBar = Instance.new("TextLabel")
+statusBar.Size = UDim2.new(1, -20, 0, 25)
+statusBar.Position = UDim2.new(0, 10, 0, 48)
+statusBar.BackgroundTransparency = 1
+statusBar.Text = ""
+statusBar.TextColor3 = COLORS.dimText
+statusBar.TextScaled = true
+statusBar.Font = Enum.Font.Gotham
+statusBar.TextXAlignment = Enum.TextXAlignment.Left
+statusBar.Parent = bankFrame
+
+-- === TWO COLUMNS: BANK (left) + INVENTORY (right) ===
+
+-- BANK PANEL (left)
+local bankPanel = Instance.new("Frame")
+bankPanel.Name = "BankPanel"
+bankPanel.Size = UDim2.new(0.5, -15, 1, -120)
+bankPanel.Position = UDim2.new(0, 10, 0, 78)
+bankPanel.BackgroundColor3 = COLORS.panel
+bankPanel.BackgroundTransparency = 0.3
+bankPanel.BorderSizePixel = 0
+bankPanel.Parent = bankFrame
+
+local bankPanelCorner = Instance.new("UICorner")
+bankPanelCorner.CornerRadius = UDim.new(0, 8)
+bankPanelCorner.Parent = bankPanel
+
+local bankTitle = Instance.new("TextLabel")
+bankTitle.Size = UDim2.new(1, 0, 0, 30)
+bankTitle.BackgroundTransparency = 1
+bankTitle.Text = "🏦 BANK (0/100)"
+bankTitle.TextColor3 = COLORS.gold
+bankTitle.TextScaled = true
+bankTitle.Font = Enum.Font.GothamBold
+bankTitle.Parent = bankPanel
+
+local bankScroll = Instance.new("ScrollingFrame")
+bankScroll.Size = UDim2.new(1, -10, 1, -35)
+bankScroll.Position = UDim2.new(0, 5, 0, 32)
+bankScroll.BackgroundTransparency = 1
+bankScroll.ScrollBarThickness = 4
+bankScroll.ScrollBarImageColor3 = COLORS.gold
+bankScroll.Parent = bankPanel
+
+local bankLayout = Instance.new("UIListLayout")
+bankLayout.Padding = UDim.new(0, 3)
+bankLayout.Parent = bankScroll
+
+-- INVENTORY PANEL (right)
+local invPanel = Instance.new("Frame")
+invPanel.Name = "InvPanel"
+invPanel.Size = UDim2.new(0.5, -15, 1, -120)
+invPanel.Position = UDim2.new(0.5, 5, 0, 78)
+invPanel.BackgroundColor3 = COLORS.panel
+invPanel.BackgroundTransparency = 0.3
+invPanel.BorderSizePixel = 0
+invPanel.Parent = bankFrame
+
+local invPanelCorner = Instance.new("UICorner")
+invPanelCorner.CornerRadius = UDim.new(0, 8)
+invPanelCorner.Parent = invPanel
+
+local invTitle = Instance.new("TextLabel")
+invTitle.Size = UDim2.new(1, 0, 0, 30)
+invTitle.BackgroundTransparency = 1
+invTitle.Text = "🎒 INVENTORY (0/28)"
+invTitle.TextColor3 = COLORS.gold
+invTitle.TextScaled = true
+invTitle.Font = Enum.Font.GothamBold
+invTitle.Parent = invPanel
+
+local invScroll = Instance.new("ScrollingFrame")
+invScroll.Size = UDim2.new(1, -10, 1, -35)
+invScroll.Position = UDim2.new(0, 5, 0, 32)
+invScroll.BackgroundTransparency = 1
+invScroll.ScrollBarThickness = 4
+invScroll.ScrollBarImageColor3 = COLORS.gold
+invScroll.Parent = invPanel
+
+local invLayout = Instance.new("UIListLayout")
+invLayout.Padding = UDim.new(0, 3)
+invLayout.Parent = invScroll
+
+-- === BOTTOM BUTTONS ===
+local buttonBar = Instance.new("Frame")
+buttonBar.Size = UDim2.new(1, -20, 0, 40)
+buttonBar.Position = UDim2.new(0, 10, 1, -48)
+buttonBar.BackgroundTransparency = 1
+buttonBar.Parent = bankFrame
+
+local buttonLayout = Instance.new("UIListLayout")
+buttonLayout.FillDirection = Enum.FillDirection.Horizontal
+buttonLayout.Padding = UDim.new(0, 10)
+buttonLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+buttonLayout.Parent = buttonBar
+
+local function createButton(text, color, parent)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 180, 0, 36)
+	btn.BackgroundColor3 = color
+	btn.Text = text
+	btn.TextColor3 = COLORS.white
+	btn.TextScaled = true
+	btn.Font = Enum.Font.GothamBold
+	btn.BorderSizePixel = 0
+	btn.Parent = parent
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = btn
+
+	-- Hover effect
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.15), {
+			BackgroundColor3 = Color3.new(
+				math.min(color.R * 1.2, 1),
+				math.min(color.G * 1.2, 1),
+				math.min(color.B * 1.2, 1)
+			)
+		}):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = color }):Play()
+	end)
+
+	return btn
+end
+
+local depositAllBtn = createButton("📥 Deposit All", COLORS.green, buttonBar)
+local closeBottomBtn = createButton("✕ Close Bank", COLORS.red, buttonBar)
+
+closeBottomBtn.MouseButton1Click:Connect(function()
+	bankFrame.Visible = false
+end)
+
+-- === ITEM ROW CREATION ===
+local function createItemRow(itemName, quantity, parent, actionType)
+	local row = Instance.new("TextButton")
+	row.Size = UDim2.new(1, -5, 0, 32)
+	row.BackgroundColor3 = COLORS.item
+	row.BorderSizePixel = 0
+	row.Text = ""
+	row.AutoButtonColor = false
+	row.Parent = parent
+
+	local rowCorner = Instance.new("UICorner")
+	rowCorner.CornerRadius = UDim.new(0, 6)
+	rowCorner.Parent = row
+
+	-- Item name
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Size = UDim2.new(0.6, 0, 1, 0)
+	nameLabel.Position = UDim2.new(0, 10, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = itemName
+	nameLabel.TextColor3 = COLORS.white
+	nameLabel.TextScaled = true
+	nameLabel.Font = Enum.Font.Gotham
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Parent = row
+
+	-- Quantity
+	local qtyLabel = Instance.new("TextLabel")
+	qtyLabel.Size = UDim2.new(0, 40, 1, 0)
+	qtyLabel.Position = UDim2.new(0.6, 5, 0, 0)
+	qtyLabel.BackgroundTransparency = 1
+	qtyLabel.Text = "x" .. quantity
+	qtyLabel.TextColor3 = COLORS.dimText
+	qtyLabel.TextScaled = true
+	qtyLabel.Font = Enum.Font.Gotham
+	qtyLabel.Parent = row
+
+	-- Action button
+	local actionBtn = Instance.new("TextButton")
+	actionBtn.Size = UDim2.new(0, 70, 0, 24)
+	actionBtn.Position = UDim2.new(1, -78, 0.5, -12)
+	actionBtn.BorderSizePixel = 0
+	actionBtn.TextScaled = true
+	actionBtn.Font = Enum.Font.GothamBold
+	actionBtn.Parent = row
+
+	local actionCorner = Instance.new("UICorner")
+	actionCorner.CornerRadius = UDim.new(0, 4)
+	actionCorner.Parent = actionBtn
+
+	if actionType == "withdraw" then
+		actionBtn.Text = "📤 Take"
+		actionBtn.BackgroundColor3 = COLORS.blue
+		actionBtn.TextColor3 = COLORS.white
+		actionBtn.MouseButton1Click:Connect(function()
+			if bankActionRemote then
+				bankActionRemote:FireServer("withdraw", itemName, 1)
+			end
+		end)
+	else
+		actionBtn.Text = "📥 Store"
+		actionBtn.BackgroundColor3 = COLORS.green
+		actionBtn.TextColor3 = COLORS.white
+		actionBtn.MouseButton1Click:Connect(function()
+			if bankActionRemote then
+				bankActionRemote:FireServer("deposit", itemName, 1)
+			end
+		end)
+	end
+
+	-- Hover effects
+	row.MouseEnter:Connect(function()
+		TweenService:Create(row, TweenInfo.new(0.1), { BackgroundColor3 = COLORS.itemHover }):Play()
+	end)
+	row.MouseLeave:Connect(function()
+		TweenService:Create(row, TweenInfo.new(0.1), { BackgroundColor3 = COLORS.item }):Play()
+	end)
+
+	return row
+end
+
+-- === UPDATE DISPLAY ===
+local function updateBankDisplay(bankData, invData)
+	-- Clear existing rows
+	for _, child in ipairs(bankScroll:GetChildren()) do
+		if child:IsA("TextButton") then child:Destroy() end
+	end
+	for _, child in ipairs(invScroll:GetChildren()) do
+		if child:IsA("TextButton") then child:Destroy() end
+	end
+
+	-- Update bank items
+	bankTitle.Text = "🏦 BANK (" .. #bankData .. "/100)"
+	for _, slot in ipairs(bankData) do
+		createItemRow(slot.name, slot.quantity, bankScroll, "withdraw")
+	end
+	bankScroll.CanvasSize = UDim2.new(0, 0, 0, #bankData * 35)
+
+	-- Update inventory items
+	invTitle.Text = "🎒 INVENTORY (" .. #invData .. "/28)"
+	for _, slot in ipairs(invData) do
+		createItemRow(slot.name, slot.quantity, invScroll, "deposit")
+	end
+	invScroll.CanvasSize = UDim2.new(0, 0, 0, #invData * 35)
+
+	-- Empty state messages
+	if #bankData == 0 then
+		local emptyLabel = Instance.new("TextLabel")
+		emptyLabel.Size = UDim2.new(1, 0, 0, 50)
+		emptyLabel.BackgroundTransparency = 1
+		emptyLabel.Text = "Bank is empty\nDeposit items to keep them safe!"
+		emptyLabel.TextColor3 = COLORS.dimText
+		emptyLabel.TextScaled = true
+		emptyLabel.Font = Enum.Font.Gotham
+		emptyLabel.Parent = bankScroll
+	end
+
+	if #invData == 0 then
+		local emptyLabel = Instance.new("TextLabel")
+		emptyLabel.Size = UDim2.new(1, 0, 0, 50)
+		emptyLabel.BackgroundTransparency = 1
+		emptyLabel.Text = "Inventory is empty\nGather resources first!"
+		emptyLabel.TextColor3 = COLORS.dimText
+		emptyLabel.TextScaled = true
+		emptyLabel.Font = Enum.Font.Gotham
+		emptyLabel.Parent = invScroll
+	end
+end
+
+-- === SHOW STATUS MESSAGE ===
+local function showStatus(text, color)
+	statusBar.Text = text
+	statusBar.TextColor3 = color or COLORS.dimText
+	task.delay(3, function()
+		if statusBar.Text == text then
+			statusBar.Text = ""
+		end
+	end)
+end
+
+-- === CONNECT REMOTES ===
+task.spawn(function()
+	-- Wait for remotes to be available
+	task.wait(2)
+
+	if bankOpenRemote then
+		bankOpenRemote.OnClientEvent:Connect(function(bankData, invData)
+			updateBankDisplay(bankData, invData)
+			bankFrame.Visible = true
+			showStatus("Welcome to the Bank of Wilderness!", COLORS.gold)
+		end)
+	end
+
+	if bankUpdateRemote then
+		bankUpdateRemote.OnClientEvent:Connect(function(bankData, invData, success, action)
+			updateBankDisplay(bankData, invData)
+			if success then
+				if action == "deposit" then
+					showStatus("✅ Item deposited successfully!", COLORS.green)
+				elseif action == "withdraw" then
+					showStatus("✅ Item withdrawn successfully!", COLORS.green)
+				elseif action == "deposit_all" then
+					showStatus("✅ All items deposited!", COLORS.green)
+				end
+			else
+				if action == "deposit" or action == "deposit_all" then
+					showStatus("❌ Bank is full or item not found!", COLORS.red)
+				elseif action == "withdraw" then
+					showStatus("❌ Inventory full or item not found!", COLORS.red)
+				end
+			end
+		end)
+	end
+end)
+
+-- Deposit All button
+depositAllBtn.MouseButton1Click:Connect(function()
+	if bankActionRemote then
+		bankActionRemote:FireServer("deposit_all", "all", 1)
+	end
+end)
+
+-- Close bank when player moves too far
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if bankFrame.Visible then
+			local character = player.Character
+			if character then
+				local root = character:FindFirstChild("HumanoidRootPart")
+				if root then
+					local bankNPC = game.Workspace:FindFirstChild("SafeZone")
+					if bankNPC then
+						local npc = bankNPC:FindFirstChild("BankNPC")
+						if npc then
+							local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+							if npcRoot then
+								local dist = (root.Position - npcRoot.Position).Magnitude
+								if dist > 15 then
+									bankFrame.Visible = false
+									showStatus("You walked too far from the bank.", COLORS.red)
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end)
+
+print("[BankUI] Bank interface loaded!")
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="25">
+        <Properties>
+          <string name="Name">UIController</string>
+          <string name="Source"><![CDATA[-- UIController.client.lua
+-- Handles all client-side UI: inventory, skills, zone warnings, damage numbers
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+
+-- === MAIN SCREEN GUI ===
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "WildernessUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- === ZONE INDICATOR (top center) ===
+local zoneFrame = Instance.new("Frame")
+zoneFrame.Name = "ZoneIndicator"
+zoneFrame.Size = UDim2.new(0, 300, 0, 50)
+zoneFrame.Position = UDim2.new(0.5, -150, 0, 10)
+zoneFrame.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+zoneFrame.BackgroundTransparency = 0.3
+zoneFrame.BorderSizePixel = 0
+zoneFrame.Parent = screenGui
+
+local zoneCorner = Instance.new("UICorner")
+zoneCorner.CornerRadius = UDim.new(0, 8)
+zoneCorner.Parent = zoneFrame
+
+local zoneLabel = Instance.new("TextLabel")
+zoneLabel.Name = "ZoneText"
+zoneLabel.Size = UDim2.new(1, 0, 1, 0)
+zoneLabel.BackgroundTransparency = 1
+zoneLabel.Text = "🛡️ SAFE ZONE"
+zoneLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+zoneLabel.TextScaled = true
+zoneLabel.Font = Enum.Font.GothamBold
+zoneLabel.Parent = zoneFrame
+
+-- === SKILLS PANEL (left side) ===
+local skillsFrame = Instance.new("Frame")
+skillsFrame.Name = "SkillsPanel"
+skillsFrame.Size = UDim2.new(0, 200, 0, 250)
+skillsFrame.Position = UDim2.new(0, 10, 0.5, -125)
+skillsFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+skillsFrame.BackgroundTransparency = 0.2
+skillsFrame.BorderSizePixel = 0
+skillsFrame.Parent = screenGui
+
+local skillsCorner = Instance.new("UICorner")
+skillsCorner.CornerRadius = UDim.new(0, 8)
+skillsCorner.Parent = skillsFrame
+
+local skillsTitle = Instance.new("TextLabel")
+skillsTitle.Size = UDim2.new(1, 0, 0, 30)
+skillsTitle.BackgroundTransparency = 1
+skillsTitle.Text = "⚔️ SKILLS"
+skillsTitle.TextColor3 = Color3.fromRGB(255, 215, 0)
+skillsTitle.TextScaled = true
+skillsTitle.Font = Enum.Font.GothamBold
+skillsTitle.Parent = skillsFrame
+
+local skillsList = Instance.new("UIListLayout")
+skillsList.Padding = UDim.new(0, 2)
+skillsList.Parent = skillsFrame
+
+-- Skill labels (will be updated by remotes)
+local skillLabels = {}
+local skillNames = {"Mining", "Woodcutting", "Fishing", "Smithing", "Cooking", "Combat"}
+local skillEmojis = {Mining = "⛏️", Woodcutting = "🪓", Fishing = "🎣", Smithing = "🔨", Cooking = "🍳", Combat = "⚔️"}
+
+for _, skillName in ipairs(skillNames) do
+	local label = Instance.new("TextLabel")
+	label.Name = skillName
+	label.Size = UDim2.new(1, -10, 0, 30)
+	label.Position = UDim2.new(0, 5, 0, 0)
+	label.BackgroundTransparency = 0.7
+	label.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+	label.Text = "  " .. (skillEmojis[skillName] or "") .. " " .. skillName .. ": Lv 1 (0 XP)"
+	label.TextColor3 = Color3.fromRGB(200, 200, 200)
+	label.TextScaled = true
+	label.Font = Enum.Font.Gotham
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = skillsFrame
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 4)
+	corner.Parent = label
+
+	skillLabels[skillName] = label
+end
+
+-- === INVENTORY PANEL (right side) ===
+local invFrame = Instance.new("Frame")
+invFrame.Name = "InventoryPanel"
+invFrame.Size = UDim2.new(0, 220, 0, 400)
+invFrame.Position = UDim2.new(1, -230, 0.5, -200)
+invFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+invFrame.BackgroundTransparency = 0.2
+invFrame.BorderSizePixel = 0
+invFrame.Parent = screenGui
+
+local invCorner = Instance.new("UICorner")
+invCorner.CornerRadius = UDim.new(0, 8)
+invCorner.Parent = invFrame
+
+local invTitle = Instance.new("TextLabel")
+invTitle.Size = UDim2.new(1, 0, 0, 30)
+invTitle.BackgroundTransparency = 1
+invTitle.Text = "🎒 INVENTORY (0/28)"
+invTitle.TextColor3 = Color3.fromRGB(255, 215, 0)
+invTitle.TextScaled = true
+invTitle.Font = Enum.Font.GothamBold
+invTitle.Parent = invFrame
+
+local invScroll = Instance.new("ScrollingFrame")
+invScroll.Size = UDim2.new(1, -10, 1, -35)
+invScroll.Position = UDim2.new(0, 5, 0, 32)
+invScroll.BackgroundTransparency = 1
+invScroll.ScrollBarThickness = 4
+invScroll.Parent = invFrame
+
+local invLayout = Instance.new("UIListLayout")
+invLayout.Padding = UDim.new(0, 2)
+invLayout.Parent = invScroll
+
+-- === DAMAGE NUMBERS ===
+local function showDamageNumber(text, color)
+	local dmgLabel = Instance.new("TextLabel")
+	dmgLabel.Size = UDim2.new(0, 200, 0, 40)
+	dmgLabel.Position = UDim2.new(0.5, -100, 0.4, 0)
+	dmgLabel.BackgroundTransparency = 1
+	dmgLabel.Text = text
+	dmgLabel.TextColor3 = color
+	dmgLabel.TextScaled = true
+	dmgLabel.Font = Enum.Font.GothamBold
+	dmgLabel.TextStrokeTransparency = 0.5
+	dmgLabel.Parent = screenGui
+
+	-- Animate upward and fade
+	local tween = TweenService:Create(dmgLabel, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0.5, -100, 0.3, 0),
+		TextTransparency = 1,
+		TextStrokeTransparency = 1,
+	})
+	tween:Play()
+	tween.Completed:Connect(function()
+		dmgLabel:Destroy()
+	end)
+end
+
+-- === LEVEL UP NOTIFICATION ===
+local function showLevelUp(skillName, newLevel)
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(0, 350, 0, 60)
+	frame.Position = UDim2.new(0.5, -175, 0.3, 0)
+	frame.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+	frame.BackgroundTransparency = 0.1
+	frame.BorderSizePixel = 0
+	frame.Parent = screenGui
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 10)
+	corner.Parent = frame
+
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.new(1, 0, 1, 0)
+	text.BackgroundTransparency = 1
+	text.Text = "🎉 " .. skillName .. " LEVEL UP! Level " .. newLevel .. " 🎉"
+	text.TextColor3 = Color3.fromRGB(20, 20, 20)
+	text.TextScaled = true
+	text.Font = Enum.Font.GothamBold
+	text.Parent = frame
+
+	-- Fade out after 3 seconds
+	task.delay(2, function()
+		local tween = TweenService:Create(frame, TweenInfo.new(1), {
+			BackgroundTransparency = 1,
+		})
+		local textTween = TweenService:Create(text, TweenInfo.new(1), {
+			TextTransparency = 1,
+		})
+		tween:Play()
+		textTween:Play()
+		textTween.Completed:Connect(function()
+			frame:Destroy()
+		end)
+	end)
+end
+
+-- === WILDERNESS WARNING ===
+local function showZoneWarning()
+	local warning = Instance.new("Frame")
+	warning.Size = UDim2.new(1, 0, 0, 80)
+	warning.Position = UDim2.new(0, 0, 0.15, 0)
+	warning.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+	warning.BackgroundTransparency = 0.3
+	warning.BorderSizePixel = 0
+	warning.Parent = screenGui
+
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.new(1, 0, 1, 0)
+	text.BackgroundTransparency = 1
+	text.Text = "☠️ WARNING: You are entering the WILDERNESS!\nPvP is ENABLED — You will LOSE ALL ITEMS on death! ☠️"
+	text.TextColor3 = Color3.fromRGB(255, 255, 255)
+	text.TextScaled = true
+	text.Font = Enum.Font.GothamBold
+	text.Parent = warning
+
+	-- Fade out after 5 seconds
+	task.delay(4, function()
+		local tween = TweenService:Create(warning, TweenInfo.new(1), { BackgroundTransparency = 1 })
+		local textTween = TweenService:Create(text, TweenInfo.new(1), { TextTransparency = 1 })
+		tween:Play()
+		textTween:Play()
+		textTween.Completed:Connect(function()
+			warning:Destroy()
+		end)
+	end)
+end
+
+-- === UPDATE INVENTORY UI ===
+local function updateInventoryUI(inventory)
+	-- Clear existing
+	for _, child in ipairs(invScroll:GetChildren()) do
+		if child:IsA("TextLabel") then
+			child:Destroy()
+		end
+	end
+
+	invTitle.Text = "🎒 INVENTORY (" .. #inventory .. "/28)"
+
+	for i, slot in ipairs(inventory) do
+		local itemLabel = Instance.new("TextLabel")
+		itemLabel.Size = UDim2.new(1, -5, 0, 25)
+		itemLabel.BackgroundTransparency = 0.7
+		itemLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+		itemLabel.Text = "  " .. slot.name .. " x" .. slot.quantity
+		itemLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+		itemLabel.TextScaled = true
+		itemLabel.Font = Enum.Font.Gotham
+		itemLabel.TextXAlignment = Enum.TextXAlignment.Left
+		itemLabel.Parent = invScroll
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 4)
+		corner.Parent = itemLabel
+	end
+
+	-- Update canvas size for scrolling
+	invScroll.CanvasSize = UDim2.new(0, 0, 0, #inventory * 27)
+end
+
+-- === CONNECT REMOTES ===
+
+-- XP Update
+Remotes:WaitForChild("XPUpdate").OnClientEvent:Connect(function(skillName, totalXP, level)
+	local label = skillLabels[skillName]
+	if label then
+		local emoji = skillEmojis[skillName] or ""
+		label.Text = "  " .. emoji .. " " .. skillName .. ": Lv " .. level .. " (" .. totalXP .. " XP)"
+	end
+end)
+
+-- Level Up
+Remotes:WaitForChild("LevelUp").OnClientEvent:Connect(function(skillName, newLevel)
+	showLevelUp(skillName, newLevel)
+end)
+
+-- Inventory Update
+Remotes:WaitForChild("InventoryUpdate").OnClientEvent:Connect(function(inventory)
+	updateInventoryUI(inventory)
+end)
+
+-- Zone Changed
+Remotes:WaitForChild("ZoneChanged").OnClientEvent:Connect(function(zone)
+	if zone == "Wilderness" then
+		zoneFrame.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+		zoneLabel.Text = "☠️ WILDERNESS — PVP ENABLED"
+		showZoneWarning()
+	else
+		zoneFrame.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+		zoneLabel.Text = "🛡️ SAFE ZONE"
+	end
+end)
+
+-- Damage
+Remotes:WaitForChild("DamageDealt").OnClientEvent:Connect(function(direction, damage, otherName)
+	if direction == "dealt" then
+		showDamageNumber("💥 " .. damage .. " → " .. otherName, Color3.fromRGB(255, 100, 100))
+	else
+		showDamageNumber("💔 -" .. damage .. " from " .. otherName, Color3.fromRGB(255, 50, 50))
+	end
+end)
+
+-- === ATTACK INPUT (click other players) ===
+local mouse = player:GetMouse()
+local attackRemote = Remotes:WaitForChild("Attack")
+
+mouse.Button1Down:Connect(function()
+	local target = mouse.Target
+	if target then
+		-- Check if clicked on a player character
+		local character = target.Parent
+		if character then
+			local targetPlayer = Players:GetPlayerFromCharacter(character)
+			if targetPlayer and targetPlayer ~= player then
+				attackRemote:FireServer(targetPlayer)
+			end
+		end
+	end
+end)
+
+-- === GATHER FEEDBACK ===
+local gatherRemote = Remotes:FindFirstChild("GatherFeedback")
+if gatherRemote then
+	gatherRemote.OnClientEvent:Connect(function(action, itemName, xpOrLevel)
+		if action == "gather" then
+			showDamageNumber("+" .. itemName .. " (+" .. xpOrLevel .. " XP)", Color3.fromRGB(100, 255, 100))
+		elseif action == "full" then
+			showDamageNumber("❌ Inventory Full!", Color3.fromRGB(255, 100, 100))
+		elseif action == "level" then
+			showDamageNumber("🔒 Need Level " .. xpOrLevel .. "!", Color3.fromRGB(255, 200, 50))
+		end
+	end)
+end
+
+-- === CLIENT-SIDE ZONE CHECK (backup) ===
+-- In case server remote doesn't fire, check locally too
+local WILDERNESS_Z = -100
+task.spawn(function()
+	local lastZone = "safe"
+	while true do
+		task.wait(0.3)
+		local character = player.Character
+		if character then
+			local root = character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local currentZone = root.Position.Z < WILDERNESS_Z and "wild" or "safe"
+				if currentZone ~= lastZone then
+					lastZone = currentZone
+					if currentZone == "wild" then
+						zoneFrame.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+						zoneLabel.Text = "☠️ WILDERNESS — PVP ENABLED"
+						showZoneWarning()
+					else
+						zoneFrame.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+						zoneLabel.Text = "🛡️ SAFE ZONE"
+					end
+				end
+			end
+		end
+	end
+end)
+
+print("[UIController] Client UI loaded!")
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="Workspace" referent="26">
+    <Properties>
+      <string name="Name">Workspace</string>
+      <bool name="NeedsPivotMigration">false</bool>
+    </Properties>
+  </Item>
+</roblox>

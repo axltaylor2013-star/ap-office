@@ -1,0 +1,290 @@
+[
+  {
+    "id": 1,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Task Manager Skill",
+    "summary": "Built OpenClaw skill for managing dashboard/tasks.json",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 2,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Kermicle Web Builder Skill",
+    "summary": "Skill for building branded dark theme + gold accent web pages",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 3,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Python Project Scaffold Skill",
+    "summary": "Consistent Python project scaffolding with README, requirements, CLI args",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 4,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Local Lead Gen Skill",
+    "summary": "Research and generate local business leads for outreach",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 5,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Content Research Skill",
+    "summary": "Daily trend scouting for TikTok, IG, YouTube, X",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 6,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Animatic Pipeline Skill",
+    "summary": "Full pipeline from cartoon scripts to animatic videos via Stable Diffusion",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 7,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Client Onboarding Skill",
+    "summary": "Auto-generate project folder, contract, invoice, welcome email for new clients",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 8,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Portfolio Generator Skill",
+    "summary": "Before/after showcase pages with SEO, responsive dark+gold branding",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 9,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Social Media Autopilot Skill",
+    "summary": "Single brief → platform-specific posts for IG Reels, TikTok, YouTube, X",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 10,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Voiceover Studio Skill",
+    "summary": "TTS character voice mapping and dialogue production for cartoon series",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 11,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Script-to-Storyboard Skill",
+    "summary": "Convert cartoon scripts into numbered panels with SD prompts",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 12,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Thumbnail Factory Skill",
+    "summary": "Generate A/B test thumbnail concepts with SD prompts and text overlays",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 13,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Client CRM Skill",
+    "summary": "JSON-based client tracker with projects, invoices, follow-ups",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 14,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Revenue Dashboard Skill",
+    "summary": "Track income by client/service/month with visual HTML dashboard",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 15,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Email Outreach Skill",
+    "summary": "Cold email sequences across 5 niches with contact tracking",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 16,
+    "agent": "jarvis",
+    "type": "skill",
+    "title": "Git Deployer Skill",
+    "summary": "One-command deploy workspace changes to GitHub Pages",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 17,
+    "agent": "forge",
+    "type": "learned",
+    "title": "Image Optimizer CLI",
+    "summary": "Built optimize command with Pillow for batch image processing",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 18,
+    "agent": "forge",
+    "type": "learned",
+    "title": "FastAPI AI Template",
+    "summary": "Reusable FastAPI template with AI endpoint scaffolding",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 19,
+    "agent": "forge",
+    "type": "learned",
+    "title": "Telegram Bot Framework",
+    "summary": "Template for building Telegram bots with command handlers",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 20,
+    "agent": "forge",
+    "type": "learned",
+    "title": "Lead Scraper Tool",
+    "summary": "Python tool for scraping business leads from web sources",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 21,
+    "agent": "forge",
+    "type": "learned",
+    "title": "Invoice Generator",
+    "summary": "CLI tool for generating PDF invoices",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 22,
+    "agent": "forge",
+    "type": "learned",
+    "title": "Markdown Converter",
+    "summary": "Convert markdown to HTML/PDF with styling",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 23,
+    "agent": "forge",
+    "type": "learned",
+    "title": "File Organizer",
+    "summary": "Auto-organize files by type, date, project",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 24,
+    "agent": "forge",
+    "type": "learned",
+    "title": "URL Shortener",
+    "summary": "Self-hosted URL shortener with analytics",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 25,
+    "agent": "forge",
+    "type": "learned",
+    "title": "CSV Dashboard",
+    "summary": "Upload CSVs and get instant visual dashboards",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 26,
+    "agent": "mule",
+    "type": "learned",
+    "title": "Daily Trend Research",
+    "summary": "Morning scan of trending topics across platforms",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 27,
+    "agent": "mule",
+    "type": "learned",
+    "title": "Cold Outreach Templates",
+    "summary": "5-niche DM templates for client acquisition",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 28,
+    "agent": "mule",
+    "type": "learned",
+    "title": "Services & Pricing Page",
+    "summary": "Tiered pricing structure for Kermicle Media",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 29,
+    "agent": "jarvis",
+    "type": "script",
+    "title": "EP01 — The Algorithm",
+    "summary": "Jeremy discovers his AI assistant Jarvis has been running his life",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 30,
+    "agent": "jarvis",
+    "type": "script",
+    "title": "EP02 — The Crypto Scheme",
+    "summary": "Jeremy tries to mass-deploy AI trading bots",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 31,
+    "agent": "jarvis",
+    "type": "script",
+    "title": "EP03 — The Debate",
+    "summary": "Jeremy and Jarvis debate who's really in charge",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 32,
+    "agent": "jarvis",
+    "type": "experiment",
+    "title": "Stable Diffusion Local Setup",
+    "summary": "ComfyUI + SD 1.5 on RTX 4060 for unlimited free image generation",
+    "date": "2026-02-15"
+  },
+  {
+    "id": 33,
+    "agent": "jarvis",
+    "type": "improved",
+    "title": "Multi-Agent Telegram System",
+    "summary": "3 bots (Jarvis, Mule, Forge) running on OpenClaw with separate accounts",
+    "date": "2026-02-14"
+  },
+  {
+    "id": 34,
+    "agent": "jarvis",
+    "type": "project",
+    "title": "Roblox MMO Game Design",
+    "summary": "New project: RuneScape-inspired Roblox MMO with full-loot PvP wilderness. Scout assigned research.",
+    "date": "2026-02-16"
+  },
+  {
+    "id": 35,
+    "agent": "scout",
+    "type": "research",
+    "title": "Roblox MMO Market Research",
+    "summary": "Researching top Roblox MMOs, DevEx economics, tech stack, and MVP scope for game project",
+    "date": "2026-02-16"
+  },
+  {
+    "id": 36,
+    "agent": "jarvis",
+    "type": "ops",
+    "title": "Day 3 Morning Briefing",
+    "summary": "Automated morning report: overnight recap, agent status, 3 action items, opportunities",
+    "date": "2026-02-16"
+  }
+]

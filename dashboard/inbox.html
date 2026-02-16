@@ -5,6 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inbox — Kermicle Media</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>?</text></svg>">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0b0e14;--card:#1a1a2e;--border:#252540;--gold:#d4a843;--gold-dim:rgba(212,168,67,.15);--text:#e8ecf1;--dim:#8892a4;--hover:#222244;--green:#22c55e;--red:#ef4444;--blue:#3b82f6}
@@ -95,6 +96,7 @@ html,body{min-height:100vh;font-family:'Segoe UI',system-ui,sans-serif;backgroun
   <div class="stats" id="stats"></div>
   <div class="tabs" id="tabs"></div>
   <div class="feed" id="feed"></div>
+  <div id="lastUpdatedFooter" style="text-align:center;padding:20px;font-size:.7rem;color:var(--dim)"></div>
 </div>
 
 <script>
@@ -116,7 +118,10 @@ async function load(){
   try{
     const r=await fetch('inbox.json?_='+Date.now());
     notifications=await r.json();
-  }catch(e){notifications=[]}
+    saveNotifs();
+  }catch(e){
+    try{const s=localStorage.getItem('kermicle-inbox');if(s)notifications=JSON.parse(s)}catch(e2){notifications=[]}
+  }
   render();
 }
 
@@ -233,13 +238,15 @@ function render(){
     }
   });
   document.getElementById('feed').innerHTML=html;
+  document.getElementById('lastUpdatedFooter').textContent='Last updated: '+new Date().toLocaleString();
 }
 
 function setFilter(f){activeFilter=f;render()}
-function markRead(id){const n=notifications.find(x=>x.id===id);if(n)n.read=true;render()}
-function markGroupRead(ids){ids.split(',').forEach(id=>{const n=notifications.find(x=>x.id===id);if(n)n.read=true});render()}
-function dismiss(id){notifications=notifications.filter(x=>x.id!==id);render()}
-function markAllRead(){notifications.forEach(n=>n.read=true);render()}
+function saveNotifs(){try{localStorage.setItem('kermicle-inbox',JSON.stringify(notifications))}catch(e){}}
+function markRead(id){const n=notifications.find(x=>x.id===id);if(n)n.read=true;saveNotifs();render()}
+function markGroupRead(ids){ids.split(',').forEach(id=>{const n=notifications.find(x=>x.id===id);if(n)n.read=true});saveNotifs();render()}
+function dismiss(id){notifications=notifications.filter(x=>x.id!==id);saveNotifs();render()}
+function markAllRead(){notifications.forEach(n=>n.read=true);saveNotifs();render()}
 
 load();
 </script>
