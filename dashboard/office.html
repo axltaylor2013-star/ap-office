@@ -78,8 +78,8 @@ function sy(y){return y*H/700}
 // Furniture
 const desks=[
   {x:80,y:250,w:180,h:100,label:'JARVIS',color:'#d4a843'},
-  {x:370,y:250,w:180,h:100,label:'MULE',color:'#22c55e'},
-  {x:660,y:250,w:180,h:100,label:'FORGE',color:'#a855f7'},
+  {x:370,y:250,w:180,h:100,label:'MULE',color:'#8b5cf6'},
+  {x:660,y:250,w:180,h:100,label:'FORGE',color:'#ff6b35'},
   {x:950,y:250,w:180,h:100,label:'SCOUT',color:'#06b6d4'},
 ];
 
@@ -96,44 +96,44 @@ const agents=[
     color:'#d4a843',bodyColor:'#2a2520',headColor:'#d4a843',
     x:170,y:320,targetX:170,targetY:320,
     homeX:170,homeY:320,
-    desk:0,status:'Working',
-    task:'Managing operations',
+    desk:0,status:'Online',
+    task:'Managing Roblox game build',
     speed:1.2,
     state:'working',stateTimer:0,
     bobOffset:0
-  },
-  {
-    id:'mule',name:'Mule 🫏',emoji:'🫏',
-    color:'#22c55e',bodyColor:'#1a2a1e',headColor:'#22c55e',
-    x:460,y:320,targetX:460,targetY:320,
-    homeX:460,homeY:320,
-    desk:1,status:'Standby',
-    task:'Awaiting assignment',
-    speed:0.8,
-    state:'idle',stateTimer:0,
-    bobOffset:Math.PI/3
-  },
-  {
-    id:'forge',name:'Forge 🔨',emoji:'🔨',
-    color:'#a855f7',bodyColor:'#1e1a2a',headColor:'#a855f7',
-    x:750,y:320,targetX:750,targetY:320,
-    homeX:750,homeY:320,
-    desk:2,status:'Building',
-    task:'Ready to build',
-    speed:1.0,
-    state:'working',stateTimer:0,
-    bobOffset:Math.PI*2/3
   },
   {
     id:'scout',name:'Scout 🔭',emoji:'🔭',
     color:'#06b6d4',bodyColor:'#0e2a2e',headColor:'#06b6d4',
     x:1040,y:320,targetX:1040,targetY:320,
     homeX:1040,homeY:320,
-    desk:3,status:'Scouting',
-    task:'Scanning the horizon',
+    desk:3,status:'Online',
+    task:'Roblox research + skill drafting',
     speed:1.1,
     state:'working',stateTimer:0,
     bobOffset:Math.PI
+  },
+  {
+    id:'forge',name:'Forge 🔨',emoji:'🔨',
+    color:'#ff6b35',bodyColor:'#4a2800',headColor:'#ff6b35',
+    x:750,y:320,targetX:750,targetY:320,
+    homeX:750,homeY:320,
+    desk:2,status:'Online',
+    task:'NPC fixes + Ranged combat + Fletching (Gemini Flash)',
+    speed:1.0,
+    state:'working',stateTimer:0,
+    bobOffset:Math.PI*2/3
+  },
+  {
+    id:'mule',name:'Mule 🫏',emoji:'🫏',
+    color:'#8b5cf6',bodyColor:'#3b1f6e',headColor:'#8b5cf6',
+    x:460,y:320,targetX:460,targetY:320,
+    homeX:460,homeY:320,
+    desk:1,status:'Online',
+    task:'NPC Shop Buy/Sell System (Gemini Flash)',
+    speed:1.0,
+    state:'working',stateTimer:0,
+    bobOffset:Math.PI/3
   }
 ];
 
@@ -826,7 +826,7 @@ function frame(now){
   ctx.fillStyle='#d4a843';
   ctx.font=`bold ${sy(11)}px 'Segoe UI',sans-serif`;
   ctx.textAlign='right';
-  ctx.fillText(`Day ${days} · Agents: 4 · Scripts: stockpiling`,W-sx(20),H-sy(15));
+  ctx.fillText(`Day ${days} · Agents: 4 (ALL ONLINE) · Focus: Roblox MMO "Wilderness"`,W-sx(20),H-sy(15));
   ctx.textAlign='left';
 
   requestAnimationFrame(frame);

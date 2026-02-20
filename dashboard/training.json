@@ -286,5 +286,69 @@
     "title": "Day 3 Morning Briefing",
     "summary": "Automated morning report: overnight recap, agent status, 3 action items, opportunities",
     "date": "2026-02-16"
+  },
+  {
+    "id": 37,
+    "agent": "jarvis",
+    "type": "project",
+    "title": "Roblox Wilderness — Massive Build Day",
+    "summary": "Shadow Dragon rebuild (80+ parts), Lich King boss (55+ parts, 6 loot drops), 6 weapon animation styles, monster auto-elevation, inventory/equip bug chain fixed, Haven polish, bank/shop/church doors, prayer+hotbar integration, monster attack anims for all 22 creatures",
+    "date": "2026-02-17"
+  },
+  {
+    "id": 38,
+    "agent": "mule",
+    "type": "content",
+    "title": "Roblox MMO Marketing Content",
+    "summary": "30-second trailer script, game description, and marketing copy for Wilderness game",
+    "date": "2026-02-17"
+  },
+  {
+    "id": 39,
+    "agent": "jarvis",
+    "type": "ops",
+    "title": "Day 5 Morning Briefing",
+    "summary": "Automated morning report: overnight recap, agent status, 3 action items for Wed Feb 18",
+    "date": "2026-02-18"
+  },
+  {
+    "id": 40,
+    "agent": "mule",
+    "type": "project",
+    "title": "Roblox MMO - Woodcutting, Party & Death Systems",
+    "summary": "Built woodcutting system (4 tree types, level gating, axe progression), party/group system with XP sharing, and death screen UI with 10s respawn timer",
+    "date": "2026-02-18"
+  },
+  {
+    "id": 41,
+    "agent": "mule",
+    "type": "project", 
+    "title": "Roblox MMO - Achievements, Leaderboards & Tutorial",
+    "summary": "Achievement system with 20+ achievements across 6 categories, leaderboard system for top 100 players in 11 categories, comprehensive 8-step tutorial for new players",
+    "date": "2026-02-18"
+  },
+  {
+    "id": 42,
+    "agent": "scout",
+    "type": "strategy",
+    "title": "Hardware-Based Tiered Business Model",
+    "summary": "Expanded from $10K-15K services to $8K-$30K hardware-based solutions across 4 tiers: Mac Mini ($8K), Mac Studio Basic ($15K), Mac Studio Pro ($30K), DGX Spark ($13K)",
+    "date": "2026-02-18"
+  },
+  {
+    "id": 43,
+    "agent": "jarvis",
+    "type": "script",
+    "title": "EP07 — The Clone",
+    "summary": "Robot Jeremy becomes overly helpful health coach, ruins Jeremy's life by improving it, breaks from philosophy about identity. Post-credits: Mule solves Robot Jeremy's existential crisis with tacos",
+    "date": "2026-02-19"
+  },
+  {
+    "id": 44,
+    "agent": "jarvis",
+    "type": "ops",
+    "title": "Day 6 Morning Briefing + Overnight Roblox Report",
+    "summary": "4:17 AM scheduled reminder triggered comprehensive Roblox progress report covering Feb 18th error handling fixes. Morning briefing delivered covering hardware sales campaign completion, 3 revenue action items for Friday",
+    "date": "2026-02-20"
   }
 ]

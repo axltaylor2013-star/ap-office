@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AP Technologies — Command Center</title>
+<title>Kermicle Command Center — Roblox MMO "Wilderness" Development</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>?</text></svg>">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -74,7 +74,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 <body>
 
 <div class="topbar">
-  <h1>⚡ <span>AP Technologies</span> — Command Center</h1>
+  <h1>⚡ <span>KERMICLE</span> — Command Center</h1>
   <div class="topbar-right">
     <a href="office.html" style="background:#1a1f2e;border:1px solid #252b3b;color:#d4a843;padding:6px 16px;border-radius:8px;font-size:.75rem;font-weight:600;cursor:pointer;text-decoration:none">🏢 The Office</a>
     <div><span class="live-dot"></span>System Active</div>
@@ -85,11 +85,11 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 <div class="main">
 
 <div class="summary-bar">
-  <div class="summary-card"><div class="num" style="color:var(--green)">3</div><div class="lbl">Total Agents</div></div>
-  <div class="summary-card"><div class="num" style="color:var(--gold)" id="sumOnline">1</div><div class="lbl">Online Now</div></div>
-  <div class="summary-card"><div class="num" style="color:var(--purple)" id="sumSkills">0</div><div class="lbl">Skills Logged</div></div>
-  <div class="summary-card"><div class="num" style="color:var(--green)">$0</div><div class="lbl">Local Model Cost</div></div>
-  <div class="summary-card"><div class="num" style="color:var(--amber)" id="sumDays">1</div><div class="lbl">Days Active</div></div>
+  <div class="summary-card"><div class="num" style="color:var(--green)">4</div><div class="lbl">Total Agents</div></div>
+  <div class="summary-card"><div class="num" style="color:var(--gold)" id="sumOnline">2</div><div class="lbl">Online Now</div></div>
+  <div class="summary-card"><div class="num" style="color:var(--purple)" id="sumSkills">43</div><div class="lbl">Skills Built</div></div>
+  <div class="summary-card"><div class="num" style="color:var(--green)">110</div><div class="lbl">Total Tasks</div></div>
+  <div class="summary-card"><div class="num" style="color:var(--green)">~95</div><div class="lbl">Completed</div></div>
 </div>
 
 <div class="station-grid" id="stationGrid"></div>
@@ -100,12 +100,13 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <div class="log-filters">
       <button class="fbtn active" onclick="filterLog('all',this)">All</button>
       <button class="fbtn" onclick="filterLog('jarvis',this)">🤖 Jarvis</button>
-      <button class="fbtn" onclick="filterLog('mule',this)">🫏 Mule</button>
+      <button class="fbtn" onclick="filterLog('scout',this)">🔭 Scout</button>
       <button class="fbtn" onclick="filterLog('forge',this)">🔨 Forge</button>
+      <button class="fbtn" onclick="filterLog('mule',this)">🫏 Mule</button>
     </div>
   </div>
   <div class="log-body" id="logBody">
-    <div class="log-empty">📡 Training log initialized. First entries drop with the morning report.<br><span style="font-size:.75rem;margin-top:8px;display:block">Daily reports at 8:00 AM ET · Jarvis trains Mule & Forge</span></div>
+    <div class="log-empty">📡 Training log initialized. Current focus: Roblox MMO "Wilderness" development.<br><span style="font-size:.75rem;margin-top:8px;display:block">Game Progress: 10 skills • 90+ items • 21 monsters • 18 NPCs • 25+ zones • Full UI suite</span><br><span style="font-size:.75rem;margin-top:4px;display:block">43 total skills built (16 Roblox-specific) • 2 agents online, 2 RAM constrained</span></div>
   </div>
 </div>
 
@@ -126,28 +127,37 @@ const agents=[
     id:'jarvis',emoji:'🤖',name:'Jarvis',role:'Lead AI · The Brain',
     color:'rgba(212,168,67,.15)',borderColor:'#d4a843',
     status:'on',statusText:'● Online',
-    task:'Building skills, managing agents, writing cartoon scripts',
+    task:'Managing Roblox MMO "Wilderness" game development - 10 skills, 90+ items, 21 monsters, 18 NPCs, 25+ zones, full UI suite',
     model:'Claude Opus',cost:'API $$',costColor:'var(--amber)',
     platform:'Telegram',handle:'@howard32bot',
-    extra:'Running on Windows · Migrating to Mac Studio'
+    extra:'Running on Windows · Focus: Roblox Game Dev'
   },
   {
-    id:'mule',emoji:'🫏',name:'Mule',role:'General Worker · The Grinder',
-    color:'var(--green-dim)',borderColor:'#22c55e',
-    status:'idle',statusText:'● Standby',
-    task:'Awaiting assignment...',taskIdle:true,
-    model:'Llama 3.1 8B',cost:'$0 FREE',costColor:'var(--green)',
-    platform:'Telegram',handle:'@mule32bot',
-    extra:'Local · Ollama'
+    id:'scout',emoji:'🔭',name:'Scout',role:'Research Specialist · The Explorer',
+    color:'rgba(6,182,212,.15)',borderColor:'#06b6d4',
+    status:'on',statusText:'● Online',
+    task:'Roblox research + skill drafting - 16 Roblox-specific skills developed',
+    model:'Gemini 2.0 Flash',cost:'API $$',costColor:'var(--amber)',
+    platform:'Telegram',handle:'@scout32bot',
+    extra:'Research & Strategy · Roblox Focus'
   },
   {
     id:'forge',emoji:'🔨',name:'Forge',role:'Code Specialist · The Builder',
-    color:'var(--purple-dim)',borderColor:'#a855f7',
-    status:'on',statusText:'● Working',
-    task:'Building image optimizer CLI tool (Task 1 of 9)',
+    color:'var(--red-dim)',borderColor:'#ef4444',
+    status:'off',statusText:'● Offline',
+    task:'RAM constrained while Studio running',taskIdle:true,
     model:'Qwen2.5 7B',cost:'$0 FREE',costColor:'var(--green)',
     platform:'Telegram',handle:'@forge32bot',
-    extra:'Local · Ollama · Always building'
+    extra:'Local · Ollama · RAM Issues'
+  },
+  {
+    id:'mule',emoji:'🫏',name:'Mule',role:'General Worker · The Grinder',
+    color:'var(--red-dim)',borderColor:'#ef4444',
+    status:'off',statusText:'● Offline',
+    task:'RAM constrained - needs 20.3GB but only 16.5GB available',taskIdle:true,
+    model:'Llama 3.1 8B',cost:'$0 FREE',costColor:'var(--green)',
+    platform:'Telegram',handle:'@mule32bot',
+    extra:'Local · Ollama · RAM Issues'
   }
 ];
 
@@ -187,8 +197,8 @@ renderStations();
 // Training log
 let tData=[];
 let cFilter='all';
-const aCols={jarvis:'rgba(212,168,67,.15)',mule:'var(--green-dim)',forge:'var(--purple-dim)'};
-const aEmo={jarvis:'🤖',mule:'🫏',forge:'🔨'};
+const aCols={jarvis:'rgba(212,168,67,.15)',scout:'rgba(6,182,212,.15)',forge:'var(--purple-dim)',mule:'var(--green-dim)'};
+const aEmo={jarvis:'🤖',scout:'🔭',forge:'🔨',mule:'🫏'};
 const tIco={learned:'📚',taught:'🎓',improved:'⬆️',experiment:'🧪',note:'📝',skill:'⚡',script:'📺'};
 
 function loadLog(){
@@ -210,12 +220,12 @@ function renderLog(){
   const body=document.getElementById('logBody');
   const f=cFilter==='all'?tData:tData.filter(e=>e.agent===cFilter);
   document.getElementById('sumSkills').textContent=tData.length;
-  ['jarvis','mule','forge'].forEach(a=>{
+  ['jarvis','scout','forge','mule'].forEach(a=>{
     const el=document.getElementById('skills-'+a);
     if(el)el.textContent=tData.filter(e=>e.agent===a).length;
   });
   if(!f.length){
-    body.innerHTML='<div class="log-empty">📡 Training log initialized. First entries drop with the morning report.<br><span style="font-size:.75rem;margin-top:8px;display:block">Daily reports at 8:00 AM ET</span></div>';
+    body.innerHTML='<div class="log-empty">📡 Training log initialized. Current focus: Roblox MMO "Wilderness" development.<br><span style="font-size:.75rem;margin-top:8px;display:block">Game Progress: 10 skills • 90+ items • 21 monsters • 18 NPCs • 25+ zones • Full UI suite</span><br><span style="font-size:.75rem;margin-top:4px;display:block">43 total skills built (16 Roblox-specific) • 2 agents online, 2 RAM constrained</span></div>';
     return;
   }
   body.innerHTML=f.map(e=>`

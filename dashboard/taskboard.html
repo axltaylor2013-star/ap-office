@@ -40,6 +40,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .task-meta{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
 .agent-badge{padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
 .agent-jarvis{background:#d4a84333;color:var(--gold)}
+.agent-scout{background:#06b6d433;color:#06b6d4}
 .agent-mule{background:#60a5fa33;color:var(--blue)}
 .agent-forge{background:#4ade8033;color:var(--green)}
 .cat-badge{font-size:.7rem;color:var(--dim);background:var(--border);padding:2px 6px;border-radius:3px}
@@ -84,12 +85,13 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 
 <div class="agents-row">
   <div class="agent-card"><div class="agent-icon jarvis">J</div><div class="agent-info"><div class="name">Jarvis</div><div class="role">Lead Agent · Claude Opus</div><div class="count-line" id="jarvisCount"></div></div></div>
+  <div class="agent-card"><div class="agent-icon scout" style="background:#06b6d433;color:#06b6d4">S</div><div class="agent-info"><div class="name">Scout</div><div class="role">Research Specialist · Gemini 2.0 Flash</div><div class="count-line" id="scoutCount"></div></div></div>
   <div class="agent-card"><div class="agent-icon mule">M</div><div class="agent-info"><div class="name">Mule</div><div class="role">Research Worker · Llama 3.1 8B</div><div class="count-line" id="muleCount"></div></div></div>
   <div class="agent-card"><div class="agent-icon forge">F</div><div class="agent-info"><div class="name">Forge</div><div class="role">Code Specialist · Qwen2.5-Coder 7B</div><div class="count-line" id="forgeCount"></div></div></div>
 </div>
 
 <div class="toolbar">
-  <select id="filterAgent"><option value="all">All Agents</option><option value="Jarvis">Jarvis</option><option value="Mule">Mule</option><option value="Forge">Forge</option></select>
+  <select id="filterAgent"><option value="all">All Agents</option><option value="Jarvis">Jarvis</option><option value="Scout">Scout</option><option value="Mule">Mule</option><option value="Forge">Forge</option></select>
   <select id="filterStatus"><option value="all">All Status</option><option value="completed">✅ Completed</option><option value="in-progress">🔄 In Progress</option><option value="queued">⏳ Queued</option></select>
   <input type="text" id="searchBox" placeholder="Search tasks...">
   <button onclick="openModal()">+ New Task</button>
@@ -105,7 +107,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
   <div class="modal">
     <h2 id="modalTitle">New Task</h2>
     <label>Task Name</label><input id="mTask" placeholder="What needs to be done?">
-    <label>Assign To</label><select id="mAgent"><option>Jarvis</option><option>Mule</option><option>Forge</option></select>
+    <label>Assign To</label><select id="mAgent"><option>Jarvis</option><option>Scout</option><option>Mule</option><option>Forge</option></select>
     <label>Status</label><select id="mStatus"><option value="queued">⏳ Queued</option><option value="in-progress">🔄 In Progress</option><option value="completed">✅ Completed</option></select>
     <label>Category</label><input id="mCat" placeholder="e.g. Tools, Marketing, Research">
     <label>Date</label><input id="mDate" type="date">
@@ -152,7 +154,7 @@ function render(){
   document.getElementById('statDone').textContent=tasks.filter(t=>t.status==='completed').length;
   document.getElementById('statActive').textContent=tasks.filter(t=>t.status==='in-progress').length;
   document.getElementById('statQueued').textContent=tasks.filter(t=>t.status==='queued').length;
-  ['Jarvis','Mule','Forge'].forEach(a=>{const c=tasks.filter(t=>t.agent===a);const d=c.filter(t=>t.status==='completed').length;document.getElementById(a.toLowerCase()+'Count').textContent=d+'/'+c.length+' completed'});
+  ['Jarvis','Scout','Mule','Forge'].forEach(a=>{const c=tasks.filter(t=>t.agent===a);const d=c.filter(t=>t.status==='completed').length;document.getElementById(a.toLowerCase()+'Count').textContent=d+'/'+c.length+' completed'});
 }
 function cardHTML(t){
   const ac=t.agent.toLowerCase();

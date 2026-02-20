@@ -83,7 +83,7 @@
     {
         "id":  10,
         "agent":  "Mule",
-        "task":  "Daily Research Scan â€” Trending Topics",
+        "task":  "Daily Research Scan - Trending Topics",
         "status":  "completed",
         "date":  "2026-02-14",
         "category":  "Research",
@@ -101,7 +101,7 @@
     {
         "id":  12,
         "agent":  "Mule",
-        "task":  "Services \u0026 Pricing Page â€” Tiered Pricing",
+        "task":  "Services \u0026 Pricing Page - Tiered Pricing",
         "status":  "completed",
         "date":  "2026-02-14",
         "category":  "Marketing",
@@ -119,7 +119,7 @@
     {
         "id":  14,
         "agent":  "Mule",
-        "task":  "Morning Research Scan â€” Feb 15",
+        "task":  "Morning Research Scan - Feb 15",
         "status":  "completed",
         "date":  "2026-02-15",
         "category":  "Research",
@@ -138,7 +138,7 @@
         "id":  16,
         "agent":  "Mule",
         "task":  "Competitor Watch (Weekly Monday)",
-        "status":  "queued",
+        "status":  "on-hold",
         "date":  "2026-02-17",
         "category":  "Research",
         "path":  "mule-output/"
@@ -155,7 +155,7 @@
     {
         "id":  18,
         "agent":  "Jarvis",
-        "task":  "Multi-Agent Telegram Setup (3 bots)",
+        "task":  "Multi-Agent Telegram Setup (4 bots)",
         "status":  "completed",
         "date":  "2026-02-14",
         "category":  "Infrastructure",
@@ -173,7 +173,7 @@
     {
         "id":  20,
         "agent":  "Jarvis",
-        "task":  "Office Dashboard â€” GitHub Pages",
+        "task":  "Office Dashboard - GitHub Pages",
         "status":  "completed",
         "date":  "2026-02-14",
         "category":  "Dashboard",
@@ -200,7 +200,7 @@
     {
         "id":  23,
         "agent":  "Jarvis",
-        "task":  "Cartoon Script â€” EP01 \u0027The Algorithm\u0027",
+        "task":  "Cartoon Script - EP01 \u0027The Algorithm\u0027",
         "status":  "completed",
         "date":  "2026-02-14",
         "category":  "Content",
@@ -209,7 +209,7 @@
     {
         "id":  24,
         "agent":  "Jarvis",
-        "task":  "Cartoon Script â€” EP02 \u0027Crypto Scheme\u0027",
+        "task":  "Cartoon Script - EP02 \u0027Crypto Scheme\u0027",
         "status":  "completed",
         "date":  "2026-02-14",
         "category":  "Content",
@@ -218,7 +218,7 @@
     {
         "id":  25,
         "agent":  "Jarvis",
-        "task":  "Cartoon Script â€” EP03 \u0027The Debate\u0027",
+        "task":  "Cartoon Script - EP03 \u0027The Debate\u0027",
         "status":  "completed",
         "date":  "2026-02-15",
         "category":  "Content",
@@ -236,7 +236,7 @@
     {
         "id":  27,
         "agent":  "Jarvis",
-        "task":  "DNS Configuration (Namecheap â†’ GitHub Pages)",
+        "task":  "DNS Configuration (Namecheap \u003e GitHub Pages)",
         "status":  "completed",
         "date":  "2026-02-13",
         "category":  "Infrastructure",
@@ -272,7 +272,7 @@
     {
         "id":  31,
         "agent":  "Jarvis",
-        "task":  "Office Dashboard â€” Mobile Version",
+        "task":  "Office Dashboard - Mobile Version",
         "status":  "completed",
         "date":  "2026-02-14",
         "category":  "Dashboard",
@@ -317,7 +317,7 @@
     {
         "id":  36,
         "agent":  "Jarvis",
-        "task":  "EP01 Animatic â€” Generate Panel Art",
+        "task":  "EP01 Animatic - Generate Panel Art",
         "status":  "completed",
         "date":  "2026-02-15",
         "category":  "Content",
@@ -326,7 +326,7 @@
     {
         "id":  37,
         "agent":  "Jarvis",
-        "task":  "EP01 Animatic â€” Voiceover \u0026 Assembly",
+        "task":  "EP01 Animatic - Voiceover \u0026 Assembly",
         "status":  "completed",
         "date":  "2026-02-15",
         "category":  "Content",
@@ -497,7 +497,7 @@
     {
         "id":  56,
         "agent":  "Jarvis",
-        "task":  "Client Portal â€” Sample Deploy",
+        "task":  "Client Portal - Sample Deploy",
         "status":  "completed",
         "date":  "2026-02-15",
         "category":  "Dashboard",
@@ -516,7 +516,7 @@
         "id":  58,
         "agent":  "Mule",
         "task":  "Competitor Watch (Weekly Monday)",
-        "status":  "queued",
+        "status":  "on-hold",
         "date":  "2026-02-17",
         "category":  "Research",
         "path":  "mule-output/"
@@ -524,61 +524,61 @@
     {
         "id":  59,
         "agent":  "Scout",
-        "path":  "workspace-scout2/reports/trends/2026-02-15.md",
+        "task":  "Trend Report - Feb 15",
+        "status":  "completed",
         "date":  "2026-02-15",
         "category":  "Research",
-        "status":  "completed",
-        "task":  "Trend Report — Feb 15"
+        "path":  "workspace-scout2/reports/trends/2026-02-15.md"
     },
     {
         "id":  60,
         "agent":  "Scout",
-        "path":  "workspace-scout2/reports/",
+        "task":  "Dashboard Audit + Competitor Research + Content Ideas",
+        "status":  "on-hold",
         "date":  "2026-02-15",
         "category":  "Research",
-        "status":  "on-hold",
-        "task":  "Dashboard Audit + Competitor Research + Content Ideas"
+        "path":  "workspace-scout2/reports/"
     },
     {
         "id":  61,
         "agent":  "Jarvis",
-        "path":  "workspace-scout2/skills/",
+        "task":  "Scout Skills Build (8 skills)",
+        "status":  "completed",
         "date":  "2026-02-15",
         "category":  "Skills",
-        "status":  "completed",
-        "task":  "Scout Skills Build (8 skills)"
+        "path":  "workspace-scout2/skills/"
     },
     {
         "id":  62,
         "agent":  "Jarvis",
-        "path":  "workspace-forge/projects/client-intake-form/",
+        "task":  "Client Intake Form",
+        "status":  "completed",
         "date":  "2026-02-15",
         "category":  "Tools",
-        "status":  "completed",
-        "task":  "Client Intake Form"
+        "path":  "workspace-forge/projects/client-intake-form/"
     },
     {
         "id":  63,
         "agent":  "Jarvis",
-        "path":  "",
+        "task":  "Scout Agent Setup - Gemini 2.0 Flash",
+        "status":  "completed",
         "date":  "2026-02-15",
         "category":  "Infrastructure",
-        "status":  "completed",
-        "task":  "Scout Agent Setup — Gemini 2.0 Flash"
+        "path":  ""
     },
     {
         "id":  64,
         "agent":  "Jarvis",
-        "path":  "",
+        "task":  "OpenClaw Update to 2026.2.13",
+        "status":  "completed",
         "date":  "2026-02-15",
         "category":  "Infrastructure",
-        "status":  "completed",
-        "task":  "OpenClaw Update to 2026.2.13"
+        "path":  ""
     },
     {
         "id":  65,
         "agent":  "Jarvis",
-        "task":  "Cartoon Script — EP04 \u0027Server Room\u0027",
+        "task":  "Cartoon Script - EP04 \u0027Server Room\u0027",
         "status":  "completed",
         "date":  "2026-02-16",
         "category":  "Content",
@@ -596,16 +596,16 @@
     {
         "id":  67,
         "agent":  "Jarvis",
-        "task":  "Roblox Game — Game Design Document",
-        "status":  "in-progress",
+        "task":  "Roblox Game Init - Roscape Runeblocks",
+        "status":  "completed",
         "date":  "2026-02-16",
         "category":  "Game Dev",
-        "path":  ""
+        "path":  "projects/roblox-mmo/"
     },
     {
         "id":  68,
         "agent":  "Jarvis",
-        "task":  "Roblox Studio Installation",
+        "task":  "Roblox Studio + Rojo Installation",
         "status":  "completed",
         "date":  "2026-02-16",
         "category":  "Infrastructure",
@@ -614,64 +614,919 @@
     {
         "id":  69,
         "agent":  "Jarvis",
-        "path":  "projects/roblox-mmo/src/",
+        "task":  "Core Systems (Skills, Combat, Bank, Wilderness, Data)",
+        "status":  "completed",
         "date":  "2026-02-16",
         "category":  "Game Dev",
-        "status":  "completed",
-        "task":  "Roblox Game — Core Systems (Skills, Combat, Bank, Wilderness)"
+        "path":  "projects/roblox-mmo/src/"
     },
     {
         "id":  70,
         "agent":  "Jarvis",
-        "path":  "projects/roblox-mmo/src/ServerScriptService/MapSetup.server.lua",
+        "task":  "Haven City Build (walls, buildings, gate, marketplace)",
+        "status":  "completed",
         "date":  "2026-02-16",
         "category":  "Game Dev",
-        "status":  "completed",
-        "task":  "Roblox Game — Haven City Build (walls, buildings, marketplace)"
+        "path":  "projects/roblox-mmo/src/ServerScriptService/MapSetup.server.lua"
     },
     {
         "id":  71,
         "agent":  "Jarvis",
-        "path":  "projects/roblox-mmo/src/ServerScriptService/MapSetup.server.lua",
+        "task":  "Haven Mine, Forest, Fishing Ponds",
+        "status":  "completed",
         "date":  "2026-02-16",
         "category":  "Game Dev",
-        "status":  "completed",
-        "task":  "Roblox Game — Haven Mine, Forest, Fishing Ponds"
+        "path":  "projects/roblox-mmo/src/ServerScriptService/MapSetup.server.lua"
     },
     {
         "id":  72,
         "agent":  "Jarvis",
-        "path":  "projects/roblox-mmo/src/ServerScriptService/MapSetup.server.lua",
+        "task":  "Wilderness Expansion (graveyard, ruins, dark pond, lava pit)",
+        "status":  "completed",
         "date":  "2026-02-16",
         "category":  "Game Dev",
-        "status":  "completed",
-        "task":  "Roblox Game — Wilderness Expansion (graveyard, ruins, dark pond)"
+        "path":  "projects/roblox-mmo/src/ServerScriptService/MapSetup.server.lua"
     },
     {
         "id":  73,
         "agent":  "Jarvis",
-        "path":  "projects/roblox-mmo/src/ServerScriptService/SkillManager.server.lua",
+        "task":  "42 Resource Nodes Placed Across Map",
+        "status":  "completed",
         "date":  "2026-02-16",
         "category":  "Game Dev",
-        "status":  "completed",
-        "task":  "Roblox Game — 42 Resource Nodes Placed"
+        "path":  "projects/roblox-mmo/src/ServerScriptService/SkillManager.server.lua"
     },
     {
         "id":  74,
         "agent":  "Jarvis",
-        "path":  "",
+        "task":  "Smithing/Cooking Stations + Town NPCs",
+        "status":  "completed",
         "date":  "2026-02-16",
         "category":  "Game Dev",
-        "status":  "in-progress",
-        "task":  "Roblox Game — Smithing/Cooking Stations, Town NPCs"
+        "path":  ""
     },
     {
         "id":  75,
         "agent":  "Scout",
-        "path":  "",
+        "task":  "Roblox Research - 6 Reports (Monetization, Anti-Cheat, Retention, Map, Boss, Economy)",
+        "status":  "in-progress",
         "date":  "2026-02-16",
         "category":  "Research",
+        "path":  "workspace-scout2/reports/"
+    },
+    {
+        "id":  76,
+        "agent":  "Jarvis",
+        "task":  "7 Game Systems (MiniMap, Health, Trade, Quest, Weapon, Loot, Crafting)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/"
+    },
+    {
+        "id":  77,
+        "agent":  "Jarvis",
+        "task":  "90+ Items, 21 Monster Types, 18 NPCs",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/"
+    },
+    {
+        "id":  78,
+        "agent":  "Jarvis",
+        "task":  "Prayer System (30 prayers, 4 tiers, 3 paths, skill tree UI)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/"
+    },
+    {
+        "id":  79,
+        "agent":  "Jarvis",
+        "task":  "Hotbar System (keys 1-9, equip, eat, cooldowns)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/StarterPlayerScripts/Hotbar.client.lua"
+    },
+    {
+        "id":  80,
+        "agent":  "Jarvis",
+        "task":  "ItemVisuals Module (unique emoji/color/shape per item)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/ReplicatedStorage/Modules/ItemVisuals.lua"
+    },
+    {
+        "id":  81,
+        "agent":  "Jarvis",
+        "task":  "5 Safe Zone Bosses (King Rooster Lv20 - Corrupted Guardian Lv80)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  82,
+        "agent":  "Jarvis",
+        "task":  "MapSetup3-5 (terrain, 13 new areas, 25+ total zones)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/ServerScriptService/"
+    },
+    {
+        "id":  83,
+        "agent":  "Jarvis",
+        "task":  "6 New Monsters + 2 New Bosses + 4 New NPCs",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  84,
+        "agent":  "Jarvis",
+        "task":  "22 New Armor Pieces (full platelegs/platebody/chainmail/ranger tiers)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  85,
+        "agent":  "Jarvis",
+        "task":  "Drop System (shift-click drop, ground items, pickup)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/ServerScriptService/DropHandler.server.lua"
+    },
+    {
+        "id":  86,
+        "agent":  "Jarvis",
+        "task":  "Attack Animation System (45KB, TweenService Motor6D)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/StarterPlayerScripts/AttackAnimations.client.lua"
+    },
+    {
+        "id":  87,
+        "agent":  "Jarvis",
+        "task":  "Team Lessons + Code Review Checklist Docs",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/docs/"
+    },
+    {
+        "id":  88,
+        "agent":  "Forge",
+        "task":  "6 Roblox Tools (Admin, Particles, Leaderboard, Weather, Trading, Achievements)",
         "status":  "in-progress",
-        "task":  "Roblox DevForum Deep Dive + Monetization Research"
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "workspace-forge/projects/roblox-tools/"
+    },
+    {
+        "id":  89,
+        "agent":  "Jarvis",
+        "task":  "NPC Visual Overhaul (14 NPCs with faces, hair, accessories)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/ServerScriptService/NPCManager.server.lua"
+    },
+    {
+        "id":  90,
+        "agent":  "Jarvis",
+        "task":  "Monster Visual Overhaul (MonsterDatabase 61KB, 20-25 parts each)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/ReplicatedStorage/Modules/MonsterDatabase.lua"
+    },
+    {
+        "id":  91,
+        "agent":  "Jarvis",
+        "task":  "Weapon/Armor/Shield Visual Models (multi-part 3D builds)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/ServerScriptService/VisualEquipment.server.lua"
+    },
+    {
+        "id":  92,
+        "agent":  "Jarvis",
+        "task":  "StatsPanel (3-tab RuneScape panel, 28-slot inventory)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/StarterPlayerScripts/StatsPanel.client.lua"
+    },
+    {
+        "id":  93,
+        "agent":  "Jarvis",
+        "task":  "SkillTreeUI (full-screen skill tree, K toggle)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/StarterPlayerScripts/SkillTreeUI.client.lua"
+    },
+    {
+        "id":  94,
+        "agent":  "Jarvis",
+        "task":  "PrayerUI (skill tree with 3 branching paths, P toggle)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/StarterPlayerScripts/PrayerUI.client.lua"
+    },
+    {
+        "id":  95,
+        "agent":  "Jarvis",
+        "task":  "NPCDialogUI (typewriter effect, dialog system)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/StarterPlayerScripts/NPCDialogUI.client.lua"
+    },
+    {
+        "id":  96,
+        "agent":  "Jarvis",
+        "task":  "Hotbar Right-Click Assign + Ctrl+Click Fallback",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  97,
+        "agent":  "Jarvis",
+        "task":  "Equipment Manager (equip/unequip all slots)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/ServerScriptService/EquipmentManager.server.lua"
+    },
+    {
+        "id":  98,
+        "agent":  "Jarvis",
+        "task":  "Game Website - Full Content Site",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/website/index.html"
+    },
+    {
+        "id":  99,
+        "agent":  "Jarvis",
+        "task":  "Design Docs (skill trees, drops, NPCs, quests)",
+        "status":  "completed",
+        "date":  "2026-02-16",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/docs/"
+    },
+    {
+        "id":  100,
+        "agent":  "Jarvis",
+        "task":  "Game Website Update (10 skills, 21 monsters, 18 NPCs, new areas)",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/website/index.html"
+    },
+    {
+        "id":  101,
+        "agent":  "Jarvis",
+        "task":  "Overnight Build - Shadow Dragon fix + Lich King Malachar boss",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  102,
+        "agent":  "Jarvis",
+        "task":  "Overnight Build 2 - Shops, Quests, Cooking, Smithing, Death, Polish",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  103,
+        "agent":  "Scout",
+        "task":  "Fix 4 NPC Accessory Builders (Blackbeard, Elara, Solara, Rex)",
+        "status":  "in-progress",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  104,
+        "agent":  "Jarvis",
+        "task":  "Quest Tab with Tracking UI",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  105,
+        "agent":  "Forge",
+        "task":  "Ranged Combat Implementation (projectiles, ammo)",
+        "status":  "completed",
+        "date":  "2026-02-18",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/ServerScriptService/RangedCombatManager.server.lua"
+    },
+    {
+        "id":  106,
+        "agent":  "Forge",
+        "task":  "Fletching Crafting Recipes in CraftingManager",
+        "status":  "completed",
+        "date":  "2026-02-18",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/StarterPlayerScripts/FletchingUI.client.lua"
+    },
+    {
+        "id":  107,
+        "agent":  "Jarvis",
+        "task":  "NPC Shop Buy/Sell System",
+        "status":  "queued",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  108,
+        "agent":  "Jarvis",
+        "task":  "Publish Place to Roblox (DataStore + Multiplayer)",
+        "status":  "queued",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  109,
+        "agent":  "Jarvis",
+        "task":  "Integrate Forge\u0027s 6 Roblox Tools",
+        "status":  "queued",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  110,
+        "agent":  "Scout",
+        "task":  "Apply Research (monetization, anti-cheat, economy design)",
+        "status":  "queued",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  111,
+        "agent":  "Jarvis",
+        "task":  "Bow/Crossbow + Wizard Hat + Demon/Dragon + Cow Visual Fixes",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  112,
+        "agent":  "Jarvis",
+        "task":  "Right-Click Context Menu on Inventory Items",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  113,
+        "agent":  "Jarvis",
+        "task":  "Haven Town Medieval Visual Overhaul",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  114,
+        "agent":  "Jarvis",
+        "task":  "Drag-and-Drop Inventory to Hotbar",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  115,
+        "agent":  "Jarvis",
+        "task":  "ItemDatabase + NPCManager Bug Fixes",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  116,
+        "agent":  "Jarvis",
+        "task":  "Mule migrated to Gemini Flash",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Infrastructure",
+        "path":  ""
+    },
+    {
+        "id":  117,
+        "agent":  "Jarvis",
+        "task":  "Forge migrated to DeepSeek V3",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Infrastructure",
+        "path":  ""
+    },
+    {
+        "id":  118,
+        "agent":  "Jarvis",
+        "task":  "Dashboard Updates (Office, Task Board, Command Center)",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Dashboard",
+        "path":  ""
+    },
+    {
+        "id":  119,
+        "agent":  "Jarvis",
+        "task":  "Agent Skills Overhaul (Scout, Forge, Mule)",
+        "status":  "completed",
+        "date":  "2026-02-18",
+        "category":  "Skills",
+        "path":  "skills/"
+    },
+    {
+        "id":  120,
+        "agent":  "Scout",
+        "task":  "Map Terrain Fill + Haven Gates + NPC Fixes",
+        "status":  "in-progress",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  121,
+        "agent":  "Mule",
+        "task":  "Roblox Daily Research - Feb 17",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Research",
+        "path":  ""
+    },
+    {
+        "id":  122,
+        "agent":  "Jarvis",
+        "task":  "Fix Gateway crash (BOM + nativeSkills + DeepSeek)",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Infrastructure",
+        "path":  ""
+    },
+    {
+        "id":  123,
+        "agent":  "Jarvis",
+        "task":  "Move Mule to Gemini + Forge to cloud",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Infrastructure",
+        "path":  ""
+    },
+    {
+        "id":  124,
+        "agent":  "Jarvis",
+        "task":  "Build roblox-forge-coder + roblox-researcher skills",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Skills",
+        "path":  "skills/"
+    },
+    {
+        "id":  125,
+        "agent":  "Jarvis",
+        "task":  "Right-click menu + drag-to-hotbar + visual fixes + Haven overhaul",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  126,
+        "agent":  "Forge",
+        "task":  "NPC spawn fix + Ranged Combat + Fletching recipes",
+        "status":  "completed",
+        "date":  "2026-02-18",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/"
+    },
+    {
+        "id":  127,
+        "agent":  "Scout",
+        "task":  "Roblox MMO feature gap analysis",
+        "status":  "in-progress",
+        "date":  "2026-02-17",
+        "category":  "Research",
+        "path":  ""
+    },
+    {
+        "id":  128,
+        "agent":  "Mule",
+        "task":  "NPC Shop Buy/Sell System",
+        "status":  "in-progress",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  129,
+        "agent":  "Jarvis",
+        "task":  "Full Remote Migration (13 scripts â†’ WaitForChild, 61 remotes in project.json)",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/default.project.json"
+    },
+    {
+        "id":  130,
+        "agent":  "Jarvis",
+        "task":  "Deleted duplicate Remotes bootstrap script + added smithing/fletching remotes",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  131,
+        "agent":  "Jarvis",
+        "task":  "Endless AFK Resource Gathering (auto-loop, toggle, 80+ nodes)",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/ServerScriptService/SkillManager.server.lua"
+    },
+    {
+        "id":  132,
+        "agent":  "Jarvis",
+        "task":  "Launch Prep Complete - build.rbxlx ready for Studio",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/build.rbxlx"
+    },
+    {
+        "id":  133,
+        "agent":  "Jarvis",
+        "task":  "Build roblox-game-marketer + game-community-builder skills",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Skills",
+        "path":  "skills/"
+    },
+    {
+        "id":  134,
+        "agent":  "Scout",
+        "task":  "Roblox Content Creator Research \u0026 Outreach List (10-15 creators)",
+        "status":  "in-progress",
+        "date":  "2026-02-17",
+        "category":  "Marketing",
+        "path":  "workspace-scout2/reports/creator-outreach-2026-02-17.md"
+    },
+    {
+        "id":  135,
+        "agent":  "Scout",
+        "task":  "Competitor Marketing Analysis (5 successful Roblox MMOs)",
+        "status":  "in-progress",
+        "date":  "2026-02-17",
+        "category":  "Marketing",
+        "path":  "workspace-scout2/reports/roblox-marketing-analysis-2026-02-17.md"
+    },
+    {
+        "id":  136,
+        "agent":  "Mule",
+        "task":  "Social Media Launch Campaign (5 platforms, 15 posts)",
+        "status":  "in-progress",
+        "date":  "2026-02-17",
+        "category":  "Marketing",
+        "path":  "mule-output/roblox-launch-campaign-2026-02-17.md"
+    },
+    {
+        "id":  137,
+        "agent":  "Mule",
+        "task":  "Game Trailer Script + Promotional Copy (30sec trailer + descriptions)",
+        "status":  "in-progress",
+        "date":  "2026-02-17",
+        "category":  "Marketing",
+        "path":  "mule-output/roblox-trailer-script-2026-02-17.md"
+    },
+    {
+        "id":  138,
+        "agent":  "Forge",
+        "task":  "Discord Community Server Setup (channels, bots, moderation)",
+        "status":  "in-progress",
+        "date":  "2026-02-17",
+        "category":  "Marketing",
+        "path":  "workspace-forge/projects/roblox-discord-server/"
+    },
+    {
+        "id":  139,
+        "agent":  "Forge",
+        "task":  "Community Management Tools (Discord bot, analytics, auto-moderation)",
+        "status":  "in-progress",
+        "date":  "2026-02-17",
+        "category":  "Marketing",
+        "path":  "workspace-forge/projects/community-tools/"
+    },
+    {
+        "id":  140,
+        "agent":  "Jarvis",
+        "task":  "Game Launch Strategy \u0026 Timeline (pre-launch, launch day, post-launch)",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Marketing",
+        "path":  "projects/roblox-mmo/marketing/launch-strategy.md"
+    },
+    {
+        "id":  141,
+        "agent":  "Jarvis",
+        "task":  "CRITICAL FIX: RemoteEvent Casting Error (InventoryUpdate parameter mismatch)",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  "memory/2026-02-17-night.md"
+    },
+    {
+        "id":  142,
+        "agent":  "Jarvis",
+        "task":  "ðŸš€ ACTIVATE MARKETING CAMPAIGN - Team mobilization and immediate action plan",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Marketing",
+        "path":  "projects/roblox-mmo/marketing/immediate-action-plan.md"
+    },
+    {
+        "id":  143,
+        "agent":  "Jarvis",
+        "task":  "âš”ï¸ RESTORE ARMOR VISUALS - Optimized VisualEquipment system v2.0",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/StarterPlayerScripts/VisualEquipment.client.lua"
+    },
+    {
+        "id":  144,
+        "agent":  "Jarvis",
+        "task":  "ðŸ› ï¸ CRITICAL ERROR FIXES - EasingStyle, DeathManager, CastingErrorFix cleanup",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  "memory/2026-02-17-error-fixes.md"
+    },
+    {
+        "id":  145,
+        "agent":  "Jarvis",
+        "task":  "ðŸ› FINAL ERROR CLEANUP - PlayerRemoving event, SavePlayerData method fixes",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  "memory/2026-02-17-final-fixes.md"
+    },
+    {
+        "id":  146,
+        "agent":  "Jarvis",
+        "task":  "ðŸ”§ DEATHMANAGER FUNCTION ORDER FIX - respawnPlayer nil value error",
+        "status":  "completed",
+        "date":  "2026-02-17",
+        "category":  "Game Dev",
+        "path":  "memory/2026-02-17-function-order-fix.md"
+    },
+    {
+        "id":  147,
+        "agent":  "Forge",
+        "task":  "Ranged Combat + Fletching UI + Ammo Items + Error Handling (Batch 1)",
+        "status":  "completed",
+        "date":  "2026-02-18",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/"
+    },
+    {
+        "id":  148,
+        "agent":  "Forge",
+        "task":  "Mining System + Fishing System + Cooking UI (Batch 2)",
+        "status":  "completed",
+        "date":  "2026-02-18",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/"
+    },
+    {
+        "id":  149,
+        "agent":  "Scout",
+        "task":  "Wilderness Marketing Recon (communities, influencers, launch strategy)",
+        "status":  "on-hold",
+        "date":  "2026-02-18",
+        "category":  "Marketing",
+        "path":  ""
+    },
+    {
+        "id":  150,
+        "agent":  "Mule",
+        "task":  "Wilderness Marketing Content (25 posts, dev blogs, press kit)",
+        "status":  "on-hold",
+        "date":  "2026-02-18",
+        "category":  "Marketing",
+        "path":  "mule-output/wilderness-marketing/"
+    },
+    {
+        "id":  151,
+        "agent":  "Mule",
+        "task":  "Woodcutting + Party + Death Screen (Mule Batch 1)",
+        "status":  "completed",
+        "date":  "2026-02-18",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  152,
+        "agent":  "Forge",
+        "task":  "Friend List + Settings Menu + Chat Commands (Batch 3)",
+        "status":  "on-hold",
+        "date":  "2026-02-18",
+        "category":  "Game Dev",
+        "path":  ""
+    },
+    {
+        "id":  153,
+        "agent":  "Mule",
+        "task":  "Achievements + Leaderboard + Tutorial (Mule Batch 2)",
+        "status":  "completed",
+        "date":  "2026-02-18",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-mmo/src/"
+    },
+    {
+        "id":  154,
+        "agent":  "Scout",
+        "task":  "Full Marketing Package (communities, influencers, posts, press kit)",
+        "status":  "on-hold",
+        "date":  "2026-02-18",
+        "category":  "Marketing",
+        "path":  ""
+    },
+    {
+        "id":  155,
+        "agent":  "Jarvis",
+        "task":  "Debug Disaster Recovery - Team Skills Update",
+        "status":  "completed",
+        "date":  "2026-02-18",
+        "category":  "Skills",
+        "path":  "docs/roblox-lessons-learned.md"
+    },
+    {
+        "id":  156,
+        "agent":  "Jarvis",
+        "task":  "Wilderness Fresh Start - Map + UI Foundation",
+        "status":  "on-hold",
+        "date":  "2026-02-18",
+        "category":  "Game Dev",
+        "path":  "projects/roblox-fresh/"
+    },
+    {
+        "id":  157,
+        "agent":  "Scout",
+        "path":  "",
+        "date":  "2026-02-18",
+        "category":  "Revenue",
+        "status":  "in-progress",
+        "task":  "Dashboard Hub Market Research - Target identification and outreach list"
+    },
+    {
+        "id":  158,
+        "agent":  "Mule",
+        "path":  "mule-output/hardware-sales-materials-2026-02-19.md",
+        "date":  "2026-02-19",
+        "category":  "Revenue",
+        "status":  "completed",
+        "task":  "Hardware Sales Materials - Email templates, LinkedIn scripts, prospect framework"
+    },
+    {
+        "id":  159,
+        "agent":  "Jarvis",
+        "path":  "KERMICLE-MEDIA-SALES-BOOK-2026.md",
+        "date":  "2026-02-19",
+        "category":  "Revenue",
+        "status":  "completed",
+        "task":  "Complete Sales Book - 34-page comprehensive business solutions guide"
+    },
+    {
+        "id":  160,
+        "agent":  "Jarvis",
+        "path":  "sales-book-webapp/index.html",
+        "date":  "2026-02-19",
+        "category":  "Revenue",
+        "status":  "completed",
+        "task":  "Professional Sales Web App - Interactive website replacing kermiclemedia.com"
+    },
+    {
+        "id":  161,
+        "agent":  "Jarvis",
+        "path":  "contracts/",
+        "date":  "2026-02-19",
+        "category":  "Legal",
+        "status":  "completed",
+        "task":  "Sales Contracts - Hardware sales and AI services contract templates"
+    },
+    {
+        "id":  162,
+        "agent":  "Jarvis",
+        "path":  "sales-book-webapp/terms-of-service.html",
+        "date":  "2026-02-19",
+        "category":  "Legal",
+        "status":  "completed",
+        "task":  "Website Security Package - HTTPS, Terms of Service, Privacy Policy, trust signals"
+    },
+    {
+        "id":  163,
+        "agent":  "Mule",
+        "path":  "mule-output/hardware-prospect-lists-2026-02-19.md",
+        "date":  "2026-02-19",
+        "category":  "Revenue",
+        "status":  "completed",
+        "task":  "Hardware Prospect Lists - 20 creators, 15 agencies, 10 enterprises (Kentucky/regional focus)"
+    },
+    {
+        "id":  164,
+        "agent":  "Jarvis",
+        "path":  "dashboard/kermicleword/",
+        "date":  "2026-02-19",
+        "category":  "Software Dev",
+        "status":  "completed",
+        "task":  "KermicleWord - Custom Word Processor (MVP) - Full-featured web-based word processor with templates, export, auto-save"
+    },
+    {
+        "id":  165,
+        "agent":  "Mule",
+        "path":  "mule-output/email-sequences-hardware-2026-02-19.md",
+        "date":  "2026-02-19",
+        "category":  "Revenue",
+        "status":  "completed",
+        "task":  "Hardware Sales Email Sequences - 3 personalized outreach sequences for each package tier with CTAs and personalization variables"
+    },
+    {
+        "id": 166,
+        "agent": "Mule",
+        "task": "AI Automation Lead Research - 25 prospects in Dry Ridge, Owenton, Carrolton, Frankfort KY (marketing agencies, real estate, professional services)",
+        "status": "queued",
+        "date": "2026-02-20",
+        "category": "Revenue",
+        "path": "mule-output/ai-leads-2026-02-20.md"
+    },
+    {
+        "id": 167,
+        "agent": "Scout",
+        "task": "Lead Qualification Matrix - Small town Kentucky business analysis (Dry Ridge, Owenton, Carrolton, Frankfort) for AI automation prospects",
+        "status": "queued", 
+        "date": "2026-02-20",
+        "category": "Revenue",
+        "path": "workspace-scout2/reports/lead-qualification-2026-02-20.md"
+    },
+    {
+        "id": 168,
+        "agent": "Forge",
+        "task": "Gmail Automation Setup - Lead capture workflows using new API credentials",
+        "status": "queued",
+        "date": "2026-02-20", 
+        "category": "Revenue",
+        "path": "workspace-forge/projects/gmail-automation/"
+    },
+    {
+        "id": 169,
+        "agent": "Mule",
+        "task": "Cold Email Campaign Execution - 15 personalized outreach emails to Dry Ridge/Owenton/Carrolton/Frankfort KY businesses",
+        "status": "queued",
+        "date": "2026-02-20",
+        "category": "Revenue", 
+        "path": "mule-output/cold-email-campaign-2026-02-20.md"
+    },
+    {
+        "id": 170,
+        "agent": "Scout",
+        "task": "Competitive Intelligence - AI automation pricing and positioning analysis for objection handling",
+        "status": "queued",
+        "date": "2026-02-20",
+        "category": "Revenue",
+        "path": "workspace-scout2/reports/ai-competition-analysis-2026-02-20.md"
     }
 ]

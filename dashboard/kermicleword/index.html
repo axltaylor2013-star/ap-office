@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KermicleWord - Professional Word Processor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0d0d0d;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: #1a1a1a;
+            padding: 12px 20px;
+            border-bottom: 2px solid #d4a843;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #d4a843;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .btn {
+            background: #d4a843;
+            color: #0d0d0d;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: #b8921c;
+            box-shadow: 0 0 15px rgba(212,168,67,0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #d4a843;
+            border: 2px solid #d4a843;
+        }
+
+        .btn-secondary:hover {
+            background: #d4a843;
+            color: #0d0d0d;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            background: #1a1a1a;
+            padding: 12px 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .toolbar-group {
+            display: flex;
+            gap: 5px;
+            padding: 0 10px;
+            border-right: 1px solid #333;
+        }
+
+        .toolbar-group:last-child {
+            border-right: none;
+        }
+
+        .toolbar-btn {
+            background: transparent;
+            color: #e0e0e0;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .toolbar-btn:hover {
+            background: #d4a843;
+            color: #0d0d0d;
+        }
+
+        .toolbar-btn.active {
+            background: #d4a843;
+            color: #0d0d0d;
+        }
+
+        .toolbar-select {
+            background: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            border-radius: 6px;
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+
+        /* Main Content */
+        .main-container {
+            display: flex;
+            height: calc(100vh - 120px);
+        }
+
+        .sidebar {
+            width: 250px;
+            background: #1a1a1a;
+            border-right: 1px solid #333;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .sidebar h3 {
+            color: #d4a843;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .sidebar-item {
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            background: #333;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-item:hover {
+            background: #d4a843;
+            color: #0d0d0d;
+        }
+
+        .editor-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #111;
+        }
+
+        .document-wrapper {
+            max-width: 816px;
+            margin: 0 auto;
+            background: #ffffff;
+            min-height: 1056px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .document {
+            padding: 96px 72px;
+            color: #000;
+            font-family: 'Times New Roman', serif;
+            font-size: 12pt;
+            line-height: 1.5;
+            outline: none;
+            min-height: 864px;
+        }
+
+        .document:focus {
+            outline: 2px solid #d4a843;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            background: #1a1a1a;
+            padding: 8px 20px;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #999;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 60px;
+            }
+            
+            .sidebar h3,
+            .sidebar-item {
+                font-size: 12px;
+                padding: 8px;
+            }
+            
+            .toolbar {
+                padding: 8px 15px;
+                gap: 5px;
+            }
+            
+            .toolbar-group {
+                padding: 0 5px;
+            }
+            
+            .document {
+                padding: 48px 36px;
+                font-size: 11pt;
+            }
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a1a1a;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            border: 2px solid #d4a843;
+        }
+
+        .modal h2 {
+            color: #d4a843;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #e0e0e0;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            background: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            border-radius: 6px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .document-wrapper {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <i class="fas fa-file-alt"></i>
+            <span>KermicleWord</span>
+        </div>
+        <div class="header-actions">
+            <button class="btn" onclick="newDocument()">
+                <i class="fas fa-plus"></i> New
+            </button>
+            <button class="btn" onclick="openDocument()">
+                <i class="fas fa-folder-open"></i> Open
+            </button>
+            <button class="btn" onclick="saveDocument()">
+                <i class="fas fa-save"></i> Save
+            </button>
+            <button class="btn btn-secondary" onclick="exportDocument()">
+                <i class="fas fa-download"></i> Export
+            </button>
+        </div>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <select class="toolbar-select" id="fontFamily" onchange="formatText('fontName', this.value)">
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Arial">Arial</option>
+                <option value="Helvetica">Helvetica</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Courier New">Courier New</option>
+            </select>
+            <select class="toolbar-select" id="fontSize" onchange="formatText('fontSize', this.value)">
+                <option value="8">8pt</option>
+                <option value="10">10pt</option>
+                <option value="12" selected>12pt</option>
+                <option value="14">14pt</option>
+                <option value="16">16pt</option>
+                <option value="18">18pt</option>
+                <option value="24">24pt</option>
+                <option value="36">36pt</option>
+            </select>
+        </div>
+
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="formatText('bold')" title="Bold">
+                <i class="fas fa-bold"></i>
+            </button>
+            <button class="toolbar-btn" onclick="formatText('italic')" title="Italic">
+                <i class="fas fa-italic"></i>
+            </button>
+            <button class="toolbar-btn" onclick="formatText('underline')" title="Underline">
+                <i class="fas fa-underline"></i>
+            </button>
+            <button class="toolbar-btn" onclick="formatText('strikeThrough')" title="Strikethrough">
+                <i class="fas fa-strikethrough"></i>
+            </button>
+        </div>
+
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="formatText('justifyLeft')" title="Align Left">
+                <i class="fas fa-align-left"></i>
+            </button>
+            <button class="toolbar-btn" onclick="formatText('justifyCenter')" title="Align Center">
+                <i class="fas fa-align-center"></i>
+            </button>
+            <button class="toolbar-btn" onclick="formatText('justifyRight')" title="Align Right">
+                <i class="fas fa-align-right"></i>
+            </button>
+            <button class="toolbar-btn" onclick="formatText('justifyFull')" title="Justify">
+                <i class="fas fa-align-justify"></i>
+            </button>
+        </div>
+
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="formatText('insertUnorderedList')" title="Bullet List">
+                <i class="fas fa-list-ul"></i>
+            </button>
+            <button class="toolbar-btn" onclick="formatText('insertOrderedList')" title="Numbered List">
+                <i class="fas fa-list-ol"></i>
+            </button>
+            <button class="toolbar-btn" onclick="formatText('indent')" title="Indent">
+                <i class="fas fa-indent"></i>
+            </button>
+            <button class="toolbar-btn" onclick="formatText('outdent')" title="Outdent">
+                <i class="fas fa-outdent"></i>
+            </button>
+        </div>
+
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="insertTable()" title="Insert Table">
+                <i class="fas fa-table"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertImage()" title="Insert Image">
+                <i class="fas fa-image"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertLink()" title="Insert Link">
+                <i class="fas fa-link"></i>
+            </button>
+        </div>
+
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="undo()" title="Undo">
+                <i class="fas fa-undo"></i>
+            </button>
+            <button class="toolbar-btn" onclick="redo()" title="Redo">
+                <i class="fas fa-redo"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h3>Documents</h3>
+            <div id="documentList">
+                <div class="sidebar-item" onclick="loadDocument('untitled')">
+                    <i class="fas fa-file"></i> Untitled Document
+                </div>
+            </div>
+
+            <h3 style="margin-top: 30px;">Templates</h3>
+            <div class="sidebar-item" onclick="loadTemplate('business-letter')">
+                <i class="fas fa-envelope"></i> Business Letter
+            </div>
+            <div class="sidebar-item" onclick="loadTemplate('resume')">
+                <i class="fas fa-user"></i> Resume
+            </div>
+            <div class="sidebar-item" onclick="loadTemplate('invoice')">
+                <i class="fas fa-receipt"></i> Invoice
+            </div>
+            <div class="sidebar-item" onclick="loadTemplate('contract')">
+                <i class="fas fa-file-contract"></i> Contract
+            </div>
+        </div>
+
+        <!-- Editor -->
+        <div class="editor-container">
+            <div class="document-wrapper">
+                <div 
+                    id="document" 
+                    class="document" 
+                    contenteditable="true"
+                    placeholder="Start typing your document..."
+                >
+                    <h1>Welcome to KermicleWord</h1>
+                    <p>The professional word processor built by Kermicle Media. This is your blank document - start typing to create professional documents, letters, reports, and more.</p>
+                    
+                    <p>Key features:</p>
+                    <ul>
+                        <li>Rich text formatting (bold, italic, underline, strikethrough)</li>
+                        <li>Multiple font families and sizes</li>
+                        <li>Text alignment options (left, center, right, justify)</li>
+                        <li>Bullet and numbered lists</li>
+                        <li>Table insertion</li>
+                        <li>Image and link support</li>
+                        <li>Professional templates</li>
+                        <li>Export to multiple formats</li>
+                    </ul>
+                    
+                    <p>This document auto-saves as you type. Use the toolbar above to format your text, or the sidebar to access templates and manage your documents.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-item">
+            <i class="fas fa-file-alt"></i>
+            <span id="documentName">Untitled Document</span>
+        </div>
+        <div class="status-item">
+            <i class="fas fa-keyboard"></i>
+            <span id="wordCount">0 words</span>
+        </div>
+        <div class="status-item">
+            <i class="fas fa-clock"></i>
+            <span id="lastSaved">Auto-saved</span>
+        </div>
+        <div class="status-item">
+            <i class="fas fa-eye"></i>
+            <span>Page View</span>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="modal">
+        <div class="modal-content">
+            <h2><i class="fas fa-download"></i> Export Document</h2>
+            <div class="form-group">
+                <label for="exportFormat">Export Format:</label>
+                <select id="exportFormat" class="toolbar-select" style="width: 100%;">
+                    <option value="html">HTML (.html)</option>
+                    <option value="txt">Plain Text (.txt)</option>
+                    <option value="rtf">Rich Text Format (.rtf)</option>
+                    <option value="pdf">PDF (.pdf) - Premium</option>
+                    <option value="docx">Word Document (.docx) - Premium</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="exportName">File Name:</label>
+                <input type="text" id="exportName" placeholder="document" value="document">
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="performExport()">
+                    <i class="fas fa-download"></i> Export
+                </button>
+                <button class="btn btn-secondary" onclick="closeModal('exportModal')">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDocument = {
+            name: 'Untitled Document',
+            content: '',
+            lastSaved: new Date()
+        };
+
+        let documentHistory = [];
+        let historyIndex = -1;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            const editor = document.getElementById('document');
+            editor.addEventListener('input', handleDocumentChange);
+            editor.addEventListener('keyup', updateWordCount);
+            updateWordCount();
+            saveToHistory();
+        });
+
+        function handleDocumentChange() {
+            currentDocument.content = document.getElementById('document').innerHTML;
+            updateWordCount();
+            autoSave();
+            saveToHistory();
+        }
+
+        function updateWordCount() {
+            const editor = document.getElementById('document');
+            const text = editor.innerText || editor.textContent;
+            const words = text.trim().split(/\s+/).filter(word => word.length > 0);
+            document.getElementById('wordCount').textContent = `${words.length} words`;
+        }
+
+        function autoSave() {
+            localStorage.setItem('kermicleword_current', JSON.stringify(currentDocument));
+            document.getElementById('lastSaved').textContent = 'Auto-saved ' + new Date().toLocaleTimeString();
+        }
+
+        function saveToHistory() {
+            const content = document.getElementById('document').innerHTML;
+            documentHistory.push(content);
+            historyIndex = documentHistory.length - 1;
+            
+            // Limit history to 50 items
+            if (documentHistory.length > 50) {
+                documentHistory.shift();
+                historyIndex--;
+            }
+        }
+
+        function formatText(command, value = null) {
+            document.execCommand(command, false, value);
+            document.getElementById('document').focus();
+            handleDocumentChange();
+        }
+
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                document.getElementById('document').innerHTML = documentHistory[historyIndex];
+                updateWordCount();
+            }
+        }
+
+        function redo() {
+            if (historyIndex < documentHistory.length - 1) {
+                historyIndex++;
+                document.getElementById('document').innerHTML = documentHistory[historyIndex];
+                updateWordCount();
+            }
+        }
+
+        function newDocument() {
+            if (confirm('Create new document? Unsaved changes will be lost.')) {
+                document.getElementById('document').innerHTML = '<h1>New Document</h1><p>Start typing your new document here...</p>';
+                currentDocument = {
+                    name: 'Untitled Document',
+                    content: '',
+                    lastSaved: new Date()
+                };
+                document.getElementById('documentName').textContent = 'Untitled Document';
+                updateWordCount();
+                saveToHistory();
+            }
+        }
+
+        function saveDocument() {
+            const name = prompt('Document name:', currentDocument.name) || currentDocument.name;
+            currentDocument.name = name;
+            currentDocument.content = document.getElementById('document').innerHTML;
+            
+            // Save to localStorage
+            const saved = JSON.parse(localStorage.getItem('kermicleword_documents') || '[]');
+            const existing = saved.findIndex(doc => doc.name === name);
+            
+            if (existing >= 0) {
+                saved[existing] = currentDocument;
+            } else {
+                saved.push({...currentDocument});
+            }
+            
+            localStorage.setItem('kermicleword_documents', JSON.stringify(saved));
+            document.getElementById('documentName').textContent = name;
+            updateDocumentList();
+            
+            alert('Document saved successfully!');
+        }
+
+        function openDocument() {
+            const saved = JSON.parse(localStorage.getItem('kermicleword_documents') || '[]');
+            if (saved.length === 0) {
+                alert('No saved documents found.');
+                return;
+            }
+            
+            const names = saved.map(doc => doc.name);
+            const choice = prompt('Choose document:\n' + names.join('\n'));
+            
+            if (choice && names.includes(choice)) {
+                const doc = saved.find(d => d.name === choice);
+                loadDocument(doc);
+            }
+        }
+
+        function loadDocument(doc) {
+            if (typeof doc === 'string') {
+                // Loading from sidebar
+                currentDocument.name = doc;
+                document.getElementById('documentName').textContent = doc;
+                return;
+            }
+            
+            document.getElementById('document').innerHTML = doc.content;
+            currentDocument = {...doc};
+            document.getElementById('documentName').textContent = doc.name;
+            updateWordCount();
+            saveToHistory();
+        }
+
+        function updateDocumentList() {
+            const saved = JSON.parse(localStorage.getItem('kermicleword_documents') || '[]');
+            const list = document.getElementById('documentList');
+            
+            list.innerHTML = saved.map(doc => `
+                <div class="sidebar-item" onclick="loadDocument(${JSON.stringify(doc).replace(/"/g, '&quot;')})">
+                    <i class="fas fa-file"></i> ${doc.name}
+                </div>
+            `).join('');
+        }
+
+        function loadTemplate(template) {
+            let content = '';
+            
+            switch(template) {
+                case 'business-letter':
+                    content = `
+                        <div style="text-align: right; margin-bottom: 40px;">
+                            <p>[Your Name]<br>
+                            [Your Address]<br>
+                            [City, State ZIP Code]<br>
+                            [Email Address]<br>
+                            [Phone Number]</p>
+                            <p>[Date]</p>
+                        </div>
+                        
+                        <div style="margin-bottom: 40px;">
+                            <p>[Recipient Name]<br>
+                            [Title]<br>
+                            [Company Name]<br>
+                            [Address]<br>
+                            [City, State ZIP Code]</p>
+                        </div>
+                        
+                        <p>Dear [Recipient Name],</p>
+                        
+                        <p>I am writing to [purpose of letter]. [Body paragraph 1]</p>
+                        
+                        <p>[Body paragraph 2]</p>
+                        
+                        <p>Thank you for your time and consideration. I look forward to hearing from you.</p>
+                        
+                        <p>Sincerely,<br><br>
+                        [Your Signature]<br>
+                        [Your Printed Name]</p>
+                    `;
+                    break;
+                    
+                case 'resume':
+                    content = `
+                        <div style="text-align: center; margin-bottom: 30px;">
+                            <h1 style="color: #d4a843; margin-bottom: 10px;">[Your Full Name]</h1>
+                            <p>[Email] | [Phone] | [LinkedIn] | [City, State]</p>
+                        </div>
+                        
+                        <h2 style="color: #d4a843; border-bottom: 2px solid #d4a843; padding-bottom: 5px;">Professional Summary</h2>
+                        <p>[Brief 2-3 sentence summary of your professional background and key qualifications]</p>
+                        
+                        <h2 style="color: #d4a843; border-bottom: 2px solid #d4a843; padding-bottom: 5px; margin-top: 25px;">Experience</h2>
+                        <h3>[Job Title] - [Company Name]</h3>
+                        <p style="font-style: italic;">[Start Date] - [End Date]</p>
+                        <ul>
+                            <li>[Key achievement or responsibility]</li>
+                            <li>[Key achievement or responsibility]</li>
+                            <li>[Key achievement or responsibility]</li>
+                        </ul>
+                        
+                        <h2 style="color: #d4a843; border-bottom: 2px solid #d4a843; padding-bottom: 5px; margin-top: 25px;">Education</h2>
+                        <h3>[Degree] - [University Name]</h3>
+                        <p style="font-style: italic;">[Graduation Year]</p>
+                        
+                        <h2 style="color: #d4a843; border-bottom: 2px solid #d4a843; padding-bottom: 5px; margin-top: 25px;">Skills</h2>
+                        <p>[Skill 1] • [Skill 2] • [Skill 3] • [Skill 4] • [Skill 5]</p>
+                    `;
+                    break;
+                    
+                case 'invoice':
+                    content = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+                            <div>
+                                <h1 style="color: #d4a843;">INVOICE</h1>
+                                <p><strong>Invoice #:</strong> [INV-001]<br>
+                                <strong>Date:</strong> [Date]<br>
+                                <strong>Due Date:</strong> [Due Date]</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <h2 style="color: #d4a843;">[Your Company Name]</h2>
+                                <p>[Your Address]<br>
+                                [City, State ZIP]<br>
+                                [Email] | [Phone]</p>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 30px;">
+                            <h3>Bill To:</h3>
+                            <p>[Client Name]<br>
+                            [Client Address]<br>
+                            [City, State ZIP]</p>
+                        </div>
+                        
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                            <tr style="background-color: #d4a843; color: #0d0d0d;">
+                                <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Description</th>
+                                <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Qty</th>
+                                <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Rate</th>
+                                <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Amount</th>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px; border: 1px solid #ddd;">[Service/Product Description]</td>
+                                <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">1</td>
+                                <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">$[Rate]</td>
+                                <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">$[Amount]</td>
+                            </tr>
+                        </table>
+                        
+                        <div style="text-align: right; margin-bottom: 30px;">
+                            <p><strong>Subtotal: $[Subtotal]</strong><br>
+                            <strong>Tax: $[Tax]</strong><br>
+                            <h3 style="color: #d4a843;">Total: $[Total]</h3></p>
+                        </div>
+                        
+                        <div>
+                            <h3>Payment Terms:</h3>
+                            <p>Payment is due within [Number] days of invoice date. Thank you for your business!</p>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'contract':
+                    content = `
+                        <div style="text-align: center; margin-bottom: 40px;">
+                            <h1 style="color: #d4a843;">SERVICE AGREEMENT</h1>
+                            <p><strong>Between [Your Company] and [Client Company]</strong></p>
+                        </div>
+                        
+                        <p><strong>This Service Agreement</strong> ("Agreement") is entered into on [Date] by and between:</p>
+                        
+                        <p><strong>Service Provider:</strong> [Your Company Name]<br>
+                        Address: [Your Address]<br>
+                        ("Provider")</p>
+                        
+                        <p><strong>Client:</strong> [Client Company Name]<br>
+                        Address: [Client Address]<br>
+                        ("Client")</p>
+                        
+                        <h2 style="color: #d4a843;">1. Services</h2>
+                        <p>Provider agrees to provide the following services:</p>
+                        <ul>
+                            <li>[Service description]</li>
+                            <li>[Service description]</li>
+                        </ul>
+                        
+                        <h2 style="color: #d4a843;">2. Compensation</h2>
+                        <p>Client agrees to pay Provider $[Amount] for the services described above. Payment terms: [Payment terms].</p>
+                        
+                        <h2 style="color: #d4a843;">3. Timeline</h2>
+                        <p>Work will commence on [Start Date] and be completed by [End Date].</p>
+                        
+                        <h2 style="color: #d4a843;">4. Terms and Conditions</h2>
+                        <p>[Additional terms and conditions]</p>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-top: 60px;">
+                            <div>
+                                <p>_______________________<br>
+                                [Your Name]<br>
+                                [Title], [Company]<br>
+                                Date: ___________</p>
+                            </div>
+                            <div>
+                                <p>_______________________<br>
+                                [Client Name]<br>
+                                [Title], [Client Company]<br>
+                                Date: ___________</p>
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+            
+            document.getElementById('document').innerHTML = content;
+            currentDocument.name = template.charAt(0).toUpperCase() + template.slice(1).replace('-', ' ');
+            document.getElementById('documentName').textContent = currentDocument.name;
+            updateWordCount();
+            saveToHistory();
+        }
+
+        function insertTable() {
+            const rows = prompt('Number of rows:', '3') || '3';
+            const cols = prompt('Number of columns:', '3') || '3';
+            
+            let table = '<table style="width: 100%; border-collapse: collapse; margin: 20px 0;">';
+            
+            for (let i = 0; i < parseInt(rows); i++) {
+                table += '<tr>';
+                for (let j = 0; j < parseInt(cols); j++) {
+                    table += '<td style="border: 1px solid #ddd; padding: 8px;">Cell</td>';
+                }
+                table += '</tr>';
+            }
+            
+            table += '</table>';
+            document.execCommand('insertHTML', false, table);
+            handleDocumentChange();
+        }
+
+        function insertImage() {
+            const url = prompt('Image URL:', '');
+            if (url) {
+                const img = `<img src="${url}" style="max-width: 100%; height: auto; margin: 10px 0;" alt="Image">`;
+                document.execCommand('insertHTML', false, img);
+                handleDocumentChange();
+            }
+        }
+
+        function insertLink() {
+            const text = getSelectedText() || prompt('Link text:', '') || 'Link';
+            const url = prompt('URL:', 'https://');
+            if (url) {
+                const link = `<a href="${url}" style="color: #d4a843;">${text}</a>`;
+                document.execCommand('insertHTML', false, link);
+                handleDocumentChange();
+            }
+        }
+
+        function getSelectedText() {
+            if (window.getSelection) {
+                return window.getSelection().toString();
+            } else if (document.selection && document.selection.type != "Control") {
+                return document.selection.createRange().text;
+            }
+            return '';
+        }
+
+        function exportDocument() {
+            document.getElementById('exportModal').classList.add('active');
+            document.getElementById('exportName').value = currentDocument.name.toLowerCase().replace(/\s+/g, '-');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function performExport() {
+            const format = document.getElementById('exportFormat').value;
+            const filename = document.getElementById('exportName').value || 'document';
+            const content = document.getElementById('document').innerHTML;
+            
+            let exportContent = '';
+            let mimeType = 'text/plain';
+            let extension = '.txt';
+            
+            switch(format) {
+                case 'html':
+                    exportContent = `<!DOCTYPE html>
+<html>
+<head>
+    <title>${currentDocument.name}</title>
+    <style>
+        body { font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto; padding: 40px; }
+        table { border-collapse: collapse; width: 100%; }
+        td, th { border: 1px solid #ddd; padding: 8px; }
+    </style>
+</head>
+<body>
+    ${content}
+</body>
+</html>`;
+                    mimeType = 'text/html';
+                    extension = '.html';
+                    break;
+                    
+                case 'txt':
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = content;
+                    exportContent = tempDiv.textContent || tempDiv.innerText || '';
+                    mimeType = 'text/plain';
+                    extension = '.txt';
+                    break;
+                    
+                case 'rtf':
+                    exportContent = `{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}}
+\\f0\\fs24 ${content.replace(/<[^>]*>/g, '').replace(/\n/g, '\\par ')}}`;
+                    mimeType = 'application/rtf';
+                    extension = '.rtf';
+                    break;
+                    
+                case 'pdf':
+                case 'docx':
+                    alert('Premium formats (PDF, DOCX) require KermicleWord Pro. Contact Kermicle Media for upgrade options.');
+                    closeModal('exportModal');
+                    return;
+            }
+            
+            const blob = new Blob([exportContent], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename + extension;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            closeModal('exportModal');
+        }
+
+        // Initialize document list on load
+        updateDocumentList();
+    </script>
+</body>
+</html>
