@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kermicle Media Facebook Cover Templates</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 40px;
+            background: #f5f5f5;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        
+        .cover-container {
+            background: white;
+            margin: 30px 0;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .cover-title {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 700;
+            text-align: center;
+        }
+        
+        /* Facebook cover dimensions: 1200x630 */
+        .cover-mockup {
+            width: 100%;
+            max-width: 800px;
+            height: 420px; /* Scaled down proportionally */
+            margin: 0 auto;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        
+        /* Template 1: Professional Setup */
+        .cover1 {
+            background: linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 100%);
+            display: flex;
+            align-items: center;
+            padding: 0 60px;
+            position: relative;
+        }
+        
+        .cover1::before {
+            content: '';
+            position: absolute;
+            right: -50px;
+            top: -50px;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(212, 168, 67, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        
+        .cover1 .content {
+            z-index: 2;
+            position: relative;
+        }
+        
+        .cover1 .main-text {
+            color: #d4a843;
+            font-size: 42px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 15px;
+        }
+        
+        .cover1 .sub-text {
+            color: #e0e0e0;
+            font-size: 20px;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+        
+        .cover1 .price-range {
+            color: #d4a843;
+            font-size: 24px;
+            font-weight: 700;
+            background: rgba(212, 168, 67, 0.1);
+            padding: 8px 20px;
+            border-radius: 25px;
+            border: 2px solid #d4a843;
+            display: inline-block;
+        }
+        
+        /* Template 2: Tech Abstract */
+        .cover2 {
+            background: linear-gradient(45deg, #0d0d0d 0%, #1a1a1a 50%, #0d0d0d 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 60px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cover2::before {
+            content: '';
+            position: absolute;
+            top: -100px;
+            left: -100px;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(212, 168, 67, 0.1) 0%, transparent 60%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        
+        .cover2 .logo {
+            color: #d4a843;
+            font-size: 48px;
+            font-weight: 800;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+        
+        .cover2 .tagline {
+            color: #e0e0e0;
+            font-size: 22px;
+            font-weight: 500;
+            margin-bottom: 25px;
+        }
+        
+        .cover2 .features {
+            display: flex;
+            gap: 40px;
+            color: #d4a843;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        /* Template 3: Before/After */
+        .cover3 {
+            display: flex;
+            height: 100%;
+        }
+        
+        .cover3 .before {
+            flex: 1;
+            background: linear-gradient(135deg, #2c1810 0%, #1a1a1a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 40px 20px;
+            position: relative;
+        }
+        
+        .cover3 .after {
+            flex: 1;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 40px 20px;
+            position: relative;
+        }
+        
+        .cover3 .before::after {
+            content: '😫';
+            font-size: 60px;
+            margin-bottom: 15px;
+        }
+        
+        .cover3 .after::after {
+            content: '🚀';
+            font-size: 60px;
+            margin-bottom: 15px;
+        }
+        
+        .cover3 .label {
+            color: #999;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .cover3 .before .label {
+            color: #d4a843;
+        }
+        
+        .cover3 .after .label {
+            color: #d4a843;
+        }
+        
+        .cover3 .description {
+            color: #e0e0e0;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .cover3 .arrow {
+            position: absolute;
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #d4a843;
+            font-size: 40px;
+            z-index: 3;
+        }
+        
+        .specs {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .download-note {
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+            text-align: center;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center; color: #333; margin-bottom: 40px;">Facebook Cover Photo Templates</h1>
+    <p style="text-align: center; color: #666; margin-bottom: 40px;">Facebook Cover Size: 1200x630 pixels</p>
+    
+    <div class="download-note">
+        💡 Screenshot these designs and recreate them in Canva using "Facebook Cover" template
+    </div>
+    
+    <div class="cover-container">
+        <div class="cover-title">TEMPLATE 1: Professional Business Focus</div>
+        <div class="cover-mockup cover1">
+            <div class="content">
+                <div class="main-text">Transform Your<br>Business with AI</div>
+                <div class="sub-text">Stop doing work a computer should handle</div>
+                <div class="price-range">$2,200 - $45,000+</div>
+            </div>
+        </div>
+        <div class="specs">
+            <strong>Best for:</strong> Professional service appeal, clear value prop<br>
+            <strong>Text:</strong> "Transform Your Business with AI" + pricing<br>
+            <strong>Style:</strong> Clean, corporate, trustworthy<br>
+            <strong>Call-to-action:</strong> Immediate pricing transparency
+        </div>
+    </div>
+    
+    <div class="cover-container">
+        <div class="cover-title">TEMPLATE 2: Tech-Forward Brand</div>
+        <div class="cover-mockup cover2">
+            <div class="logo">KERMICLE MEDIA</div>
+            <div class="tagline">AI Business Solutions</div>
+            <div class="features">
+                <span>⚡ 48-Hour Setup</span>
+                <span>🤖 Smart Automation</span>
+                <span>💰 $2.2K+ Packages</span>
+            </div>
+        </div>
+        <div class="specs">
+            <strong>Best for:</strong> Brand recognition, tech credibility<br>
+            <strong>Text:</strong> Company name + key benefits<br>
+            <strong>Style:</strong> Modern, tech-focused, premium<br>
+            <strong>Call-to-action:</strong> Multiple value points
+        </div>
+    </div>
+    
+    <div class="cover-container">
+        <div class="cover-title">TEMPLATE 3: Before/After Story</div>
+        <div class="cover-mockup cover3">
+            <div class="before">
+                <div class="label">BEFORE</div>
+                <div class="description">Manual Tasks<br>Wasted Time<br>Team Burnout</div>
+                <div class="arrow">→</div>
+            </div>
+            <div class="after">
+                <div class="label">AFTER</div>
+                <div class="description">AI Automation<br>24/7 Operations<br>Scale & Profit</div>
+            </div>
+        </div>
+        <div class="specs">
+            <strong>Best for:</strong> Emotional appeal, transformation story<br>
+            <strong>Text:</strong> Problem vs. Solution contrast<br>
+            <strong>Style:</strong> Visual storytelling, relatable<br>
+            <strong>Call-to-action:</strong> Implied transformation offer
+        </div>
+    </div>
+    
+    <div style="background: #fff3cd; color: #856404; padding: 25px; border-radius: 8px; margin: 30px 0;">
+        <h3>🎯 My Recommendation: Template 1</h3>
+        <p><strong>Why:</strong> Direct, professional, shows pricing upfront</p>
+        <p><strong>Psychology:</strong> Removes price anxiety by being transparent</p>
+        <p><strong>Action:</strong> Clear value proposition drives message inquiries</p>
+        <p><strong>Pairs with:</strong> Bold text logo for consistent branding</p>
+    </div>
+    
+    <div style="background: #d1ecf1; color: #0c5460; padding: 25px; border-radius: 8px; margin: 30px 0;">
+        <h3>📱 Canva Setup Instructions:</h3>
+        <ol>
+            <li><strong>Go to Canva.com</strong> → Search "Facebook Cover"</li>
+            <li><strong>Choose blank template</strong> (1200x630px)</li>
+            <li><strong>Set background:</strong> Gradient from #0d0d0d to #1a1a1a</li>
+            <li><strong>Add text boxes:</strong> Use exact text from template above</li>
+            <li><strong>Apply colors:</strong> Gold #d4a843, White #e0e0e0</li>
+            <li><strong>Add elements:</strong> Subtle tech shapes or circuits (optional)</li>
+            <li><strong>Export as JPG</strong> (high quality)</li>
+            <li><strong>Upload to Facebook</strong> as cover photo</li>
+        </ol>
+    </div>
+    
+    <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin: 30px 0;">
+        <h3>⚠️ Facebook Cover Safe Zone:</h3>
+        <p>Keep important text/logos in the <strong>center area</strong> - mobile crops the top/bottom!</p>
+        <p>Avoid placing key elements in the bottom 75px of the image.</p>
+    </div>
+    
+    <div style="text-align: center; margin-top: 40px; color: #666;">
+        <p>Ready to create your Facebook presence? These templates give you professional branding in minutes! 🎨</p>
+    </div>
+    
+</body>
+</html>
