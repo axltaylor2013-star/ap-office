@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kermicle Media - AI Business Transformation Solutions</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 30px rgba(0,0,0,0.3);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+            color: #1a1a1a;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+        
+        .header .tagline {
+            font-size: 1.2rem;
+            font-weight: 300;
+        }
+        
+        .hero {
+            background: #1a1a1a;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .hero h2 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            color: #d4af37;
+        }
+        
+        .section {
+            padding: 30px;
+        }
+        
+        .section h2 {
+            color: #1a1a1a;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            text-align: center;
+            border-bottom: 3px solid #d4af37;
+            padding-bottom: 10px;
+        }
+        
+        .packages {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .package {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .package:hover {
+            transform: translateY(-5px);
+            border-color: #d4af37;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .package h3 {
+            color: #1a1a1a;
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+        }
+        
+        .price {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #d4af37;
+            margin-bottom: 15px;
+        }
+        
+        .features {
+            text-align: left;
+        }
+        
+        .features li {
+            margin-bottom: 5px;
+            color: #555;
+        }
+        
+        .case-studies {
+            background: #f8f9fa;
+            padding: 30px;
+        }
+        
+        .case-study {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #d4af37;
+            border-radius: 5px;
+        }
+        
+        .case-study h4 {
+            color: #1a1a1a;
+            margin-bottom: 10px;
+        }
+        
+        .highlight {
+            background: #d4af37;
+            color: #1a1a1a;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        
+        .cta {
+            background: #1a1a1a;
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .cta h2 {
+            color: #d4af37;
+            margin-bottom: 20px;
+        }
+        
+        .contact-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .contact-item {
+            text-align: center;
+        }
+        
+        .contact-item strong {
+            color: #d4af37;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: #d4af37;
+            color: #1a1a1a;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            background: #f4d03f;
+            transform: translateY(-2px);
+        }
+        
+        .roi-box {
+            background: #e8f5e8;
+            border: 2px solid #28a745;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .roi-box strong {
+            color: #28a745;
+        }
+        
+        @media print {
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>KERMICLE MEDIA</h1>
+            <p class="tagline">AI Business Transformation Solutions</p>
+        </div>
+        
+        <!-- Hero Section -->
+        <div class="hero">
+            <h2>Transform Your Business with AI-Powered Systems</h2>
+            <p>Replace entire teams, slash operating costs, and generate new revenue streams with intelligent automation that works 24/7/365.</p>
+        </div>
+        
+        <!-- AI Agent System -->
+        <div class="section">
+            <h2>🤖 AI Agent Employee System</h2>
+            <p style="text-align: center; margin-bottom: 30px;">4 AI specialists replace your entire support team</p>
+            
+            <div class="packages">
+                <div class="package">
+                    <h3>BASIC</h3>
+                    <div class="price">$10,000</div>
+                    <ul class="features">
+                        <li>✅ 4 Specialized AI Agents</li>
+                        <li>✅ 25+ Business Skills</li>
+                        <li>✅ Real-time Dashboard</li>
+                        <li>✅ Telegram Integration</li>
+                    </ul>
+                    <div class="roi-box">
+                        <strong>ROI:</strong> Save $3,000-8,000/month in labor costs
+                    </div>
+                </div>
+                
+                <div class="package">
+                    <h3>PREMIUM</h3>
+                    <div class="price">$15,000</div>
+                    <ul class="features">
+                        <li>✅ Everything in Basic</li>
+                        <li>✅ Custom Skills Development</li>
+                        <li>✅ White-Label Rights</li>
+                        <li>✅ Advanced Training</li>
+                    </ul>
+                    <div class="roi-box">
+                        <strong>Perfect for:</strong> Agencies & Consultants
+                    </div>
+                </div>
+                
+                <div class="package">
+                    <h3>ENTERPRISE</h3>
+                    <div class="price">$20,000+</div>
+                    <ul class="features">
+                        <li>✅ Everything in Premium</li>
+                        <li>✅ Multi-Company Setup</li>
+                        <li>✅ Advanced Integrations</li>
+                        <li>✅ Dedicated Support</li>
+                    </ul>
+                    <div class="roi-box">
+                        <strong>Scale:</strong> Unlimited growth potential
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Hardware Packages -->
+        <div class="section">
+            <h2>💻 Premium Hardware Packages</h2>
+            <p style="text-align: center; margin-bottom: 30px;">Enterprise-grade AI workstations that pay for themselves</p>
+            
+            <div class="packages">
+                <div class="package">
+                    <h3>STARTER</h3>
+                    <div class="price">$5K-$8K</div>
+                    <p><strong>Mac Mini Pro Setup</strong></p>
+                    <p>8-Core CPU, 10-Core GPU, 16GB RAM</p>
+                    <p><em>Perfect for: Content creators, freelancers</em></p>
+                </div>
+                
+                <div class="package">
+                    <h3>PROFESSIONAL</h3>
+                    <div class="price">$10K-$15K</div>
+                    <p><strong>Mac Studio Powerhouse</strong></p>
+                    <p>M4 Max chip, 32GB RAM, 24-Core GPU</p>
+                    <p><em>Perfect for: Marketing agencies</em></p>
+                </div>
+                
+                <div class="package">
+                    <h3>ENTERPRISE</h3>
+                    <div class="price">$20K-$30K</div>
+                    <p><strong>Mac Studio Pro Beast</strong></p>
+                    <p>12-Core CPU, 38-Core GPU, 512GB RAM</p>
+                    <p><em>Perfect for: Large enterprises</em></p>
+                </div>
+                
+                <div class="package">
+                    <h3>NVIDIA AI LAB</h3>
+                    <div class="price">$25K-$40K</div>
+                    <p><strong>DGX Spark Configuration</strong></p>
+                    <p>Multiple GPUs, Custom configs</p>
+                    <p><em>Perfect for: Research institutions</em></p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dashboard Service -->
+        <div class="highlight">
+            📊 DASHBOARD-AS-A-SERVICE: $997 one-time → Earn $300-500/month per client (UNLIMITED clients!)
+            <br><strong>Potential: $36,000+/year with just 10 clients</strong>
+        </div>
+        
+        <!-- Case Studies -->
+        <div class="case-studies">
+            <h2>📊 Proven Results</h2>
+            
+            <div class="case-study">
+                <h4>Marketing Agency Success</h4>
+                <p><strong>Before:</strong> $2,000/month client retainers</p>
+                <p><strong>After:</strong> $2,500/month with AI dashboard</p>
+                <p><strong>Result:</strong> 25% revenue increase, 40% better retention</p>
+                <p><em>"Best investment we've made. Clients love the real-time visibility."</em></p>
+            </div>
+            
+            <div class="case-study">
+                <h4>Business Coach Transformation</h4>
+                <p><strong>Before:</strong> $1,200/month coaching fees</p>
+                <p><strong>After:</strong> $1,600/month with dashboard access</p>
+                <p><strong>Result:</strong> $400 extra per client × 4 clients = $1,600/month additional</p>
+                <p><em>"The system paid for itself in 3 days."</em></p>
+            </div>
+            
+            <div class="case-study">
+                <h4>Content Creator Breakthrough</h4>
+                <p><strong>Before:</strong> 40 hours/week on manual tasks</p>
+                <p><strong>After:</strong> 15 hours/week with AI automation</p>
+                <p><strong>Result:</strong> 62% time savings, 200% more output</p>
+                <p><em>"I'm finally scaling without burning out."</em></p>
+            </div>
+        </div>
+        
+        <!-- Limited Time Offer -->
+        <div class="highlight">
+            ⚡ LIMITED TIME BONUS (Order by March 1st):
+            $5,000 additional customization (free) • 6 months extended support • Lifetime updates
+        </div>
+        
+        <!-- CTA Section -->
+        <div class="cta">
+            <h2>🚀 Ready to Transform Your Business?</h2>
+            <p>The businesses that adopt AI systems now will dominate their markets for the next decade.</p>
+            <p><strong>Your choice:</strong></p>
+            <p>❌ Stay manual and watch competitors pull ahead<br>
+            ✅ Go AI-powered and become the market leader</p>
+            
+            <a href="mailto:hello@kermiclemedia.com" class="btn">SCHEDULE FREE STRATEGY SESSION</a>
+            
+            <div class="contact-info">
+                <div class="contact-item">
+                    <strong>Jeremy Kermicle</strong><br>
+                    Founder & AI Strategist
+                </div>
+                <div class="contact-item">
+                    <strong>Email:</strong><br>
+                    hello@kermiclemedia.com
+                </div>
+                <div class="contact-item">
+                    <strong>Telegram:</strong><br>
+                    @Ifakedit1
+                </div>
+                <div class="contact-item">
+                    <strong>Website:</strong><br>
+                    kermiclemedia.com
+                </div>
+            </div>
+            
+            <p style="margin-top: 30px;"><em>30-day money-back guarantee • Setup within 48 hours • Lifetime support included</em></p>
+        </div>
+    </div>
+</body>
+</html>
