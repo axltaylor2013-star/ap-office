@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kermicle Media - AI Business Solutions</title>
+    <meta name="description" content="Transform your business with AI-powered systems. Replace entire teams, slash operating costs, and generate new revenue streams with intelligent automation that works 24/7/365.">
+    <meta name="keywords" content="AI business solutions, automation, artificial intelligence, business transformation, cost reduction, revenue generation">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Kermicle Media - AI Business Solutions">
+    <meta property="og:description" content="Transform your business with AI-powered systems that work 24/7/365. Typical ROI: 300-1000%. Implementation: 48 hours.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://kermiclemedia.com">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-gold: #DAA520;
+            --primary-dark: #1a1a1a;
+            --primary-black: #0a0a0a;
+            --accent-blue: #2563eb;
+            --success-green: #16a34a;
+            --warning-red: #dc2626;
+            --light-gray: #f8f9fa;
+            --medium-gray: #6b7280;
+            --border-light: #e5e7eb;
+            --shadow-light: 0 1px 3px rgba(0,0,0,0.1);
+            --shadow-medium: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #fff;
+        }
+
+        /* Navigation */
+        nav {
+            background: var(--primary-black);
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: var(--shadow-medium);
+        }
+
+        .nav-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary-gold);
+        }
+
+        .nav-menu {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-menu a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-menu a:hover {
+            color: var(--primary-gold);
+        }
+
+        .cta-button {
+            background: var(--primary-gold);
+            color: var(--primary-black);
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .cta-button:hover {
+            background: #b8941a;
+            transform: translateY(-2px);
+        }
+
+        .mobile-menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Sections */
+        .section {
+            display: none;
+            padding: 4rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .section h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .section h2 {
+            font-size: 2rem;
+            color: var(--primary-dark);
+            margin-bottom: 1.5rem;
+        }
+
+        .section h3 {
+            font-size: 1.5rem;
+            color: var(--primary-dark);
+            margin-bottom: 1rem;
+        }
+
+        .section p {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            margin-bottom: 1.5rem;
+            color: #555;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, var(--primary-black) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 6rem 2rem;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            color: white;
+        }
+
+        .hero p {
+            font-size: 1.3rem;
+            margin-bottom: 2rem;
+            color: #cccccc;
+        }
+
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary-gold);
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: #cccccc;
+            margin-top: 0.5rem;
+        }
+
+        /* Services Grid */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .service-card {
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 10px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: var(--shadow-light);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .service-card .icon {
+            font-size: 2.5rem;
+            color: var(--primary-gold);
+            margin-bottom: 1rem;
+        }
+
+        .service-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--primary-dark);
+        }
+
+        .service-card p {
+            color: #666;
+            margin-bottom: 1rem;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            background: var(--primary-gold);
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 0.5rem;
+        }
+
+        .btn:hover {
+            background: #b8941a;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary:hover {
+            background: #333;
+        }
+
+        /* Highlight Box */
+        .highlight-box {
+            background: linear-gradient(135deg, var(--primary-gold) 0%, #b8941a 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            margin: 2rem 0;
+            text-align: center;
+        }
+
+        .highlight-box h3 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .highlight-box p {
+            color: white;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Pricing Table */
+        .pricing-table {
+            overflow-x: auto;
+            margin: 2rem 0;
+        }
+
+        .pricing-table table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: var(--shadow-light);
+        }
+
+        .pricing-table th,
+        .pricing-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .pricing-table th {
+            background: var(--primary-dark);
+            color: white;
+            font-weight: 600;
+        }
+
+        .pricing-table .price {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-gold);
+        }
+
+        /* Case Studies */
+        .case-study {
+            background: var(--light-gray);
+            padding: 2rem;
+            border-radius: 10px;
+            margin: 2rem 0;
+            border-left: 4px solid var(--primary-gold);
+        }
+
+        .case-study h4 {
+            color: var(--primary-dark);
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .result-item {
+            text-align: center;
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .result-number {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--success-green);
+            display: block;
+        }
+
+        .result-item div:last-child {
+            font-size: 0.9rem;
+            color: var(--medium-gray);
+            margin-top: 0.5rem;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding: 2rem 0;
+        }
+
+        .timeline-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .timeline-number {
+            background: var(--primary-gold);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .timeline-content h4 {
+            color: var(--primary-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        /* FAQ */
+        .faq-item {
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .faq-question {
+            padding: 1rem;
+            background: var(--light-gray);
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .faq-question:hover {
+            background: #e9ecef;
+        }
+
+        .faq-answer {
+            padding: 1rem;
+            display: none;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .faq-answer.active {
+            display: block;
+        }
+
+        /* Contact Section */
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .contact-card {
+            background: var(--primary-dark);
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .contact-card .icon {
+            font-size: 2rem;
+            color: var(--primary-gold);
+            margin-bottom: 1rem;
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .nav-menu {
+                display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: var(--primary-black);
+                padding: 1rem 0;
+            }
+
+            .nav-menu.active {
+                display: flex;
+            }
+
+            .mobile-menu-toggle {
+                display: block;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-content">
+            <div class="logo">
+                <i class="fas fa-bolt"></i> KERMICLE MEDIA
+            </div>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="#" onclick="showSection('overview')">Overview</a></li>
+                <li><a href="#" onclick="showSection('services')">Services</a></li>
+                <li><a href="#" onclick="showSection('pricing')">Pricing</a></li>
+                <li><a href="#" onclick="showSection('case-studies')">Results</a></li>
+                <li><a href="#" onclick="showSection('process')">Process</a></li>
+                <li><a href="#" onclick="showSection('faq')">FAQ</a></li>
+                <li><a href="#" onclick="showSection('terms')">Terms</a></li>
+            </ul>
+            <a href="#" onclick="showSection('contact')" class="cta-button">Get Started</a>
+            <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Overview Section -->
+        <section id="overview" class="section active">
+            <div class="hero">
+                <h1>Transform Your Business with AI-Powered Systems</h1>
+                <p>Replace entire teams, slash operating costs, and generate new revenue streams with intelligent automation that works 24/7/365</p>
+
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-number">50+</span>
+                        <div class="stat-label">Successful AI Implementations</div>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">$2M+</span>
+                        <div class="stat-label">Client Cost Savings</div>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">300-1000%</span>
+                        <div class="stat-label">Typical ROI</div>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">48 Hours</span>
+                        <div class="stat-label">Implementation Time</div>
+                    </div>
+                </div>
+            </div>
+
+            <h2>The Problems Your Business Faces</h2>
+
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-clock"></i></div>
+                    <h3>Operational Inefficiencies</h3>
+                    <p>• 20+ hours/week wasted on manual tasks</p>
+                    <p>• $500-1000/month in scattered subscriptions</p>
+                    <p>• No real-time business insights</p>
+                    <p>• Team burnout from repetitive work</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-dollar-sign"></i></div>
+                    <h3>Hidden Financial Impact</h3>
+                    <p>• $50,000-200,000/year in hidden labor costs</p>
+                    <p>• 30-40% of time spent on administrative tasks</p>
+                    <p>• Lost opportunities from slow response times</p>
+                    <p>• Client churn from inconsistent service</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-robot"></i></div>
+                    <h3>The Kermicle Media Solution</h3>
+                    <p>4 AI agents working 24/7/365 • Replace entire departments • Real-time decision making • 50-80% reduction in manual work • $3,000-8,000/month in labor cost savings</p>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 2rem;">
+                <a href="#" onclick="showSection('services')" class="btn">Explore Our Solutions</a>
+                <a href="#" onclick="showSection('contact')" class="btn btn-secondary">Schedule Free Consultation</a>
+            </div>
+        </section>
+
+        <!-- Services Section -->
+        <section id="services" class="section">
+            <h1><i class="fas fa-cogs"></i> Complete Service Portfolio</h1>
+
+            <h2>1. AI Agent Employee System</h2>
+            <p>Replace your entire support team with 4 AI specialists</p>
+
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-brain"></i></div>
+                    <h3>Jarvis (Main Agent)</h3>
+                    <p>Strategic oversight, complex decision-making, business intelligence</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-search"></i></div>
+                    <h3>Scout (Research Agent)</h3>
+                    <p>Market research, competitor analysis, trend identification</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-tasks"></i></div>
+                    <h3>Mule (Worker Agent)</h3>
+                    <p>Task execution, content creation, data processing, routine operations</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-code"></i></div>
+                    <h3>Forge (Technical Agent)</h3>
+                    <p>Development, integration, automation, technical problem-solving</p>
+                </div>
+            </div>
+
+            <h2>2. Professional Hardware Packages</h2>
+
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-desktop"></i></div>
+                    <h3>Starter Package ($5,000 - $8,000)</h3>
+                    <p><strong>Perfect for:</strong> Freelancers, Content Creators, Small Businesses</p>
+                    <p><strong>Hardware:</strong> AI-optimized Mac Mini setup</p>
+                    <p><strong>Benefits:</strong> Streamlined workflow, 3-5x productivity boost</p>
+                    <p><strong>ROI:</strong> $15,000-$25,000 value first year</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-laptop"></i></div>
+                    <h3>Professional Package ($10,000 - $15,000)</h3>
+                    <p><strong>Perfect for:</strong> Marketing Agencies, Creative Studios</p>
+                    <p><strong>Hardware:</strong> Mac Studio with enhanced performance</p>
+                    <p><strong>Benefits:</strong> Handle complex video/design tasks effortlessly</p>
+                    <p><strong>ROI:</strong> $30,000-$50,000 value first year</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-server"></i></div>
+                    <h3>Enterprise Package ($20,000 - $30,000)</h3>
+                    <p><strong>Perfect for:</strong> Large Businesses, Growing Companies</p>
+                    <p><strong>Hardware:</strong> Mac Studio Pro with high RAM/GPU</p>
+                    <p><strong>Benefits:</strong> Enterprise-grade performance for intensive tasks</p>
+                    <p><strong>ROI:</strong> $60,000-$120,000 value first year</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-microchip"></i></div>
+                    <h3>NVIDIA AI Lab ($25,000 - $40,000)</h3>
+                    <p><strong>Perfect for:</strong> Tech Companies, Research Institutions</p>
+                    <p><strong>Hardware:</strong> NVIDIA DGX for ultimate AI workloads</p>
+                    <p><strong>Benefits:</strong> Cutting-edge AI research capabilities</p>
+                    <p><strong>ROI:</strong> $100,000-$200,000+ value first year</p>
+                </div>
+            </div>
+
+            <h2>3. Business Intelligence Dashboard</h2>
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-chart-bar"></i></div>
+                    <h3>Real-Time Analytics</h3>
+                    <p>Live performance metrics, automated reporting, predictive insights</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-mobile-alt"></i></div>
+                    <h3>Mobile Access</h3>
+                    <p>Monitor your business from anywhere, instant notifications, responsive design</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pricing Section -->
+        <section id="pricing" class="section">
+            <h1><i class="fas fa-tags"></i> Investment & Pricing</h1>
+
+            <div class="highlight-box">
+                <h3>🎯 Recommended Business Package</h3>
+                <p><strong>Professional AI System + Mac Studio + Dashboard = $24,997</strong></p>
+                <p>Save $3,000 compared to individual purchases • Complete business transformation • 48-hour implementation</p>
+            </div>
+
+            <div class="pricing-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Package</th>
+                            <th>Investment</th>
+                            <th>Best For</th>
+                            <th>Monthly Savings</th>
+                            <th>Annual ROI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Starter AI + Hardware</strong></td>
+                            <td><span class="price">$15,000</span></td>
+                            <td>Small Businesses, Freelancers</td>
+                            <td>$500-1,200</td>
+                            <td>540%</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Professional Package</strong></td>
+                            <td><span class="price">$24,997</span></td>
+                            <td>Growing Businesses, Agencies</td>
+                            <td>$1,500-3,000</td>
+                            <td>960%</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Enterprise Solution</strong></td>
+                            <td><span class="price">$35,000</span></td>
+                            <td>Large Companies</td>
+                            <td>$3,000-5,000+</td>
+                            <td>1,200%+</td>
+                        </tr>
+                        <tr>
+                            <td><strong>AI Lab (NVIDIA)</strong></td>
+                            <td><span class="price">$45,000</span></td>
+                            <td>Tech Companies, Research</td>
+                            <td>$5,000-10,000+</td>
+                            <td>1,500%+</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="highlight-box">
+                <h3><i class="fas fa-gift"></i> Limited-Time Bonuses (Order by March 1st, 2026)</h3>
+                <p><strong>Early Adopter Package - FREE with any Enterprise purchase:</strong></p>
+                <p>• $5,000 additional customization • 6 months extended support • Priority implementation • Lifetime software updates</p>
+                <p><strong>Total Bonus Value: $8,400+</strong></p>
+            </div>
+        </section>
+
+        <!-- Case Studies Section -->
+        <section id="case-studies" class="section">
+            <h1><i class="fas fa-chart-bar"></i> Proven Results & Case Studies</h1>
+            
+            <div class="case-study">
+                <h4><i class="fas fa-trophy"></i> Marketing Agency Transformation</h4>
+                <p><strong>Client:</strong> Digital marketing agency, 15 employees, $50K/month revenue, 25 active clients</p>
+                <p><strong>Investment:</strong> $28,497 (Professional Hardware + Premium AI + Dashboard License)</p>
+                
+                <div class="results">
+                    <div class="result-item">
+                        <div class="result-number">+50%</div>
+                        <div>Revenue Increase</div>
+                        <small>$50K → $75K/month</small>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-number">+80%</div>
+                        <div>Client Capacity</div>
+                        <small>25 → 45 clients</small>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-number">-60%</div>
+                        <div>Admin Time</div>
+                        <small>24 → 9.6 hours/week</small>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-number">1,630%</div>
+                        <div>Annual ROI</div>
+                        <small>$464,400 value gained</small>
+                    </div>
+                </div>
+                
+                <p><strong>Results in 90 days:</strong> Eliminated 2 full-time administrative positions while doubling client capacity. The AI agents now handle client reporting, social media scheduling, content creation, and lead qualification automatically.</p>
+            </div>
+
+            <div class="case-study">
+                <h4><i class="fas fa-shopping-cart"></i> E-commerce Business Revolution</h4>
+                <p><strong>Client:</strong> Online retail company, $200K annual revenue, 3 employees</p>
+                <p><strong>Investment:</strong> $15,000 (Starter Package + Custom Integrations)</p>
+                
+                <div class="results">
+                    <div class="result-item">
+                        <div class="result-number">+250%</div>
+                        <div>Order Processing</div>
+                        <small>Automated fulfillment</small>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-number">+180%</div>
+                        <div>Customer Satisfaction</div>
+                        <small>24/7 AI support</small>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-number">-70%</div>
+                        <div>Manual Tasks</div>
+                        <small>Inventory, emails, reports</small>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-number">3,556%</div>
+                        <div>Return on Investment</div>
+                        <small>$533,400 net benefit</small>
+                    </div>
+                </div>
+                
+                <p><strong>Transformation:</strong> AI agents now manage inventory forecasting, customer service, email marketing campaigns, and supplier communications. Revenue increased from $200K to $560K annually with the same team size.</p>
+            </div>
+
+            <div class="case-study">
+                <h4><i class="fas fa-briefcase"></i> Professional Services Optimization</h4>
+                <p><strong>Client:</strong> Legal consulting firm, 8 attorneys, $1.2M annual revenue</p>
+                <p><strong>Investment:</strong> $35,000 (Enterprise Package + Legal AI Modules)</p>
+                
+                <div class="results">
+                    <div class="result-item">
+                        <div class="result-number">+40%</div>
+                        <div>Billable Hours</div>
+                        <small>More client work</small>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-number">+90%</div>
+                        <div>Document Efficiency</div>
+                        <small>Automated drafting</small>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-number">-85%</div>
+                        <div>Research Time</div>
+                        <small>AI-powered analysis</small>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-number">312%</div>
+                        <div>ROI in Year One</div>
+                        <small>$109,200 savings</small>
+                    </div>
+                </div>
+                
+                <p><strong>Impact:</strong> AI handles case research, document review, client intake, and scheduling. Attorneys now focus on high-value strategy and client relationships instead of administrative tasks.</p>
+            </div>
+
+            <div class="highlight-box">
+                <h3>📈 Typical Results Across All Industries</h3>
+                <div class="results">
+                    <div class="result-item">
+                        <div class="result-number">40-80%</div>
+                        <div>Reduction in manual work</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-number">25-60%</div>
+                        <div>Increase in productivity</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-number">300-1000%+</div>
+                        <div>Return on investment</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-number">30-90 days</div>
+                        <div>Time to see results</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Process Section -->
+        <section id="process" class="section">
+            <h1><i class="fas fa-rocket"></i> 48-Hour Implementation Process</h1>
+            
+            <p style="text-align: center; font-size: 1.2rem; margin-bottom: 3rem;">From initial consultation to fully operational AI system in just 48 hours</p>
+
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-number">1</div>
+                    <div class="timeline-content">
+                        <h4>Discovery & Strategy (Hours 1-4)</h4>
+                        <p><strong>What we do:</strong> Analyze your current workflows, identify automation opportunities, map integration points</p>
+                        <p><strong>Your involvement:</strong> 2-hour consultation call, provide access to systems for analysis</p>
+                        <p><strong>Deliverable:</strong> Custom implementation plan with timeline and success metrics</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-number">2</div>
+                    <div class="timeline-content">
+                        <h4>System Design & Setup (Hours 5-24)</h4>
+                        <p><strong>What we do:</strong> Configure AI agents, install hardware, establish integrations with your existing tools</p>
+                        <p><strong>Your involvement:</strong> Minimal - we handle the technical work while you run your business</p>
+                        <p><strong>Deliverable:</strong> Fully configured system ready for testing</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-number">3</div>
+                    <div class="timeline-content">
+                        <h4>Testing & Optimization (Hours 25-36)</h4>
+                        <p><strong>What we do:</strong> Run comprehensive tests, fine-tune AI responses, optimize performance</p>
+                        <p><strong>Your involvement:</strong> Review outputs, provide feedback on AI responses and workflows</p>
+                        <p><strong>Deliverable:</strong> Validated system meeting all performance benchmarks</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-number">4</div>
+                    <div class="timeline-content">
+                        <h4>Training & Go-Live (Hours 37-48)</h4>
+                        <p><strong>What we do:</strong> Train your team, provide documentation, ensure smooth transition</p>
+                        <p><strong>Your involvement:</strong> Attend training sessions, begin using the system with our support</p>
+                        <p><strong>Deliverable:</strong> Live system with trained team and 30-day optimization period</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="highlight-box">
+                <h3>🎯 What Makes Our Process Different</h3>
+                <div class="services-grid">
+                    <div class="service-card">
+                        <h4>No Lengthy Implementations</h4>
+                        <p>While competitors take months, we deliver results in 48 hours with our proven methodology.</p>
+                    </div>
+                    <div class="service-card">
+                        <h4>Minimal Business Disruption</h4>
+                        <p>Your business keeps running normally while we work behind the scenes to implement your AI system.</p>
+                    </div>
+                    <div class="service-card">
+                        <h4>Immediate Value</h4>
+                        <p>Start seeing productivity gains within hours of go-live, with full optimization achieved within 30 days.</p>
+                    </div>
+                    <div class="service-card">
+                        <h4>Ongoing Support</h4>
+                        <p>30-day optimization period included, with optional ongoing support packages available.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ Section -->
+        <section id="faq" class="section">
+            <h1><i class="fas fa-question-circle"></i> Frequently Asked Questions</h1>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>How is this different from other AI tools like ChatGPT?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>While ChatGPT is a conversational tool, our system is a complete business automation platform. We provide specialized AI agents that are trained for specific business functions, integrated with your existing workflows, and capable of taking actions on your behalf—not just providing information.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>Do I need technical expertise to use this system?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>No. Our system is designed for business users, not technical experts. We provide complete setup, training, and ongoing support. Most clients are fully operational within 48 hours with no technical knowledge required.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>Will this replace my employees?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Our AI agents augment and empower your human team rather than replace them. They handle repetitive, time-consuming tasks so your people can focus on strategy, creativity, and high-value activities that require human judgment and relationship skills.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>Is this really a one-time payment?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>For the AI system and hardware, yes—it's a one-time investment. The only ongoing costs are optional support services ($200/month) and any custom development work you request. The dashboard licensing option also offers unlimited client installations for a one-time fee.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>What kind of ROI can I expect?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Based on our client data, typical ROI ranges from 300-1000%+ annually. Small businesses average 540% ROI, medium businesses average 960% ROI, and enterprise clients average over 1000% ROI. Individual results vary based on implementation and utilization.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>How quickly will I see results?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Most clients see immediate time savings within 24 hours of go-live. Measurable ROI typically appears within 2-4 weeks, with full system optimization achieved within 90 days. Revenue improvements often begin within the first month.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>How secure is the system?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Security is our top priority. All data is encrypted in transit and at rest, we use enterprise-grade security protocols, and the system can operate entirely on your own infrastructure if required. We're compliant with GDPR, HIPAA, and SOC 2 standards.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>Can I pay in installments?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Yes. We offer flexible payment plans including monthly installments over 6, 12, or 24 months. We also accept purchase orders from established businesses and can work with your finance team on custom arrangements.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Service Terms & Guarantees Section -->
+        <section id="terms" class="section">
+            <h1><i class="fas fa-shield-alt"></i> Service Terms & Guarantees</h1>
+            
+            <div class="highlight-box">
+                <h3>🛡️ Your Protection & Peace of Mind</h3>
+                <p>We back every sale with comprehensive guarantees, clear terms, and legal protection for both parties.</p>
+            </div>
+
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-handshake"></i></div>
+                    <h3>Payment Terms</h3>
+                    <p><strong>Structure:</strong> 50% down payment, 50% on installation date</p>
+                    <p><strong>Methods:</strong> Bank transfer, certified check, wire transfer</p>
+                    <p><strong>Timeline:</strong> Final payment due on installation completion</p>
+                    <p><strong>Financing:</strong> 6, 12, or 24-month payment plans available</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-clock"></i></div>
+                    <h3>Service Guarantees</h3>
+                    <p><strong>Implementation:</strong> 48-hour setup completion</p>
+                    <p><strong>Support:</strong> 30-day optimization period included</p>
+                    <p><strong>Response Time:</strong> <2 hours email, <30 minutes Telegram</p>
+                    <p><strong>Uptime:</strong> 99% system availability guarantee</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-certificate"></i></div>
+                    <h3>Hardware Warranties</h3>
+                    <p><strong>Apple Products:</strong> Full manufacturer warranty (1 year)</p>
+                    <p><strong>NVIDIA Systems:</strong> Standard manufacturer warranty</p>
+                    <p><strong>Installation:</strong> Professional setup included</p>
+                    <p><strong>Performance:</strong> Meets or exceeds specifications</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-balance-scale"></i></div>
+                    <h3>Legal Protection</h3>
+                    <p><strong>Liability Cap:</strong> Limited to contract amount</p>
+                    <p><strong>Governing Law:</strong> Kentucky state law</p>
+                    <p><strong>Dispute Resolution:</strong> Mediation then arbitration</p>
+                    <p><strong>Data Ownership:</strong> Client retains all data rights</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-user-shield"></i></div>
+                    <h3>AI Service Terms</h3>
+                    <p><strong>Human Oversight:</strong> AI augments, doesn't replace judgment</p>
+                    <p><strong>Performance:</strong> Improves with use over 30-90 days</p>
+                    <p><strong>Compliance:</strong> Client responsible for regulatory adherence</p>
+                    <p><strong>Training:</strong> Up to 8 hours included for team</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-lock"></i></div>
+                    <h3>Security & Privacy</h3>
+                    <p><strong>Encryption:</strong> Industry-standard data protection</p>
+                    <p><strong>Access:</strong> Limited to authorized personnel only</p>
+                    <p><strong>Retention:</strong> Data deleted within 90 days of termination</p>
+                    <p><strong>Compliance:</strong> GDPR, HIPAA, SOC 2 standards</p>
+                </div>
+            </div>
+
+            <div class="highlight-box">
+                <h3>📋 What's Included in Every Contract</h3>
+                <div class="services-grid">
+                    <div class="service-card">
+                        <h4>✅ Clear Deliverables</h4>
+                        <p>Detailed specifications of exactly what you receive</p>
+                    </div>
+                    <div class="service-card">
+                        <h4>✅ Performance Standards</h4>
+                        <p>Measurable benchmarks and acceptance criteria</p>
+                    </div>
+                    <div class="service-card">
+                        <h4>✅ Timeline Commitments</h4>
+                        <p>Specific deadlines with accountability measures</p>
+                    </div>
+                    <div class="service-card">
+                        <h4>✅ Support Guarantees</h4>
+                        <p>Ongoing assistance and optimization included</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="case-study">
+                <h4><i class="fas fa-info-circle"></i> Important Disclaimers</h4>
+                <div class="results">
+                    <div class="result-item" style="text-align: left;">
+                        <div class="result-number" style="font-size: 1rem;">AI</div>
+                        <div style="color: #ffffff;">
+                            <strong>AI systems require human oversight</strong><br>
+                            <small>AI agents are tools that augment human capabilities, not replace decision-making</small>
+                        </div>
+                    </div>
+                    <div class="result-item" style="text-align: left;">
+                        <div class="result-number" style="font-size: 1rem;">HW</div>
+                        <div style="color: #ffffff;">
+                            <strong>Hardware covered by manufacturer warranties only</strong><br>
+                            <small>Performance subject to manufacturer specifications and proper use</small>
+                        </div>
+                    </div>
+                    <div class="result-item" style="text-align: left;">
+                        <div class="result-number" style="font-size: 1rem;">ROI</div>
+                        <div style="color: #ffffff;">
+                            <strong>Results vary based on implementation</strong><br>
+                            <small>No guarantees of specific business outcomes or revenue increases</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 3rem;">
+                <h2>Ready to Move Forward?</h2>
+                <p style="margin-bottom: 2rem;">Our contracts are designed to protect both parties while ensuring successful project delivery.</p>
+                
+                <a href="mailto:alfred.pennyworth32@gmail.com?subject=Contract Review Request" class="btn" style="margin: 0.5rem;">
+                    <i class="fas fa-file-contract"></i> Review Contract Terms
+                </a>
+                
+                <a href="mailto:alfred.pennyworth32@gmail.com?subject=Legal Questions" class="btn btn-secondary" style="margin: 0.5rem;">
+                    <i class="fas fa-question-circle"></i> Ask Legal Questions
+                </a>
+            </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section id="contact" class="section">
+            <h1><i class="fas fa-phone"></i> Ready to Transform Your Business?</h1>
+            
+            <div class="highlight-box">
+                <h3>The businesses that adopt AI systems today will dominate their markets tomorrow.</h3>
+                <p><strong>Your choice:</strong> ❌ Stay manual and watch competitors pull ahead • ✅ Transform today and become the market leader</p>
+            </div>
+
+            <h2>Your Options:</h2>
+
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-comments"></i></div>
+                    <h3>Free Strategy Session (Recommended)</h3>
+                    <p>15-minute call to discuss your needs</p>
+                    <p>Custom solution recommendations</p>
+                    <p>ROI projections for your business</p>
+                    <p>No obligation</p>
+                </div>
+                
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-desktop"></i></div>
+                    <h3>Live Demo & Consultation</h3>
+                    <p>See the AI agents in action</p>
+                    <p>Customized dashboard demonstration</p>
+                    <p>Q&A with technical team</p>
+                    <p>Available at your convenience</p>
+                </div>
+                
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-rocket"></i></div>
+                    <h3>Pilot Program</h3>
+                    <p><strong>Investment:</strong> 50% down, balance on approval</p>
+                    <p><strong>Outcome:</strong> Risk-free way to experience the full system</p>
+                </div>
+            </div>
+
+            <div class="contact-grid">
+                <div class="contact-card">
+                    <div class="icon"><i class="fas fa-user"></i></div>
+                    <h3>Jeremy Kermicle</h3>
+                    <p>Founder & AI Strategist</p>
+                    <p><strong>Kermicle Media</strong></p>
+                </div>
+                
+                <div class="contact-card">
+                    <div class="icon"><i class="fas fa-envelope"></i></div>
+                    <h3>Email</h3>
+                    <p><a href="mailto:alfred.pennyworth32@gmail.com" style="color: var(--primary-gold);">alfred.pennyworth32@gmail.com</a></p>
+                    <p><strong>Response Guarantee:</strong> < 2 hours</p>
+                </div>
+                
+                <div class="contact-card">
+                    <div class="icon"><i class="fas fa-paper-plane"></i></div>
+                    <h3>Telegram</h3>
+                    <p><strong>@Ifakedit1</strong></p>
+                    <p>For immediate response</p>
+                </div>
+                
+                <div class="contact-card">
+                    <div class="icon"><i class="fas fa-globe"></i></div>
+                    <h3>Website</h3>
+                    <p><strong>kermiclemedia.com</strong></p>
+                    <p>Eastern Time Zone, USA</p>
+                </div>
+            </div>
+
+            <div class="highlight-box">
+                <h3><i class="fas fa-clock"></i> Limited-Time Bonuses End March 1st, 2026</h3>
+                <p>✅ $5,000 additional customization (FREE) • ✅ 6 months extended support ($2,400 value) • ✅ Priority implementation (skip the queue) • ✅ Lifetime software updates ($1,000+/year value)</p>
+                <p><strong>Total Bonus Value: $8,400+</strong></p>
+            </div>
+
+            <div style="text-align: center; margin-top: 3rem;">
+                <h2>Next Steps</h2>
+                <p style="margin-bottom: 2rem;">Ready to begin your transformation? Choose your preferred way to get started:</p>
+                
+                <a href="mailto:alfred.pennyworth32@gmail.com?subject=Free AI Strategy Session Request" class="btn" style="margin: 0.5rem;">
+                    <i class="fas fa-calendar"></i> Schedule Free Strategy Session
+                </a>
+                
+                <a href="mailto:alfred.pennyworth32@gmail.com?subject=Live Demo Request" class="btn btn-secondary" style="margin: 0.5rem;">
+                    <i class="fas fa-play"></i> Request Live Demo
+                </a>
+            </div>
+        </section>
+        
+        <!-- Footer -->
+        <footer style="background: #0a0a0a; color: #ffffff; text-align: center; padding: 3rem 2rem 2rem 2rem; border-top: 2px solid #DAA520; margin-top: 4rem;">
+            <div style="max-width: 1200px; margin: 0 auto;">
+                <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center;">
+                        <a href="terms-of-service.html" style="color: #DAA520; text-decoration: none; font-weight: bold; transition: color 0.3s ease;" 
+                           onmouseover="this.style.color='#ffffff'" onmouseout="this.style.color='#DAA520'">Terms of Service</a>
+                        <span style="color: #666;">|</span>
+                        <a href="privacy-policy.html" style="color: #DAA520; text-decoration: none; font-weight: bold; transition: color 0.3s ease;" 
+                           onmouseover="this.style.color='#ffffff'" onmouseout="this.style.color='#DAA520'">Privacy Policy</a>
+                        <span style="color: #666;">|</span>
+                        <a href="mailto:alfred.pennyworth32@gmail.com" style="color: #DAA520; text-decoration: none; font-weight: bold; transition: color 0.3s ease;" 
+                           onmouseover="this.style.color='#ffffff'" onmouseout="this.style.color='#DAA520'">Contact</a>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-shield-alt" style="color: #DAA520;"></i>
+                        <span style="color: #cccccc; font-size: 0.9rem;">SSL Secured</span>
+                    </div>
+                    <span style="color: #666;">•</span>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-lock" style="color: #DAA520;"></i>
+                        <span style="color: #cccccc; font-size: 0.9rem;">GDPR Compliant</span>
+                    </div>
+                    <span style="color: #666;">•</span>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-award" style="color: #DAA520;"></i>
+                        <span style="color: #cccccc; font-size: 0.9rem;">Business Insured</span>
+                    </div>
+                </div>
+                
+                <div style="border-top: 1px solid #333; padding-top: 1.5rem;">
+                    <p style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                        <strong style="color: #DAA520;">Kermicle Media</strong> - AI Business Solutions & Hardware Systems
+                    </p>
+                    <p style="color: #666; font-size: 0.8rem; margin-bottom: 1rem;">
+                        Owenton, Kentucky 40359 • United States
+                    </p>
+                    <p style="color: #666; font-size: 0.8rem;">
+                        © 2026 Kermicle Media. All rights reserved. • Est. 2026
+                    </p>
+                    <p style="color: #555; font-size: 0.7rem; margin-top: 0.5rem;">
+                        AI systems are tools that augment human capabilities and require proper oversight.
+                    </p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Section navigation
+        function showSection(sectionId) {
+            // Hide all sections
+            const sections = document.querySelectorAll('.section');
+            sections.forEach(section => section.classList.remove('active'));
+            
+            // Show selected section
+            document.getElementById(sectionId).classList.add('active');
+            
+            // Update URL without page reload
+            window.history.pushState({}, '', `#${sectionId}`);
+            
+            // Scroll to top
+            window.scrollTo(0, 0);
+            
+            // Close mobile menu if open
+            document.getElementById('navMenu').classList.remove('active');
+        }
+
+        function toggleMobileMenu() {
+            const navMenu = document.getElementById('navMenu');
+            navMenu.classList.toggle('active');
+        }
+
+        function toggleFaq(element) {
+            const answer = element.nextElementSibling;
+            const icon = element.querySelector('i');
+            
+            // Toggle answer visibility
+            answer.classList.toggle('active');
+            
+            // Rotate icon
+            if (answer.classList.contains('active')) {
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Handle initial page load
+        window.addEventListener('DOMContentLoaded', function() {
+            const hash = window.location.hash.substring(1);
+            if (hash && document.getElementById(hash)) {
+                showSection(hash);
+            } else {
+                showSection('overview');
+            }
+        });
+
+        // Handle browser back/forward
+        window.addEventListener('popstate', function() {
+            const hash = window.location.hash.substring(1);
+            if (hash && document.getElementById(hash)) {
+                showSection(hash);
+            } else {
+                showSection('overview');
+            }
+        });
+
+        // Smooth scrolling for anchor links
+        document.addEventListener('click', function(e) {
+            if (e.target.tagName === 'A' && e.target.getAttribute('href').startsWith('#')) {
+                e.preventDefault();
+                const targetId = e.target.getAttribute('href').substring(1);
+                if (document.getElementById(targetId)) {
+                    showSection(targetId);
+                }
+            }
+        });
+
+        // Add animation on scroll
+        function animateOnScroll() {
+            const elements = document.querySelectorAll('.service-card, .case-study, .timeline-item');
+            
+            elements.forEach(element => {
+                const elementTop = element.getBoundingClientRect().top;
+                const elementVisible = 150;
+                
+                if (elementTop < window.innerHeight - elementVisible) {
+                    element.style.opacity = '1';
+                    element.style.transform = 'translateY(0)';
+                }
+            });
+        }
+
+        window.addEventListener('scroll', animateOnScroll);
+
+        // Initialize animations
+        document.addEventListener('DOMContentLoaded', function() {
+            const elements = document.querySelectorAll('.service-card, .case-study, .timeline-item');
+            elements.forEach(element => {
+                element.style.opacity = '0';
+                element.style.transform = 'translateY(20px)';
+                element.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            });
+            
+            setTimeout(animateOnScroll, 100);
+        });
+
+        // Email tracking (optional)
+        function trackEmail(action) {
+            // Add analytics tracking here if needed
+            console.log('Email action:', action);
+        }
+    </script>
+</body>
+</html>
