@@ -2,93 +2,92 @@
   "goals": [
     {
       "id": 1,
-      "title": "Land first 5 paying clients",
+      "title": "Land first 5 AI automation clients",
       "category": "Clients",
-      "current": 1,
+      "current": 0,
       "target": 5,
       "unit": "clients",
       "deadline": "2026-03-15",
       "status": "in-progress",
       "subtasks": [
-        {"text": "Finalize service packages & pricing", "done": true},
-        {"text": "Launch website with portfolio", "done": true},
-        {"text": "Cold outreach to 20 local businesses", "done": false},
-        {"text": "Post 3 case studies / samples", "done": false},
-        {"text": "Close first paying client", "done": true}
+        {"text": "Finalize AI service packages & pricing", "done": true},
+        {"text": "Launch sales book website", "done": true},
+        {"text": "Cold outreach to 20 Northern KY businesses", "done": true},
+        {"text": "Post AI automation case studies", "done": false},
+        {"text": "Close first AI automation client", "done": false}
       ]
     },
     {
       "id": 2,
-      "title": "Hit $5K monthly revenue",
+      "title": "Hit $10K monthly revenue from AI services",
       "category": "Revenue",
-      "current": 897,
-      "target": 5000,
+      "current": 0,
+      "target": 10000,
       "unit": "$",
       "deadline": "2026-04-01",
       "status": "in-progress",
       "subtasks": [
-        {"text": "Define pricing tiers", "done": true},
-        {"text": "Land first retainer client", "done": true},
-        {"text": "Upsell existing clients", "done": false},
-        {"text": "Reach $1K milestone", "done": false},
-        {"text": "Reach $5K milestone", "done": false}
+        {"text": "Define AI service pricing tiers", "done": true},
+        {"text": "Complete local SEO setup", "done": false},
+        {"text": "Land first AI automation client", "done": false},
+        {"text": "Reach $2,200 milestone (first sale)", "done": false},
+        {"text": "Reach $10K milestone", "done": false}
       ]
     },
     {
       "id": 3,
       "title": "Build 25 agent skills",
       "category": "Infrastructure",
-      "current": 20,
+      "current": 25,
       "target": 25,
       "unit": "skills",
       "deadline": "2026-02-28",
-      "status": "in-progress",
+      "status": "completed",
       "subtasks": [
         {"text": "Core skills (file, web, browser)", "done": true},
-        {"text": "Creative skills (image, video, audio)", "done": true},
-        {"text": "Social media skills", "done": true},
-        {"text": "Analytics & monitoring skills", "done": false},
-        {"text": "Client-facing automation skills", "done": false}
+        {"text": "AI business skills", "done": true},
+        {"text": "Local lead generation skills", "done": true},
+        {"text": "Analytics & monitoring skills", "done": true},
+        {"text": "Client-facing automation skills", "done": true}
       ]
     },
     {
       "id": 4,
-      "title": "Produce cartoon pilot episode",
-      "category": "Content",
-      "current": 75,
+      "title": "Dominate Northern Kentucky AI search results",
+      "category": "Marketing",
+      "current": 10,
       "target": 100,
       "unit": "%",
-      "deadline": "2026-03-01",
+      "deadline": "2026-04-01",
       "status": "in-progress",
       "subtasks": [
-        {"text": "Script finalized", "done": true},
-        {"text": "Character designs locked", "done": true},
-        {"text": "Storyboard complete", "done": true},
-        {"text": "EP01 animatic produced", "done": true},
-        {"text": "Voice recording", "done": false},
-        {"text": "Final animation & sound", "done": false}
+        {"text": "Local SEO research complete", "done": true},
+        {"text": "Google Business Profile setup", "done": false},
+        {"text": "Chamber memberships (4 towns)", "done": false},
+        {"text": "City-specific landing pages", "done": false},
+        {"text": "Top 3 rankings for target keywords", "done": false}
       ]
     },
     {
       "id": 5,
-      "title": "Grow Instagram to 1,000 followers",
-      "category": "Growth",
-      "current": 47,
-      "target": 1000,
-      "unit": "followers",
-      "deadline": "2026-04-01",
+      "title": "Build professional contact system",
+      "category": "Infrastructure",
+      "current": 75,
+      "target": 100,
+      "unit": "%",
+      "deadline": "2026-02-28",
       "status": "in-progress",
       "subtasks": [
-        {"text": "Set up business profile", "done": true},
-        {"text": "Create content calendar", "done": false},
-        {"text": "Post daily for 30 days", "done": false},
-        {"text": "Engage with 50 accounts/day", "done": false},
-        {"text": "Hit 500 followers", "done": false}
+        {"text": "Professional email jeremy@kermiclemedia.com", "done": true},
+        {"text": "Google Voice business number", "done": true},
+        {"text": "Email automation system", "done": false},
+        {"text": "SMS/call screening with Forge", "done": false},
+        {"text": "Lead capture workflows", "done": false}
       ]
     },
     {
       "id": 6,
-      "title": "Get first client referral",
+      "title": "Get first AI client referral",
       "category": "Clients",
       "current": 0,
       "target": 1,
@@ -96,22 +95,23 @@
       "deadline": "2026-03-31",
       "status": "in-progress",
       "subtasks": [
-        {"text": "Deliver exceptional first project", "done": false},
+        {"text": "Deliver exceptional first AI project", "done": false},
         {"text": "Ask for testimonial", "done": false},
-        {"text": "Create referral incentive", "done": false},
+        {"text": "Create referral incentive program", "done": false},
         {"text": "Receive first referral", "done": false}
       ]
     }
   ],
   "milestones": [
     {"date": "2026-02-13", "text": "Launched kermiclemedia.com", "icon": "🚀"},
-    {"date": "2026-02-14", "text": "Multi-agent system online (3 bots)", "icon": "🤖"},
-    {"date": "2026-02-14", "text": "Forge shipped 9 projects in one day", "icon": "⚡"},
-    {"date": "2026-02-15", "text": "20 skills built", "icon": "🧠"},
-    {"date": "2026-02-15", "text": "EP01 animatic produced", "icon": "🎬"},
-    {"date": "2026-02-15", "text": "Hub expanded to 9+ tabs", "icon": "📊"},
-    {"date": "2026-03-01", "text": "Cartoon pilot complete", "icon": "🏆", "upcoming": true},
-    {"date": "2026-03-15", "text": "5 paying clients", "icon": "💰", "upcoming": true},
-    {"date": "2026-04-01", "text": "$5K monthly revenue", "icon": "🎯", "upcoming": true}
+    {"date": "2026-02-14", "text": "Multi-agent system online (4 agents)", "icon": "🤖"},
+    {"date": "2026-02-19", "text": "Complete AI sales book & web app", "icon": "📚"},
+    {"date": "2026-02-20", "text": "25+ skills built across all agents", "icon": "🧠"},
+    {"date": "2026-02-20", "text": "Professional contact system deployed", "icon": "📞"},
+    {"date": "2026-02-20", "text": "Local SEO research complete", "icon": "🎯"},
+    {"date": "2026-02-20", "text": "Cold email campaigns launched", "icon": "📧"},
+    {"date": "2026-03-01", "text": "First AI automation client", "icon": "💰", "upcoming": true},
+    {"date": "2026-03-15", "text": "5 AI clients + $10K revenue", "icon": "🏆", "upcoming": true},
+    {"date": "2026-04-01", "text": "Dominate Northern KY AI market", "icon": "👑", "upcoming": true}
   ]
 }
