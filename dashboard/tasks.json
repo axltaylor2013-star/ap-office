@@ -1497,7 +1497,7 @@
         "id": 167,
         "agent": "Scout",
         "task": "Lead Qualification Matrix - Small town Kentucky business analysis (Dry Ridge, Owenton, Carrolton, Frankfort) for AI automation prospects",
-        "status": "queued", 
+        "status": "in-progress", 
         "date": "2026-02-20",
         "category": "Revenue",
         "path": "workspace-scout2/reports/lead-qualification-2026-02-20.md"
@@ -1515,7 +1515,7 @@
         "id": 169,
         "agent": "Mule",
         "task": "Cold Email Campaign Execution - 15 personalized outreach emails to Dry Ridge/Owenton/Carrolton/Frankfort KY businesses",
-        "status": "queued",
+        "status": "in-progress",
         "date": "2026-02-20",
         "category": "Revenue", 
         "path": "mule-output/cold-email-campaign-2026-02-20.md"
