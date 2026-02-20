@@ -111,6 +111,9 @@ nav{flex:1;padding:12px 0;display:flex;flex-direction:column;gap:2px}
       <div class="nav-item" data-screen="tools" onclick="switchScreen(this)">
         <span class="nav-icon">🛠️</span><span class="nav-label">Quick Tools</span>
       </div>
+      <div class="nav-item" data-screen="kermicleword" onclick="switchScreen(this)">
+        <span class="nav-icon">📝</span><span class="nav-label">KermicleWord</span>
+      </div>
       <div class="nav-item" data-screen="expenses" onclick="switchScreen(this)">
         <span class="nav-icon">💳</span><span class="nav-label">Expenses</span>
       </div>
@@ -122,18 +125,19 @@ nav{flex:1;padding:12px 0;display:flex;flex-direction:column;gap:2px}
   </aside>
 
   <main class="content">
-    <iframe id="frame-command" class="active" src="index.html"></iframe>
-    <iframe id="frame-taskboard" src="taskboard.html" loading="lazy"></iframe>
-    <iframe id="frame-office" src="office.html" loading="lazy"></iframe>
-    <iframe id="frame-revenue" src="revenue.html" loading="lazy"></iframe>
-    <iframe id="frame-analytics" src="analytics.html" loading="lazy"></iframe>
-    <iframe id="frame-calendar" src="calendar.html" loading="lazy"></iframe>
-    <iframe id="frame-leads" src="leads.html" loading="lazy"></iframe>
-    <iframe id="frame-inbox" src="inbox.html" loading="lazy"></iframe>
-    <iframe id="frame-invoices" src="invoices.html" loading="lazy"></iframe>
-    <iframe id="frame-goals" src="goals.html" loading="lazy"></iframe>
-    <iframe id="frame-tools" src="tools.html" loading="lazy"></iframe>
-    <iframe id="frame-expenses" src="expenses.html" loading="lazy"></iframe>
+    <iframe id="frame-command" class="active" src="dashboard/command-center.html"></iframe>
+    <iframe id="frame-taskboard" src="dashboard/taskboard.html" loading="lazy"></iframe>
+    <iframe id="frame-office" src="dashboard/office.html" loading="lazy"></iframe>
+    <iframe id="frame-revenue" src="dashboard/revenue.html" loading="lazy"></iframe>
+    <iframe id="frame-analytics" src="dashboard/analytics.html" loading="lazy"></iframe>
+    <iframe id="frame-calendar" src="dashboard/calendar.html" loading="lazy"></iframe>
+    <iframe id="frame-leads" src="dashboard/leads.html" loading="lazy"></iframe>
+    <iframe id="frame-inbox" src="dashboard/inbox.html" loading="lazy"></iframe>
+    <iframe id="frame-invoices" src="dashboard/invoices.html" loading="lazy"></iframe>
+    <iframe id="frame-goals" src="dashboard/goals.html" loading="lazy"></iframe>
+    <iframe id="frame-tools" src="dashboard/tools.html" loading="lazy"></iframe>
+    <iframe id="frame-kermicleword" src="kermicleword/index.html" loading="lazy"></iframe>
+    <iframe id="frame-expenses" src="dashboard/expenses.html" loading="lazy"></iframe>
   </main>
 </div>
 
