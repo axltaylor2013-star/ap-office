@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kermicle Media - AI Business Solutions</title>
+    <meta name="description" content="Transform your business with AI-powered systems. Professional setup with 4 AI agents working 24/7/365. Implementation: 48 hours. Honest pricing, no fake promises.">
+    <meta name="keywords" content="AI business solutions, automation, artificial intelligence, business transformation, professional setup">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Kermicle Media - AI Business Solutions">
+    <meta property="og:description" content="Transform your business with AI-powered systems that work 24/7/365. Professional setup and honest pricing. Implementation: 48 hours.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://kermiclemedia.com">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-gold: #DAA520;
+            --primary-dark: #1a1a1a;
+            --primary-black: #0a0a0a;
+            --accent-blue: #2563eb;
+            --success-green: #16a34a;
+            --warning-red: #dc2626;
+            --light-gray: #f8f9fa;
+            --medium-gray: #6b7280;
+            --border-light: #e5e7eb;
+            --shadow-light: 0 1px 3px rgba(0,0,0,0.1);
+            --shadow-medium: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #fff;
+        }
+
+        /* Navigation */
+        nav {
+            background: var(--primary-black);
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: var(--shadow-medium);
+        }
+
+        .nav-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary-gold);
+        }
+
+        .nav-menu {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-menu a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-menu a:hover {
+            color: var(--primary-gold);
+        }
+
+        .cta-button {
+            background: var(--primary-gold);
+            color: var(--primary-black);
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .cta-button:hover {
+            background: #b8941a;
+            transform: translateY(-2px);
+        }
+
+        .mobile-menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Sections */
+        .section {
+            display: none;
+            padding: 4rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .section h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .section h2 {
+            font-size: 2rem;
+            color: var(--primary-dark);
+            margin-bottom: 1.5rem;
+        }
+
+        .section h3 {
+            font-size: 1.5rem;
+            color: var(--primary-dark);
+            margin-bottom: 1rem;
+        }
+
+        .section p {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            margin-bottom: 1.5rem;
+            color: #555;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, var(--primary-black) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 6rem 2rem;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            color: white;
+        }
+
+        .hero p {
+            font-size: 1.3rem;
+            margin-bottom: 2rem;
+            color: #cccccc;
+        }
+
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary-gold);
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: #cccccc;
+            margin-top: 0.5rem;
+        }
+
+        /* Services Grid */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .service-card {
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 10px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: var(--shadow-light);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .service-card .icon {
+            font-size: 2.5rem;
+            color: var(--primary-gold);
+            margin-bottom: 1rem;
+        }
+
+        .service-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--primary-dark);
+        }
+
+        .service-card p {
+            color: #666;
+            margin-bottom: 1rem;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            background: var(--primary-gold);
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 0.5rem;
+        }
+
+        .btn:hover {
+            background: #b8941a;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary:hover {
+            background: #333;
+        }
+
+        /* Highlight Box */
+        .highlight-box {
+            background: linear-gradient(135deg, var(--primary-gold) 0%, #b8941a 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            margin: 2rem 0;
+            text-align: center;
+        }
+
+        .highlight-box h3 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .highlight-box p {
+            color: white;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Pricing Table */
+        .pricing-table {
+            overflow-x: auto;
+            margin: 2rem 0;
+        }
+
+        .pricing-table table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: var(--shadow-light);
+        }
+
+        .pricing-table th,
+        .pricing-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .pricing-table th {
+            background: var(--primary-dark);
+            color: white;
+            font-weight: 600;
+        }
+
+        .pricing-table .price {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-gold);
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding: 2rem 0;
+        }
+
+        .timeline-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .timeline-number {
+            background: var(--primary-gold);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .timeline-content h4 {
+            color: var(--primary-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        /* FAQ */
+        .faq-item {
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .faq-question {
+            padding: 1rem;
+            background: var(--light-gray);
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .faq-question:hover {
+            background: #e9ecef;
+        }
+
+        .faq-answer {
+            padding: 1rem;
+            display: none;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .faq-answer.active {
+            display: block;
+        }
+
+        /* Contact Section */
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .contact-card {
+            background: var(--primary-dark);
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .contact-card .icon {
+            font-size: 2rem;
+            color: var(--primary-gold);
+            margin-bottom: 1rem;
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .nav-menu {
+                display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: var(--primary-black);
+                padding: 1rem 0;
+            }
+
+            .nav-menu.active {
+                display: flex;
+            }
+
+            .mobile-menu-toggle {
+                display: block;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-content">
+            <div class="logo">
+                <i class="fas fa-bolt"></i> KERMICLE MEDIA
+            </div>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="#" onclick="showSection('overview')">Overview</a></li>
+                <li><a href="#" onclick="showSection('services')">Services</a></li>
+                <li><a href="#" onclick="showSection('pricing')">Pricing</a></li>
+                <li><a href="#" onclick="showSection('about')">About Us</a></li>
+                <li><a href="#" onclick="showSection('process')">Process</a></li>
+                <li><a href="#" onclick="showSection('faq')">FAQ</a></li>
+            </ul>
+            <a href="#" onclick="showSection('contact')" class="cta-button">Get Started</a>
+            <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Overview Section -->
+        <section id="overview" class="section active">
+            <div class="hero">
+                <h1>Transform Your Business with AI-Powered Systems</h1>
+                <p>Professional AI agent setup with honest pricing and realistic expectations. Working system in 48 hours.</p>
+
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-number">4</span>
+                        <div class="stat-label">AI Agents Working 24/7</div>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">48 Hours</span>
+                        <div class="stat-label">Implementation Time</div>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">Zero</span>
+                        <div class="stat-label">Monthly Subscriptions</div>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">$5K-$40K</span>
+                        <div class="stat-label">Investment Range</div>
+                    </div>
+                </div>
+            </div>
+
+            <h2>What We Actually Offer</h2>
+
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-robot"></i></div>
+                    <h3>AI Agent System</h3>
+                    <p><strong>What it does:</strong> 4 specialized AI agents handle research, content creation, data processing, and task automation</p>
+                    <p><strong>Real proof:</strong> This website and our business dashboard were built by our AI agents</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-desktop"></i></div>
+                    <h3>Professional Hardware</h3>
+                    <p><strong>What you get:</strong> Mac Studio or NVIDIA systems configured for AI workloads</p>
+                    <p><strong>Our value:</strong> Professional setup, warranty support, AI software integration</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-handshake"></i></div>
+                    <h3>Honest Business Approach</h3>
+                    <p><strong>What we promise:</strong> Working system setup, 48-hour implementation, clear contracts</p>
+                    <p><strong>What we don't promise:</strong> Guaranteed ROI, specific revenue increases, or magic solutions</p>
+                </div>
+            </div>
+
+            <div class="highlight-box">
+                <h3><i class="fas fa-info-circle"></i> Full Transparency</h3>
+                <p><strong>We launched February 2026</strong> - we have proven AI technology but no client testimonials yet.</p>
+                <p><strong>See our system in action:</strong> <a href="https://axltaylor2013-star.github.io/ap-office/hub.html" target="_blank" style="color: white; text-decoration: underline;">View our live dashboard</a> built and maintained by AI agents.</p>
+            </div>
+
+            <div style="text-align: center; margin-top: 2rem;">
+                <a href="#" onclick="showSection('services')" class="btn">Explore Our Services</a>
+                <a href="#" onclick="showSection('contact')" class="btn btn-secondary">Schedule Consultation</a>
+            </div>
+        </section>
+
+        <!-- Services Section -->
+        <section id="services" class="section">
+            <h1><i class="fas fa-cogs"></i> Service Portfolio</h1>
+
+            <h2>AI Agent System</h2>
+            <p>Replace routine tasks with 4 AI specialists working 24/7/365</p>
+
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-brain"></i></div>
+                    <h3>Jarvis (Main Agent)</h3>
+                    <p>Strategic oversight, complex decision-making, business intelligence, project management</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-search"></i></div>
+                    <h3>Scout (Research Agent)</h3>
+                    <p>Market research, competitor analysis, trend identification, data gathering</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-tasks"></i></div>
+                    <h3>Mule (Worker Agent)</h3>
+                    <p>Content creation, data processing, routine operations, task execution</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-code"></i></div>
+                    <h3>Forge (Technical Agent)</h3>
+                    <p>Development, integration, automation setup, technical problem-solving</p>
+                </div>
+            </div>
+
+            <h2>Professional Hardware Packages</h2>
+
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-desktop"></i></div>
+                    <h3>Starter Package ($5K - $8K)</h3>
+                    <p><strong>Best for:</strong> Freelancers, Content Creators, Small Businesses</p>
+                    <p><strong>Hardware:</strong> AI-optimized Mac Mini setup with professional configuration</p>
+                    <p><strong>Value:</strong> Time savings on routine tasks</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-laptop"></i></div>
+                    <h3>Professional Package ($10K - $15K)</h3>
+                    <p><strong>Best for:</strong> Marketing Agencies, Creative Studios</p>
+                    <p><strong>Hardware:</strong> Mac Studio with enhanced performance capabilities</p>
+                    <p><strong>Value:</strong> Professional video/design task automation</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-server"></i></div>
+                    <h3>Enterprise Package ($20K - $30K)</h3>
+                    <p><strong>Best for:</strong> Large Businesses, Growing Companies</p>
+                    <p><strong>Hardware:</strong> Mac Studio Pro with high RAM/GPU configuration</p>
+                    <p><strong>Value:</strong> Enterprise-grade AI performance</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-microchip"></i></div>
+                    <h3>NVIDIA AI Lab ($25K - $40K)</h3>
+                    <p><strong>Best for:</strong> Tech Companies, Research Institutions</p>
+                    <p><strong>Hardware:</strong> NVIDIA DGX system for ultimate AI workloads</p>
+                    <p><strong>Value:</strong> Cutting-edge AI research capabilities</p>
+                </div>
+            </div>
+
+            <h2>Business Intelligence Dashboard</h2>
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-chart-bar"></i></div>
+                    <h3>Real-Time Analytics</h3>
+                    <p>Live task management, project tracking, automated reporting, business metrics in one place</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-mobile-alt"></i></div>
+                    <h3>Mobile Access</h3>
+                    <p>Monitor your business from anywhere with responsive design and instant notifications</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pricing Section -->
+        <section id="pricing" class="section">
+            <h1><i class="fas fa-tags"></i> Investment & Pricing</h1>
+
+            <div class="highlight-box">
+                <h3>🎯 Recommended Business Package</h3>
+                <p><strong>Professional AI System + Mac Studio + Dashboard = $24,997</strong></p>
+                <p>Save $3,000 compared to individual purchases • Complete business transformation • 48-hour implementation</p>
+            </div>
+
+            <div class="pricing-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Package</th>
+                            <th>Investment</th>
+                            <th>Best For</th>
+                            <th>What's Included</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Starter AI + Hardware</strong></td>
+                            <td><span class="price">$15,000</span></td>
+                            <td>Small Businesses, Freelancers</td>
+                            <td>Mac Mini + 4 AI Agents + Setup</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Professional Package</strong></td>
+                            <td><span class="price">$24,997</span></td>
+                            <td>Growing Businesses, Agencies</td>
+                            <td>Mac Studio + AI System + Dashboard</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Enterprise Solution</strong></td>
+                            <td><span class="price">$35,000</span></td>
+                            <td>Large Companies</td>
+                            <td>Mac Studio Pro + Full Integration</td>
+                        </tr>
+                        <tr>
+                            <td><strong>AI Lab (NVIDIA)</strong></td>
+                            <td><span class="price">$45,000</span></td>
+                            <td>Tech Companies, Research</td>
+                            <td>NVIDIA DGX + Research Tools</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="highlight-box">
+                <h3><i class="fas fa-handshake"></i> Fair Payment Terms</h3>
+                <p><strong>Payment Structure:</strong> 50% down payment upon signing, 50% final payment on installation completion</p>
+                <p><strong>No hidden fees:</strong> Price includes hardware, software setup, training, and 30-day optimization support</p>
+            </div>
+        </section>
+
+        <!-- About Us Section -->
+        <section id="about" class="section">
+            <h1><i class="fas fa-info-circle"></i> About Kermicle Media</h1>
+            
+            <div class="highlight-box">
+                <h3><i class="fas fa-calendar"></i> Launched February 2026</h3>
+                <p><strong>We're honest about being new</strong> - no fake testimonials or inflated success stories.</p>
+                <p><strong>What we have:</strong> Working AI technology, technical expertise, and a commitment to realistic expectations.</p>
+            </div>
+
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-laptop-code"></i></div>
+                    <h3>Live System Demo</h3>
+                    <p><strong>See it in action:</strong> Our AI agents built this website and manage our business operations</p>
+                    <a href="https://axltaylor2013-star.github.io/ap-office/hub.html" target="_blank" class="btn" style="margin-top: 1rem;">
+                        <i class="fas fa-external-link-alt"></i> View Our Dashboard
+                    </a>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-tools"></i></div>
+                    <h3>What We Built</h3>
+                    <p><strong>Task Management:</strong> Live project tracking and team coordination</p>
+                    <p><strong>Business Intelligence:</strong> Revenue, analytics, and performance metrics</p>
+                    <p><strong>Content Creation:</strong> Automated social media and marketing materials</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-chart-line"></i></div>
+                    <h3>Our Approach</h3>
+                    <p><strong>Transparent Pricing:</strong> No hidden fees or surprise costs</p>
+                    <p><strong>Realistic Timelines:</strong> 48-hour setup, weeks to optimize</p>
+                    <p><strong>Fair Contracts:</strong> Clear terms, defined deliverables</p>
+                </div>
+
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-user-tie"></i></div>
+                    <h3>Early Adopter Benefits</h3>
+                    <p><strong>Direct Access:</strong> Work directly with founders</p>
+                    <p><strong>Influence Development:</strong> Shape our product roadmap</p>
+                    <p><strong>Competitive Pricing:</strong> Early customer pricing</p>
+                    <p><strong>Priority Support:</strong> Get help when you need it</p>
+                </div>
+            </div>
+
+            <div class="highlight-box">
+                <h3><i class="fas fa-balance-scale"></i> What We Promise vs. What We Don't</h3>
+                <div class="services-grid">
+                    <div class="service-card">
+                        <h4>✅ What We Promise</h4>
+                        <p>• Working AI system setup<br>• Professional hardware installation<br>• 48-hour implementation<br>• 30-day optimization support<br>• Clear contracts and pricing</p>
+                    </div>
+                    <div class="service-card">
+                        <h4>❌ What We Don't Guarantee</h4>
+                        <p>• Specific revenue increases<br>• Exact ROI percentages<br>• Immediate business transformation<br>• One-size-fits-all results<br>• Magic business solutions</p>
+                    </div>
+                </div>
+                <p style="text-align: center; margin-top: 1rem;"><strong>Results depend on implementation, usage, and your specific business situation.</strong></p>
+            </div>
+        </section>
+
+        <!-- Process Section -->
+        <section id="process" class="section">
+            <h1><i class="fas fa-rocket"></i> 48-Hour Implementation Process</h1>
+            
+            <p style="text-align: center; font-size: 1.2rem; margin-bottom: 3rem;">From consultation to working AI system in 48 hours</p>
+
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-number">1</div>
+                    <div class="timeline-content">
+                        <h4>Discovery & Planning (Hours 1-4)</h4>
+                        <p><strong>What we do:</strong> Analyze your workflows, identify automation opportunities, create implementation plan</p>
+                        <p><strong>Your involvement:</strong> 2-hour consultation call, system access for analysis</p>
+                        <p><strong>Deliverable:</strong> Custom implementation plan with realistic timeline</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-number">2</div>
+                    <div class="timeline-content">
+                        <h4>System Setup & Configuration (Hours 5-24)</h4>
+                        <p><strong>What we do:</strong> Install hardware, configure AI agents, establish integrations</p>
+                        <p><strong>Your involvement:</strong> Minimal - we handle technical work</p>
+                        <p><strong>Deliverable:</strong> Configured system ready for testing</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-number">3</div>
+                    <div class="timeline-content">
+                        <h4>Testing & Validation (Hours 25-36)</h4>
+                        <p><strong>What we do:</strong> System testing, performance validation, initial optimization</p>
+                        <p><strong>Your involvement:</strong> Review outputs, provide feedback on workflows</p>
+                        <p><strong>Deliverable:</strong> Tested system meeting performance benchmarks</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-number">4</div>
+                    <div class="timeline-content">
+                        <h4>Training & Handover (Hours 37-48)</h4>
+                        <p><strong>What we do:</strong> Team training, documentation, transition support</p>
+                        <p><strong>Your involvement:</strong> Training sessions, begin system usage</p>
+                        <p><strong>Deliverable:</strong> Live system with 30-day optimization period</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="highlight-box">
+                <h3>🎯 Why Our Process Works</h3>
+                <div class="services-grid">
+                    <div class="service-card">
+                        <h4>Fast Implementation</h4>
+                        <p>48 hours to working system using proven methodology and pre-built components.</p>
+                    </div>
+                    <div class="service-card">
+                        <h4>Minimal Disruption</h4>
+                        <p>Your business continues operating normally while we work behind the scenes.</p>
+                    </div>
+                    <div class="service-card">
+                        <h4>Realistic Expectations</h4>
+                        <p>System works immediately, optimization happens over weeks, not hours.</p>
+                    </div>
+                    <div class="service-card">
+                        <h4>Ongoing Support</h4>
+                        <p>30-day optimization period included with optional continued support available.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ Section -->
+        <section id="faq" class="section">
+            <h1><i class="fas fa-question-circle"></i> Frequently Asked Questions</h1>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>How is this different from ChatGPT or other AI tools?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>ChatGPT is a conversational tool. Our system is a complete business automation platform with specialized AI agents integrated with your workflows and capable of taking actions on your behalf—not just providing information.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>Do I need technical expertise?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>No. Our system is designed for business users. We provide complete setup, training, and support. Most clients are operational within 48 hours with no technical knowledge required.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>What kind of results can I expect?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>We can't guarantee specific ROI figures since we're a new business. Results depend entirely on your implementation, usage, and business model. We provide the tools - your success depends on how you use them.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>How quickly will I see results?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>System setup is complete within 48 hours. How quickly you see business benefits depends on your specific use case, team adoption, and implementation. Some see immediate time savings, others need weeks to optimize workflows.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>Is this really a one-time payment?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>For the AI system and hardware, yes. The only ongoing costs are optional support services and any custom development work you request. No monthly subscription fees for the core system.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>How secure is the system?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Security is our top priority. All data is encrypted, we use enterprise-grade security protocols, and the system can operate entirely on your own infrastructure if required.</p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>Can I pay in installments?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Yes. We offer 50% down, 50% on completion payment structure. We also accept purchase orders from established businesses and can discuss custom payment arrangements.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section id="contact" class="section">
+            <h1><i class="fas fa-phone"></i> Ready to Get Started?</h1>
+            
+            <div class="highlight-box">
+                <h3>The businesses that adopt AI systems now will have a competitive advantage.</h3>
+                <p><strong>Your choice:</strong> Continue with manual processes or transform your operations with professional AI automation.</p>
+            </div>
+
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-comments"></i></div>
+                    <h3>Free Consultation</h3>
+                    <p>15-minute call to discuss your needs</p>
+                    <p>Honest assessment of your needs</p>
+                    <p>Custom solution recommendations</p>
+                    <p>No obligation, no sales pressure</p>
+                </div>
+                
+                <div class="service-card">
+                    <div class="icon"><i class="fas fa-desktop"></i></div>
+                    <h3>Live Demo</h3>
+                    <p>See the AI agents in action</p>
+                    <p>Review our actual dashboard</p>
+                    <p>Q&A with technical team</p>
+                    <p>Available at your convenience</p>
+                </div>
+            </div>
+
+            <div class="contact-grid">
+                <div class="contact-card">
+                    <div class="icon"><i class="fas fa-user"></i></div>
+                    <h3>Jeremy Kermicle</h3>
+                    <p>Founder & AI Strategist</p>
+                    <p><strong>Kermicle Media</strong></p>
+                </div>
+                
+                <div class="contact-card">
+                    <div class="icon"><i class="fas fa-envelope"></i></div>
+                    <h3>Email</h3>
+                    <p><a href="mailto:alfred.pennyworth32@gmail.com" style="color: var(--primary-gold);">alfred.pennyworth32@gmail.com</a></p>
+                    <p><strong>Response:</strong> Within 2 hours</p>
+                </div>
+                
+                <div class="contact-card">
+                    <div class="icon"><i class="fas fa-paper-plane"></i></div>
+                    <h3>Telegram</h3>
+                    <p><strong>@Ifakedit1</strong></p>
+                    <p>For immediate response</p>
+                </div>
+                
+                <div class="contact-card">
+                    <div class="icon"><i class="fas fa-globe"></i></div>
+                    <h3>Location</h3>
+                    <p><strong>Eastern Time Zone, USA</strong></p>
+                    <p>Professional service nationwide</p>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 3rem;">
+                <h2>Next Steps</h2>
+                <p style="margin-bottom: 2rem;">Ready to explore AI automation for your business?</p>
+                
+                <a href="mailto:alfred.pennyworth32@gmail.com?subject=Free AI Consultation Request" class="btn" style="margin: 0.5rem;">
+                    <i class="fas fa-calendar"></i> Schedule Free Consultation
+                </a>
+                
+                <a href="mailto:alfred.pennyworth32@gmail.com?subject=Live Demo Request" class="btn btn-secondary" style="margin: 0.5rem;">
+                    <i class="fas fa-play"></i> Request Live Demo
+                </a>
+            </div>
+        </section>
+        
+        <!-- Footer -->
+        <footer style="background: #0a0a0a; color: #ffffff; text-align: center; padding: 3rem 2rem 2rem 2rem; border-top: 2px solid #DAA520; margin-top: 4rem;">
+            <div style="max-width: 1200px; margin: 0 auto;">
+                <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center;">
+                        <a href="mailto:alfred.pennyworth32@gmail.com" style="color: #DAA520; text-decoration: none; font-weight: bold;">Contact</a>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-shield-alt" style="color: #DAA520;"></i>
+                        <span style="color: #cccccc; font-size: 0.9rem;">Professional Service</span>
+                    </div>
+                    <span style="color: #666;">•</span>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-handshake" style="color: #DAA520;"></i>
+                        <span style="color: #cccccc; font-size: 0.9rem;">Honest Pricing</span>
+                    </div>
+                    <span style="color: #666;">•</span>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-award" style="color: #DAA520;"></i>
+                        <span style="color: #cccccc; font-size: 0.9rem;">Fair Contracts</span>
+                    </div>
+                </div>
+                
+                <div style="border-top: 1px solid #333; padding-top: 1.5rem;">
+                    <p style="color: #888; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                        <strong style="color: #DAA520;">Kermicle Media</strong> - AI Business Solutions & Hardware Systems
+                    </p>
+                    <p style="color: #666; font-size: 0.8rem; margin-bottom: 1rem;">
+                        Eastern Time Zone • United States
+                    </p>
+                    <p style="color: #666; font-size: 0.8rem;">
+                        © 2026 Kermicle Media. All rights reserved. • Launched February 2026
+                    </p>
+                    <p style="color: #555; font-size: 0.7rem; margin-top: 0.5rem;">
+                        AI systems are tools that enhance human capabilities and require proper oversight.
+                    </p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Section navigation
+        function showSection(sectionId) {
+            // Hide all sections
+            const sections = document.querySelectorAll('.section');
+            sections.forEach(section => section.classList.remove('active'));
+            
+            // Show selected section
+            document.getElementById(sectionId).classList.add('active');
+            
+            // Update URL
+            window.history.pushState({}, '', `#${sectionId}`);
+            
+            // Scroll to top
+            window.scrollTo(0, 0);
+            
+            // Close mobile menu
+            document.getElementById('navMenu').classList.remove('active');
+        }
+
+        function toggleMobileMenu() {
+            const navMenu = document.getElementById('navMenu');
+            navMenu.classList.toggle('active');
+        }
+
+        function toggleFaq(element) {
+            const answer = element.nextElementSibling;
+            const icon = element.querySelector('i');
+            
+            answer.classList.toggle('active');
+            
+            if (answer.classList.contains('active')) {
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Handle initial page load
+        window.addEventListener('DOMContentLoaded', function() {
+            const hash = window.location.hash.substring(1);
+            if (hash && document.getElementById(hash)) {
+                showSection(hash);
+            } else {
+                showSection('overview');
+            }
+        });
+    </script>
+</body>
+</html>
