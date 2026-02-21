@@ -1,0 +1,345 @@
+--[[
+	NPCDialogUI.client.lua
+	StarterPlayerScripts
+
+	Shows a dialog box when the player clicks an NPC.
+	Typewriter text effect, quest info, shop buttons.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+--------------------------------------------------------------------------------
+-- WAIT FOR REMOTE
+--------------------------------------------------------------------------------
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+local NPCInteractEvent = Remotes and Remotes:WaitForChild("NPCInteract", 10) or ReplicatedStorage:FindFirstChild("NPCInteract")
+if not NPCInteractEvent then
+	warn("[NPCDialogUI] NPCInteract event not found")
+	return
+end
+
+--------------------------------------------------------------------------------
+-- NPC DIALOG DATA
+--------------------------------------------------------------------------------
+local NPC_DIALOGS = {
+	["Captain Aldric"] = {
+		greeting = "Welcome to Haven, stranger. The world beyond these walls isn't kind. But I see something in you... perhaps you can help us.",
+		npcType = "quest",
+	},
+	["Mara the Merchant"] = {
+		greeting = "Looking to buy or sell? I've got a bit of everything!",
+		npcType = "shop",
+		shopType = "general",
+	},
+	["Grimnir the Smith"] = {
+		greeting = "See this arm? Gone. Lost it to a dragon ten years back. But I can still forge better than any two-armed smith in the kingdom.",
+		npcType = "shop",
+		shopType = "weapons",
+	},
+	["Old Bess"] = {
+		greeting = "Sit down, dear. You look hungry. I've got stew, bread, and something stronger if you need it.",
+		npcType = "shop",
+		shopType = "food",
+	},
+	["Brother Elden"] = {
+		greeting = "The Light protects Haven... for now. But the darkness grows bolder each day. Perhaps you can help stem the tide.",
+		npcType = "quest",
+	},
+	["Finnick the Fletcher"] = {
+		greeting = "Best bows in Haven! Well... only bows in Haven. But they're still pretty good!",
+		npcType = "shop",
+		shopType = "ranged",
+	},
+	["Scout Wren"] = {
+		greeting = "I watch the Wilderness from up here. It's getting worse. The undead are restless, and I've seen bandit patrols doubling.",
+		npcType = "quest",
+	},
+	["Grave Keeper Morath"] = {
+		greeting = "They won't stay buried... I've been keeper here for forty years, and I've never seen the dead so restless.",
+		npcType = "quest",
+	},
+	["Witch Thessaly"] = {
+		greeting = "You dare enter my forest? Hmm... you smell of Haven. Desperate, are we?",
+		npcType = "quest",
+	},
+	["Bandit King Rask"] = {
+		greeting = "Another hero? How boring. But wait... maybe we can make a deal instead.",
+		npcType = "quest",
+	},
+	["The Oracle"] = {
+		greeting = "I see beyond sight. You carry a heavy fate, adventurer. Three paths lie before you, and none are easy.",
+		npcType = "quest",
+	},
+	["Ghost of Sir Aldren"] = {
+		greeting = "I failed... the dragon consumed me, and my blade shattered. But you... you might succeed where I did not.",
+		npcType = "quest",
+	},
+	["Ferryman Charon"] = {
+		greeting = "100 coins to cross. No refunds. The waters are dark and deep, and what lies beyond... well, that's your problem.",
+		npcType = "quest",
+	},
+	["Dragon Priestess Lyra"] = {
+		greeting = "The dragon stirs beneath the mountain. Can you feel it? The ground trembles with each breath it takes.",
+		npcType = "quest",
+	},
+}
+
+--------------------------------------------------------------------------------
+-- UI CREATION
+--------------------------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "NPCDialogGui"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = playerGui
+
+-- Main dialog frame
+local dialogFrame = Instance.new("Frame")
+dialogFrame.Name = "DialogFrame"
+dialogFrame.Size = UDim2.new(0.5, 0, 0.3, 0)
+dialogFrame.Position = UDim2.new(0.25, 0, 0.65, 0)
+dialogFrame.BackgroundColor3 = Color3.fromRGB(26, 26, 46)
+dialogFrame.BorderSizePixel = 0
+dialogFrame.Visible = false
+dialogFrame.Parent = screenGui
+
+-- Gold border via UIStroke
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(255, 215, 0)
+stroke.Thickness = 2
+stroke.Parent = dialogFrame
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = dialogFrame
+
+-- NPC name label
+local npcNameLabel = Instance.new("TextLabel")
+npcNameLabel.Name = "NPCName"
+npcNameLabel.Size = UDim2.new(0.8, 0, 0.15, 0)
+npcNameLabel.Position = UDim2.new(0.1, 0, 0.02, 0)
+npcNameLabel.BackgroundTransparency = 1
+npcNameLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+npcNameLabel.TextScaled = true
+npcNameLabel.Font = Enum.Font.GothamBold
+npcNameLabel.Text = ""
+npcNameLabel.Parent = dialogFrame
+
+-- Dialog text
+local dialogText = Instance.new("TextLabel")
+dialogText.Name = "DialogText"
+dialogText.Size = UDim2.new(0.9, 0, 0.45, 0)
+dialogText.Position = UDim2.new(0.05, 0, 0.18, 0)
+dialogText.BackgroundTransparency = 1
+dialogText.TextColor3 = Color3.fromRGB(220, 220, 220)
+dialogText.TextScaled = false
+dialogText.TextSize = 16
+dialogText.TextWrapped = true
+dialogText.TextXAlignment = Enum.TextXAlignment.Left
+dialogText.TextYAlignment = Enum.TextYAlignment.Top
+dialogText.Font = Enum.Font.Gotham
+dialogText.Text = ""
+dialogText.Parent = dialogFrame
+
+-- Button container
+local buttonFrame = Instance.new("Frame")
+buttonFrame.Name = "Buttons"
+buttonFrame.Size = UDim2.new(0.9, 0, 0.25, 0)
+buttonFrame.Position = UDim2.new(0.05, 0, 0.7, 0)
+buttonFrame.BackgroundTransparency = 1
+buttonFrame.Parent = dialogFrame
+
+local buttonLayout = Instance.new("UIListLayout")
+buttonLayout.FillDirection = Enum.FillDirection.Horizontal
+buttonLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+buttonLayout.Padding = UDim.new(0, 10)
+buttonLayout.Parent = buttonFrame
+
+-- Close button (always present, top right)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Name = "CloseBtn"
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Text = "X"
+closeBtn.TextScaled = true
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Parent = dialogFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 4)
+closeCorner.Parent = closeBtn
+
+--------------------------------------------------------------------------------
+-- HELPERS
+--------------------------------------------------------------------------------
+local currentTypingThread = nil
+
+local function clearButtons()
+	for _, child in buttonFrame:GetChildren() do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+end
+
+local function makeButton(text, callback)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 120, 1, 0)
+	btn.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
+	btn.TextColor3 = Color3.fromRGB(255, 215, 0)
+	btn.Text = text
+	btn.TextScaled = true
+	btn.Font = Enum.Font.GothamBold
+	btn.Parent = buttonFrame
+
+	local btnCorner = Instance.new("UICorner")
+	btnCorner.CornerRadius = UDim.new(0, 4)
+	btnCorner.Parent = btn
+
+	local btnStroke = Instance.new("UIStroke")
+	btnStroke.Color = Color3.fromRGB(255, 215, 0)
+	btnStroke.Thickness = 1
+	btnStroke.Parent = btn
+
+	btn.MouseButton1Click:Connect(callback)
+	return btn
+end
+
+local function typeText(label, fullText, speed)
+	speed = speed or 0.03
+	if currentTypingThread then
+		task.cancel(currentTypingThread)
+	end
+	label.Text = ""
+	currentTypingThread = task.spawn(function()
+		for i = 1, #fullText do
+			label.Text = string.sub(fullText, 1, i)
+			task.wait(speed)
+		end
+		currentTypingThread = nil
+	end)
+end
+
+local function closeDialog()
+	dialogFrame.Visible = false
+	dialogText.Text = ""
+	npcNameLabel.Text = ""
+	clearButtons()
+	if currentTypingThread then
+		task.cancel(currentTypingThread)
+		currentTypingThread = nil
+	end
+end
+
+closeBtn.MouseButton1Click:Connect(closeDialog)
+
+--------------------------------------------------------------------------------
+-- SHOP UI (simple overlay)
+--------------------------------------------------------------------------------
+local SHOP_ITEMS = {
+	general = {
+		{name = "Bread", price = 10},
+		{name = "Rope", price = 25},
+		{name = "Torch", price = 15},
+		{name = "Bandage", price = 20},
+		{name = "Map Fragment", price = 50},
+		{name = "Bronze Pickaxe", price = 50},
+		{name = "Bronze Axe", price = 50},
+		{name = "Wooden Rod", price = 50},
+	},
+	tools = {
+		{name = "Bronze Pickaxe", price = 50},
+		{name = "Iron Pickaxe", price = 250},
+		{name = "Gold Pickaxe", price = 1000},
+		{name = "Runite Pickaxe", price = 5000},
+		{name = "Bronze Axe", price = 50},
+		{name = "Iron Axe", price = 250},
+		{name = "Gold Axe", price = 1000},
+		{name = "Runite Axe", price = 5000},
+		{name = "Wooden Rod", price = 50},
+		{name = "Iron Rod", price = 250},
+		{name = "Gold Rod", price = 1000},
+		{name = "Runite Rod", price = 5000},
+	},
+	weapons = {
+		{name = "Copper Sword", price = 100},
+		{name = "Iron Sword", price = 500},
+		{name = "Steel Sword", price = 2000},
+		{name = "Bronze Helmet", price = 75},
+		{name = "Iron Helmet", price = 400},
+		{name = "Iron Pickaxe", price = 250},
+		{name = "Iron Axe", price = 250},
+		{name = "Gold Pickaxe", price = 1000},
+		{name = "Gold Axe", price = 1000},
+		{name = "Runite Pickaxe", price = 5000},
+		{name = "Runite Axe", price = 5000},
+	},
+	food = {
+		{name = "Stew", price = 15},
+		{name = "Bread", price = 10},
+		{name = "Cooked Shrimp", price = 20},
+		{name = "Cooked Trout", price = 40},
+		{name = "Ale", price = 5},
+	},
+	ranged = {
+		{name = "Shortbow", price = 80},
+		{name = "Longbow", price = 300},
+		{name = "Bronze Arrows x20", price = 40},
+		{name = "Iron Arrows x20", price = 100},
+		{name = "Crossbow", price = 600},
+	},
+}
+
+local function openShop(shopType)
+	clearButtons()
+	local items = SHOP_ITEMS[shopType] or SHOP_ITEMS.general
+	dialogText.Text = ""
+
+	local text = "--- SHOP ---\n"
+	for _, item in items do
+		text = text .. item.name .. " - " .. item.price .. " gold\n"
+	end
+	text = text .. "\n(Shop purchases coming soon!)"
+	dialogText.Text = text
+
+	makeButton("Close", closeDialog)
+end
+
+--------------------------------------------------------------------------------
+-- NPC INTERACTION HANDLER
+--------------------------------------------------------------------------------
+NPCInteractEvent.OnClientEvent:Connect(function(npcName)
+	local data = NPC_DIALOGS[npcName]
+	if not data then
+		data = {greeting = "...", npcType = "none"}
+	end
+
+	dialogFrame.Visible = true
+	npcNameLabel.Text = npcName
+	clearButtons()
+
+	typeText(dialogText, data.greeting)
+
+	if data.npcType == "shop" then
+		makeButton("Shop", function()
+			openShop(data.shopType or "general")
+		end)
+		makeButton("Close", closeDialog)
+	elseif data.npcType == "quest" then
+		makeButton("Quests", function()
+			clearButtons()
+			dialogText.Text = "Quest system active! Check your quest log for available quests from " .. npcName .. "."
+			makeButton("Close", closeDialog)
+		end)
+		makeButton("Close", closeDialog)
+	else
+		makeButton("Close", closeDialog)
+	end
+end)
+
+print("[NPCDialogUI] Initialized")

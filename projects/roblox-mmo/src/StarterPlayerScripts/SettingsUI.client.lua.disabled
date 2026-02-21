@@ -1,0 +1,1092 @@
+-- SettingsUI.client.lua
+-- Client-side settings menu with error handling
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local SoundService = game:GetService("SoundService")
+
+local player = Players.LocalPlayer
+
+-- Wait for dependencies with timeouts
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+
+-- Load ErrorHandler
+local ErrorHandler
+local errorHandlerSuccess, errorHandlerResult = pcall(function()
+	return require(Modules:WaitForChild("ErrorHandler", 5))
+end)
+
+if errorHandlerSuccess then
+	ErrorHandler = errorHandlerResult
+else
+	-- Fallback ErrorHandler with self parameter
+	ErrorHandler = {
+		LogWarning = function(self, msg, data) warn("[SettingsUI] " .. tostring(msg)) end,
+		LogDebug = function(self, msg, data) print("[DEBUG] " .. tostring(msg)) end
+	}
+end
+
+-- RemoteEvents
+local SaveSettingsEvent = Remotes and Remotes:WaitForChild("SaveSettings", 5)
+local LoadSettingsEvent = Remotes and Remotes:WaitForChild("LoadSettings", 5)
+
+-- Default settings
+local DEFAULT_SETTINGS = {
+	audio = {
+		musicVolume = 0.5,
+		sfxVolume = 0.7,
+		masterVolume = 1.0,
+		uiSounds = true
+	},
+	graphics = {
+		renderDistance = "medium", -- low, medium, high
+		shadowQuality = "medium", -- off, low, medium, high
+		particleQuality = "medium", -- low, medium, high
+		waterQuality = "medium", -- low, medium, high
+		bloom = true,
+		ssao = false
+	},
+	gameplay = {
+		cameraSensitivity = 0.5,
+		invertYAxis = false,
+		autoLoot = true,
+		showDamageNumbers = true,
+		showPlayerNames = true,
+		chatEnabled = true
+	},
+	ui = {
+		uiScale = 1.0,
+		showHotbar = true,
+		showMinimap = true,
+		showHealthBars = true,
+		showQuestTracker = true,
+		chatOpacity = 0.8
+	},
+	keybinds = {
+		inventory = Enum.KeyCode.I,
+		skills = Enum.KeyCode.K,
+		quests = Enum.KeyCode.L,
+		map = Enum.KeyCode.M,
+		friends = Enum.KeyCode.F6,
+		settings = Enum.KeyCode.F10
+	}
+}
+
+-- Current settings
+local currentSettings = DEFAULT_SETTINGS
+local isUIOpen = false
+local hasUnsavedChanges = false
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SettingsUI"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Main frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 600, 0, 700)
+mainFrame.Position = UDim2.new(0.5, -300, 0.5, -350)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+mainFrame.BorderColor3 = Color3.fromRGB(60, 60, 70)
+mainFrame.BorderSizePixel = 2
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Name = "Title"
+title.Size = UDim2.new(1, 0, 0, 60)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+title.BorderColor3 = Color3.fromRGB(80, 80, 90)
+title.Text = "SETTINGS"
+title.TextColor3 = Color3.fromRGB(218, 165, 32) -- Gold color
+title.Font = Enum.Font.GothamBold
+title.TextSize = 28
+title.Parent = mainFrame
+
+-- Close button
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 50, 0, 50)
+closeButton.Position = UDim2.new(1, -55, 0, 5)
+closeButton.BackgroundColor3 = Color3.fromRGB(60, 30, 30)
+closeButton.BorderColor3 = Color3.fromRGB(100, 50, 50)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 24
+closeButton.Parent = mainFrame
+
+closeButton.MouseButton1Click:Connect(function()
+	if hasUnsavedChanges then
+		showUnsavedChangesPrompt()
+	else
+		toggleUI(false)
+	end
+end)
+
+-- Tab buttons
+local tabsFrame = Instance.new("Frame")
+tabsFrame.Name = "TabsFrame"
+tabsFrame.Size = UDim2.new(1, 0, 0, 50)
+tabsFrame.Position = UDim2.new(0, 0, 0, 60)
+tabsFrame.BackgroundTransparency = 1
+tabsFrame.Parent = mainFrame
+
+-- Tab buttons list
+local tabs = {
+	{name = "Audio", id = "audio"},
+	{name = "Graphics", id = "graphics"},
+	{name = "Gameplay", id = "gameplay"},
+	{name = "UI", id = "ui"},
+	{name = "Keybinds", id = "keybinds"}
+}
+
+local tabButtons = {}
+local currentTab = "audio"
+
+-- Create tab buttons
+for i, tab in ipairs(tabs) do
+	local tabButton = Instance.new("TextButton")
+	tabButton.Name = tab.name .. "Tab"
+	tabButton.Size = UDim2.new(1 / #tabs, 0, 1, 0)
+	tabButton.Position = UDim2.new((i - 1) / #tabs, 0, 0, 0)
+	tabButton.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+	tabButton.BorderColor3 = Color3.fromRGB(80, 80, 90)
+	tabButton.Text = tab.name:upper()
+	tabButton.TextColor3 = Color3.fromRGB(200, 200, 220)
+	tabButton.Font = Enum.Font.GothamBold
+	tabButton.TextSize = 16
+	tabButton.Parent = tabsFrame
+	
+	tabButtons[tab.id] = tabButton
+	
+	-- Click handler
+	tabButton.MouseButton1Click:Connect(function()
+		switchTab(tab.id)
+	end)
+end
+
+-- Content area
+local contentFrame = Instance.new("ScrollingFrame")
+contentFrame.Name = "ContentFrame"
+contentFrame.Size = UDim2.new(1, 0, 1, -180)
+contentFrame.Position = UDim2.new(0, 0, 0, 110)
+contentFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+contentFrame.BorderColor3 = Color3.fromRGB(50, 50, 60)
+contentFrame.ScrollBarThickness = 8
+contentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+contentFrame.Parent = mainFrame
+
+-- Bottom buttons
+local bottomFrame = Instance.new("Frame")
+bottomFrame.Name = "BottomFrame"
+bottomFrame.Size = UDim2.new(1, 0, 0, 70)
+bottomFrame.Position = UDim2.new(0, 0, 1, -70)
+bottomFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+bottomFrame.BorderColor3 = Color3.fromRGB(60, 60, 70)
+bottomFrame.Parent = mainFrame
+
+-- Save button
+local saveButton = Instance.new("TextButton")
+saveButton.Name = "SaveButton"
+saveButton.Size = UDim2.new(0.3, -10, 0, 50)
+saveButton.Position = UDim2.new(0.35, 0, 0.5, -25)
+saveButton.BackgroundColor3 = Color3.fromRGB(40, 80, 40)
+saveButton.BorderColor3 = Color3.fromRGB(80, 120, 80)
+saveButton.Text = "SAVE"
+saveButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+saveButton.Font = Enum.Font.GothamBold
+saveButton.TextSize = 20
+saveButton.Parent = bottomFrame
+
+-- Reset button
+local resetButton = Instance.new("TextButton")
+resetButton.Name = "ResetButton"
+resetButton.Size = UDim2.new(0.3, -10, 0, 50)
+resetButton.Position = UDim2.new(0.025, 0, 0.5, -25)
+resetButton.BackgroundColor3 = Color3.fromRGB(80, 40, 20)
+resetButton.BorderColor3 = Color3.fromRGB(120, 60, 30)
+resetButton.Text = "RESET"
+resetButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+resetButton.Font = Enum.Font.GothamBold
+resetButton.TextSize = 20
+resetButton.Parent = bottomFrame
+
+-- Cancel button
+local cancelButton = Instance.new("TextButton")
+cancelButton.Name = "CancelButton"
+cancelButton.Size = UDim2.new(0.3, -10, 0, 50)
+cancelButton.Position = UDim2.new(0.675, 0, 0.5, -25)
+cancelButton.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+cancelButton.BorderColor3 = Color3.fromRGB(120, 50, 50)
+cancelButton.Text = "CANCEL"
+cancelButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+cancelButton.Font = Enum.Font.GothamBold
+cancelButton.TextSize = 20
+cancelButton.Parent = bottomFrame
+
+-- Unsaved changes indicator
+local unsavedIndicator = Instance.new("TextLabel")
+unsavedIndicator.Name = "UnsavedIndicator"
+unsavedIndicator.Size = UDim2.new(1, 0, 0, 30)
+unsavedIndicator.Position = UDim2.new(0, 0, 0, -35)
+unsavedIndicator.BackgroundTransparency = 1
+unsavedIndicator.Text = "⚠️ UNSAVED CHANGES"
+unsavedIndicator.TextColor3 = Color3.fromRGB(255, 200, 100)
+unsavedIndicator.Font = Enum.Font.GothamBold
+unsavedIndicator.TextSize = 16
+unsavedIndicator.Visible = false
+unsavedIndicator.Parent = bottomFrame
+
+-- Helper: Get setting value from path
+local function getSettingValue(path)
+	local parts = string.split(path, ".")
+	local value = currentSettings
+	
+	for _, part in ipairs(parts) do
+		if value[part] then
+			value = value[part]
+		else
+			return nil
+		end
+	end
+	
+	return value
+end
+
+-- Helper: Set setting value at path
+local function setSettingValue(path, newValue)
+	local parts = string.split(path, ".")
+	local container = currentSettings
+	
+	-- Navigate to the container
+	for i = 1, #parts - 1 do
+		if not container[parts[i]] then
+			container[parts[i]] = {}
+		end
+		container = container[parts[i]]
+	end
+	
+	-- Set the value
+	container[parts[#parts]] = newValue
+	hasUnsavedChanges = true
+	updateUnsavedIndicator()
+end
+
+-- Helper: Update unsaved changes indicator
+local function updateUnsavedIndicator()
+	unsavedIndicator.Visible = hasUnsavedChanges
+end
+
+-- Helper: Show unsaved changes prompt
+local function showUnsavedChangesPrompt()
+	-- In a real implementation, this would show a confirmation dialog
+	-- For now, just close without saving
+	toggleUI(false)
+end
+
+-- Helper: Toggle UI visibility
+local function toggleUI(visible)
+	isUIOpen = visible
+	mainFrame.Visible = visible
+	
+	if visible then
+		-- Load settings
+		loadSettings()
+		
+		-- Set default tab
+		switchTab("audio")
+		
+		-- Update unsaved changes indicator
+		updateUnsavedIndicator()
+	else
+		-- Reset unsaved changes flag
+		hasUnsavedChanges = false
+	end
+end
+
+-- Helper: Switch between tabs
+local function switchTab(tabId)
+	-- Update tab button colors
+	for id, button in pairs(tabButtons) do
+		if id == tabId then
+			button.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+			button.TextColor3 = Color3.fromRGB(255, 255, 255)
+		else
+			button.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+			button.TextColor3 = Color3.fromRGB(200, 200, 220)
+		end
+	end
+	
+	currentTab = tabId
+	
+	-- Clear content
+	for _, child in pairs(contentFrame:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	
+	-- Load tab content
+	if tabId == "audio" then
+		loadAudioSettings()
+	elseif tabId == "graphics" then
+		loadGraphicsSettings()
+	elseif tabId == "gameplay" then
+		loadGameplaySettings()
+	elseif tabId == "ui" then
+		loadUISettings()
+	elseif tabId == "keybinds" then
+		loadKeybindSettings()
+	end
+	
+	-- Reset canvas size
+	contentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+end
+
+-- Helper: Create setting control
+local function createSettingControl(settingType, label, settingPath, yOffset, options)
+	local controlFrame = Instance.new("Frame")
+	controlFrame.Name = label .. "Control"
+	controlFrame.Size = UDim2.new(1, -20, 0, 60)
+	controlFrame.Position = UDim2.new(0, 10, 0, yOffset)
+	controlFrame.BackgroundTransparency = 1
+	controlFrame.Parent = contentFrame
+	
+	-- Label
+	local labelText = Instance.new("TextLabel")
+	labelText.Name = "Label"
+	labelText.Size = UDim2.new(0.5, 0, 0, 30)
+	labelText.Position = UDim2.new(0, 0, 0, 0)
+	labelText.BackgroundTransparency = 1
+	labelText.Text = label
+	labelText.TextColor3 = Color3.fromRGB(220, 220, 220)
+	labelText.Font = Enum.Font.Gotham
+	labelText.TextSize = 18
+	labelText.TextXAlignment = Enum.TextXAlignment.Left
+	labelText.Parent = controlFrame
+	
+	-- Value display
+	local valueText = Instance.new("TextLabel")
+	valueText.Name = "Value"
+	valueText.Size = UDim2.new(0.5, 0, 0, 30)
+	valueText.Position = UDim2.new(0.5, 0, 0, 0)
+	valueText.BackgroundTransparency = 1
+	valueText.Text = ""
+	valueText.TextColor3 = Color3.fromRGB(180, 200, 220)
+	valueText.Font = Enum.Font.Gotham
+	valueText.TextSize = 16
+	valueText.TextXAlignment = Enum.TextXAlignment.Right
+	valueText.Parent = controlFrame
+	
+	-- Control based on type
+	if settingType == "slider" then
+		-- Slider background
+		local sliderBg = Instance.new("Frame")
+		sliderBg.Name = "SliderBg"
+		sliderBg.Size = UDim2.new(1, 0, 0, 20)
+		sliderBg.Position = UDim2.new(0, 0, 0, 35)
+		sliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+		sliderBg.BorderColor3 = Color3.fromRGB(80, 80, 90)
+		sliderBg.Parent = controlFrame
+		
+		-- Slider fill
+		local sliderFill = Instance.new("Frame")
+		sliderFill.Name = "SliderFill"
+		sliderFill.Size = UDim2.new(0.5, 0, 1, 0)
+		sliderFill.Position = UDim2.new(0, 0, 0, 0)
+		sliderFill.BackgroundColor3 = Color3.fromRGB(80, 160, 80)
+		sliderFill.BorderSizePixel = 0
+		sliderFill.Parent = sliderBg
+		
+		-- Slider button
+		local sliderButton = Instance.new("TextButton")
+		sliderButton.Name = "SliderButton"
+		sliderButton.Size = UDim2.new(0, 30, 0, 30)
+		sliderButton.Position = UDim2.new(0.5, -15, 0.5, -15)
+		sliderButton.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+		sliderButton.BorderColor3 = Color3.fromRGB(140, 240, 140)
+		sliderButton.Text = ""
+		sliderButton.ZIndex = 2
+		sliderButton.Parent = sliderBg
+		
+		-- Get current value
+		local currentValue = getSettingValue(settingPath)
+		local minValue = options and options.min or 0
+		local maxValue = options and options.max or 1
+		local step = options and options.step or 0.01
+		
+		-- Update display
+		local function updateSlider(value)
+			local normalized = (value - minValue) / (maxValue - minValue)
+			sliderFill.Size = UDim2.new(normalized, 0, 1, 0)
+			sliderButton.Position = UDim2.new(normalized, -15, 0.5, -15)
+			
+			-- Format value for display
+			local displayValue
+			if options and options.percent then
+				displayValue = tostring(math.floor(value * 100)) .. "%"
+			elseif options and options.decimal then
+				displayValue = string.format("%.2f", value)
+			else
+				displayValue = tostring(math.floor(value))
+			end
+			
+			valueText.Text = displayValue
+		end
+		
+		-- Initialize
+		updateSlider(currentValue)
+		
+		-- Slider interaction
+		local isDragging = false
+		
+		local function updateValueFromMouse()
+			if not isDragging then return end
+			
+			local mousePos = UserInputService:GetMouseLocation()
+			local sliderAbsPos = sliderBg.AbsolutePosition
+			local sliderAbsSize = sliderBg.AbsoluteSize
+			
+			local relativeX = (mousePos.X - sliderAbsPos.X) / sliderAbsSize.X
+			relativeX = math.clamp(relativeX, 0, 1)
+			
+			local newValue = minValue + (relativeX * (maxValue - minValue))
+			
+			-- Apply step
+			if step > 0 then
+				newValue = math.floor(newValue / step + 0.5) * step
+			end
+			
+			newValue = math.clamp(newValue, minValue, maxValue)
+			
+			setSettingValue(settingPath, newValue)
+			updateSlider(newValue)
+		end
+		
+		sliderButton.MouseButton1Down:Connect(function()
+			isDragging = true
+		end)
+		
+		UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				isDragging = false
+			end
+		end)
+		
+		RunService.RenderStepped:Connect(updateValueFromMouse)
+		
+	elseif settingType == "toggle" then
+		-- Toggle button
+		local toggleButton = Instance.new("TextButton")
+		toggleButton.Name = "ToggleButton"
+		toggleButton.Size = UDim2.new(0, 60, 0, 30)
+		toggleButton.Position = UDim2.new(1, -70, 0, 35)
+		toggleButton.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+		toggleButton.BorderColor3 = Color3.fromRGB(120, 50, 50)
+		toggleButton.Text = "OFF"
+		toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		toggleButton.Font = Enum.Font.GothamBold
+		toggleButton.TextSize = 14
+		toggleButton.Parent = controlFrame
+		
+		-- Get current value
+		local currentValue = getSettingValue(settingPath)
+		
+		-- Update display
+		local function updateToggle(value)
+			if value then
+				toggleButton.BackgroundColor3 = Color3.fromRGB(30, 80, 30)
+				toggleButton.BorderColor3 = Color3.fromRGB(50, 120, 50)
+				toggleButton.Text = "ON"
+				valueText.Text = "Enabled"
+			else
+				toggleButton.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+				toggleButton.BorderColor3 = Color3.fromRGB(120, 50, 50)
+				toggleButton.Text = "OFF"
+				valueText.Text = "Disabled"
+			end
+		end
+		
+		-- Initialize
+		updateToggle(currentValue)
+		
+		-- Toggle interaction
+		toggleButton.MouseButton1Click:Connect(function()
+			local newValue = not getSettingValue(settingPath)
+			setSettingValue(settingPath, newValue)
+			updateToggle(newValue)
+		end)
+		
+	elseif settingType == "dropdown" then
+		-- Dropdown button
+		local dropdownButton = Instance.new("TextButton")
+		dropdownButton.Name = "DropdownButton"
+		dropdownButton.Size = UDim2.new(0.5, 0, 0, 30)
+		dropdownButton.Position = UDim2.new(0.5, 0, 0, 35)
+		dropdownButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+		dropdownButton.BorderColor3 = Color3.fromRGB(100, 100, 110)
+		dropdownButton.Text = ""
+		dropdownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		dropdownButton.Font = Enum.Font.Gotham
+		dropdownButton.TextSize = 14
+		dropdownButton.Parent = controlFrame
+		
+		-- Get current value
+		local currentValue = getSettingValue(settingPath)
+		local optionsList = options and options.options or {}
+		
+		-- Update display
+		local function updateDropdown(value)
+			dropdownButton.Text = tostring(value)
+			valueText.Text = tostring(value)
+		end
+		
+		-- Initialize
+		updateDropdown(currentValue)
+		
+		-- Dropdown interaction
+		local isDropdownOpen = false
+		local dropdownOptionsFrame
+		
+		local function closeDropdown()
+			if dropdownOptionsFrame then
+				dropdownOptionsFrame:Destroy()
+				dropdownOptionsFrame = nil
+			end
+			isDropdownOpen = false
+		end
+		
+		local function openDropdown()
+			if isDropdownOpen then
+				closeDropdown()
+				return
+			end
+			
+			isDropdownOpen = true
+			
+			dropdownOptionsFrame = Instance.new("Frame")
+			dropdownOptionsFrame.Name = "DropdownOptions"
+			dropdownOptionsFrame.Size = UDim2.new(0.5, 0, 0, #optionsList * 30)
+			dropdownOptionsFrame.Position = UDim2.new(0.5, 0, 0, 65)
+			dropdownOptionsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+			dropdownOptionsFrame.BorderColor3 = Color3.fromRGB(80, 80, 90)
+			dropdownOptionsFrame.ZIndex = 10
+			dropdownOptionsFrame.Parent = controlFrame
+			
+			for i, option in ipairs(optionsList) do
+				local optionButton = Instance.new("TextButton")
+				optionButton.Name = "Option" .. option
+				optionButton.Size = UDim2.new(1, 0, 0, 30)
+				optionButton.Position = UDim2.new(0, 0, 0, (i-1)*30)
+				optionButton.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+				optionButton.BorderColor3 = Color3.fromRGB(80, 80, 90)
+				optionButton.Text = tostring(option)
+				optionButton.TextColor3 = Color3.fromRGB(220, 220, 220)
+				optionButton.Font = Enum.Font.Gotham
+				optionButton.TextSize = 14
+				optionButton.ZIndex = 11
+				optionButton.Parent = dropdownOptionsFrame
+				
+				optionButton.MouseButton1Click:Connect(function()
+					setSettingValue(settingPath, option)
+					updateDropdown(option)
+					closeDropdown()
+				end)
+			end
+		end
+		
+		dropdownButton.MouseButton1Click:Connect(openDropdown)
+		
+		-- Close dropdown when clicking elsewhere
+		UserInputService.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				if dropdownOptionsFrame then
+					local mousePos = UserInputService:GetMouseLocation()
+					local framePos = dropdownOptionsFrame.AbsolutePosition
+					local frameSize = dropdownOptionsFrame.AbsoluteSize
+					
+					if not (mousePos.X >= framePos.X and mousePos.X <= framePos.X + frameSize.X and
+						mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + frameSize.Y) then
+						closeDropdown()
+					end
+				end
+			end
+		end)
+	end
+	
+	return controlFrame
+end
+
+-- Helper: Load audio settings
+local function loadAudioSettings()
+	local yOffset = 10
+	
+	-- Master Volume
+	createSettingControl("slider", "Master Volume", "audio.masterVolume", yOffset, {
+		min = 0, max = 1, step = 0.01, percent = true
+	})
+	yOffset = yOffset + 70
+	
+	-- Music Volume
+	createSettingControl("slider", "Music Volume", "audio.musicVolume", yOffset, {
+		min = 0, max = 1, step = 0.01, percent = true
+	})
+	yOffset = yOffset + 70
+	
+	-- SFX Volume
+	createSettingControl("slider", "SFX Volume", "audio.sfxVolume", yOffset, {
+		min = 0, max = 1, step = 0.01, percent = true
+	})
+	yOffset = yOffset + 70
+	
+	-- UI Sounds
+	createSettingControl("toggle", "UI Sounds", "audio.uiSounds", yOffset)
+	yOffset = yOffset + 70
+	
+	-- Update canvas size
+	contentFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+end
+
+-- Helper: Load graphics settings
+local function loadGraphicsSettings()
+	local yOffset = 10
+	
+	-- Render Distance
+	createSettingControl("dropdown", "Render Distance", "graphics.renderDistance", yOffset, {
+		options = {"low", "medium", "high"}
+	})
+	yOffset = yOffset + 70
+	
+	-- Shadow Quality
+	createSettingControl("dropdown", "Shadow Quality", "graphics.shadowQuality", yOffset, {
+		options = {"off", "low", "medium", "high"}
+	})
+	yOffset = yOffset + 70
+	
+	-- Particle Quality
+	createSettingControl("dropdown", "Particle Quality", "graphics.particleQuality", yOffset, {
+		options = {"low", "medium", "high"}
+	})
+	yOffset = yOffset + 70
+	
+	-- Water Quality
+	createSettingControl("dropdown", "Water Quality", "graphics.waterQuality", yOffset, {
+		options = {"low", "medium", "high"}
+	})
+	yOffset = yOffset + 70
+	
+	-- Bloom
+	createSettingControl("toggle", "Bloom Effect", "graphics.bloom", yOffset)
+	yOffset = yOffset + 70
+	
+	-- SSAO
+	createSettingControl("toggle", "SSAO", "graphics.ssao", yOffset)
+	yOffset = yOffset + 70
+	
+	-- Update canvas size
+	contentFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+end
+
+-- Helper: Load gameplay settings
+local function loadGameplaySettings()
+	local yOffset = 10
+	
+	-- Camera Sensitivity
+	createSettingControl("slider", "Camera Sensitivity", "gameplay.cameraSensitivity", yOffset, {
+		min = 0.1, max = 2.0, step = 0.05, decimal = true
+	})
+	yOffset = yOffset + 70
+	
+	-- Invert Y Axis
+	createSettingControl("toggle", "Invert Y Axis", "gameplay.invertYAxis", yOffset)
+	yOffset = yOffset + 70
+	
+	-- Auto Loot
+	createSettingControl("toggle", "Auto Loot", "gameplay.autoLoot", yOffset)
+	yOffset = yOffset + 70
+	
+	-- Show Damage Numbers
+	createSettingControl("toggle", "Damage Numbers", "gameplay.showDamageNumbers", yOffset)
+	yOffset = yOffset + 70
+	
+	-- Show Player Names
+	createSettingControl("toggle", "Player Names", "gameplay.showPlayerNames", yOffset)
+	yOffset = yOffset + 70
+	
+	-- Chat Enabled
+	createSettingControl("toggle", "Chat", "gameplay.chatEnabled", yOffset)
+	yOffset = yOffset + 70
+	
+	-- Update canvas size
+	contentFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+end
+
+-- Helper: Load UI settings
+local function loadUISettings()
+	local yOffset = 10
+	
+	-- UI Scale
+	createSettingControl("slider", "UI Scale", "ui.uiScale", yOffset, {
+		min = 0.5, max = 2.0, step = 0.1, decimal = true
+	})
+	yOffset = yOffset + 70
+	
+	-- Show Hotbar
+	createSettingControl("toggle", "Show Hotbar", "ui.showHotbar", yOffset)
+	yOffset = yOffset + 70
+	
+	-- Show Minimap
+	createSettingControl("toggle", "Show Minimap", "ui.showMinimap", yOffset)
+	yOffset = yOffset + 70
+	
+	-- Show Health Bars
+	createSettingControl("toggle", "Health Bars", "ui.showHealthBars", yOffset)
+	yOffset = yOffset + 70
+	
+	-- Show Quest Tracker
+	createSettingControl("toggle", "Quest Tracker", "ui.showQuestTracker", yOffset)
+	yOffset = yOffset + 70
+	
+	-- Chat Opacity
+	createSettingControl("slider", "Chat Opacity", "ui.chatOpacity", yOffset, {
+		min = 0.1, max = 1.0, step = 0.05, decimal = true
+	})
+	yOffset = yOffset + 70
+	
+	-- Update canvas size
+	contentFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+end
+
+-- Helper: Load keybind settings
+local function loadKeybindSettings()
+	local yOffset = 10
+	
+	-- Create keybind controls
+	local keybinds = {
+		{label = "Inventory", path = "keybinds.inventory"},
+		{label = "Skills", path = "keybinds.skills"},
+		{label = "Quests", path = "keybinds.quests"},
+		{label = "Map", path = "keybinds.map"},
+		{label = "Friends", path = "keybinds.friends"},
+		{label = "Settings", path = "keybinds.settings"}
+	}
+	
+	for _, keybind in ipairs(keybinds) do
+		local controlFrame = Instance.new("Frame")
+		controlFrame.Name = keybind.label .. "Keybind"
+		controlFrame.Size = UDim2.new(1, -20, 0, 60)
+		controlFrame.Position = UDim2.new(0, 10, 0, yOffset)
+		controlFrame.BackgroundTransparency = 1
+		controlFrame.Parent = contentFrame
+		
+		-- Label
+		local labelText = Instance.new("TextLabel")
+		labelText.Name = "Label"
+		labelText.Size = UDim2.new(0.5, 0, 0, 30)
+		labelText.Position = UDim2.new(0, 0, 0, 0)
+		labelText.BackgroundTransparency = 1
+		labelText.Text = keybind.label
+		labelText.TextColor3 = Color3.fromRGB(220, 220, 220)
+		labelText.Font = Enum.Font.Gotham
+		labelText.TextSize = 18
+		labelText.TextXAlignment = Enum.TextXAlignment.Left
+		labelText.Parent = controlFrame
+		
+		-- Keybind button
+		local keybindButton = Instance.new("TextButton")
+		keybindButton.Name = "KeybindButton"
+		keybindButton.Size = UDim2.new(0.5, 0, 0, 30)
+		keybindButton.Position = UDim2.new(0.5, 0, 0, 35)
+		keybindButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+		keybindButton.BorderColor3 = Color3.fromRGB(100, 100, 110)
+		keybindButton.Text = ""
+		keybindButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		keybindButton.Font = Enum.Font.GothamBold
+		keybindButton.TextSize = 14
+		keybindButton.Parent = controlFrame
+		
+		-- Get current keybind
+		local currentKeybind = getSettingValue(keybind.path)
+		
+		-- Update display
+		local function updateKeybind(keyCode)
+			if keyCode then
+				keybindButton.Text = tostring(keyCode.Name)
+			else
+				keybindButton.Text = "None"
+			end
+		end
+		
+		-- Initialize
+		updateKeybind(currentKeybind)
+		
+		-- Keybind recording
+		local isRecording = false
+		
+		local function startRecording()
+			isRecording = true
+			keybindButton.BackgroundColor3 = Color3.fromRGB(80, 40, 20)
+			keybindButton.BorderColor3 = Color3.fromRGB(120, 60, 30)
+			keybindButton.Text = "Press a key..."
+		end
+		
+		local function stopRecording()
+			isRecording = false
+			keybindButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+			keybindButton.BorderColor3 = Color3.fromRGB(100, 100, 110)
+		end
+		
+		keybindButton.MouseButton1Click:Connect(function()
+			if not isRecording then
+				startRecording()
+			else
+				stopRecording()
+				updateKeybind(currentKeybind)
+			end
+		end)
+		
+		-- Key input handler
+		local function handleKeyInput(input)
+			if not isRecording then return end
+			
+			if input.UserInputType == Enum.UserInputType.Keyboard then
+				-- Check for escape to cancel
+				if input.KeyCode == Enum.KeyCode.Escape then
+					stopRecording()
+					updateKeybind(currentKeybind)
+					return
+				end
+				
+				-- Set new keybind
+				setSettingValue(keybind.path, input.KeyCode)
+				currentKeybind = input.KeyCode
+				stopRecording()
+				updateKeybind(currentKeybind)
+			end
+		end
+		
+		UserInputService.InputBegan:Connect(handleKeyInput)
+		
+		yOffset = yOffset + 70
+	end
+	
+	-- Update canvas size
+	contentFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+end
+
+-- Helper: Load settings from server
+local function loadSettings()
+	if LoadSettingsEvent then
+		local success, result = pcall(function()
+			return LoadSettingsEvent:InvokeServer()
+		end)
+		
+		if success and result then
+			currentSettings = result
+			hasUnsavedChanges = false
+			updateUnsavedIndicator()
+			ErrorHandler:LogDebug(ErrorHandler, "Settings loaded from server")
+		else
+			ErrorHandler:LogWarning(ErrorHandler, "Failed to load settings from server", {
+				error = result
+			})
+			currentSettings = DEFAULT_SETTINGS
+		end
+	else
+		ErrorHandler:LogWarning(ErrorHandler, "LoadSettings remote not available")
+		currentSettings = DEFAULT_SETTINGS
+	end
+end
+
+-- Helper: Save settings to server
+local function saveSettings()
+	if SaveSettingsEvent then
+		local success, result = pcall(function()
+			SaveSettingsEvent:FireServer(currentSettings)
+			return true
+		end)
+		
+		if success then
+			hasUnsavedChanges = false
+			updateUnsavedIndicator()
+			
+			-- Apply settings locally
+			applySettings()
+			
+			ErrorHandler:LogDebug(ErrorHandler, "Settings saved to server")
+			return true
+		else
+			ErrorHandler:LogWarning(ErrorHandler, "Failed to save settings to server", {
+				error = result
+			})
+			return false
+		end
+	else
+		ErrorHandler:LogWarning(ErrorHandler, "SaveSettings remote not available")
+		return false
+	end
+end
+
+-- Helper: Apply settings locally
+local function applySettings()
+	-- Apply audio settings
+	if SoundService then
+		SoundService.MasterVolume = currentSettings.audio.masterVolume
+		
+		-- Apply to specific sound groups if they exist
+		local musicGroup = SoundService:FindFirstChild("Music")
+		local sfxGroup = SoundService:FindFirstChild("SFX")
+		local uiGroup = SoundService:FindFirstChild("UI")
+		
+		if musicGroup and musicGroup:IsA("SoundGroup") then
+			musicGroup.Volume = currentSettings.audio.musicVolume
+		end
+		
+		if sfxGroup and sfxGroup:IsA("SoundGroup") then
+			sfxGroup.Volume = currentSettings.audio.sfxVolume
+		end
+		
+		if uiGroup and uiGroup:IsA("SoundGroup") then
+			uiGroup.Volume = currentSettings.audio.uiSounds and 1.0 or 0.0
+		end
+	end
+	
+	-- Apply graphics settings
+	if Lighting then
+		-- Render distance (affects fog)
+		if currentSettings.graphics.renderDistance == "low" then
+			Lighting.FogEnd = 500
+		elseif currentSettings.graphics.renderDistance == "medium" then
+			Lighting.FogEnd = 1000
+		elseif currentSettings.graphics.renderDistance == "high" then
+			Lighting.FogEnd = 2000
+		end
+		
+		-- Shadow quality
+		if currentSettings.graphics.shadowQuality == "off" then
+			Lighting.GlobalShadows = false
+		else
+			Lighting.GlobalShadows = true
+			if currentSettings.graphics.shadowQuality == "low" then
+				Lighting.ShadowSoftness = 0.1
+			elseif currentSettings.graphics.shadowQuality == "medium" then
+				Lighting.ShadowSoftness = 0.3
+			elseif currentSettings.graphics.shadowQuality == "high" then
+				Lighting.ShadowSoftness = 0.5
+			end
+		end
+		
+		-- Bloom
+		local bloom = Lighting:FindFirstChild("Bloom")
+		if bloom and bloom:IsA("BloomEffect") then
+			bloom.Enabled = currentSettings.graphics.bloom
+		end
+		
+		-- SSAO
+		local ssao = Lighting:FindFirstChild("SSAO")
+		if ssao and ssao:IsA("SSAOEffect") then
+			ssao.Enabled = currentSettings.graphics.ssao
+		end
+	end
+	
+	-- Apply UI settings
+	-- This would require communication with other UI components
+	-- For now, just log the settings
+	ErrorHandler:LogDebug(ErrorHandler, "UI settings applied", {
+		uiScale = currentSettings.ui.uiScale,
+		showHotbar = currentSettings.ui.showHotbar,
+		showMinimap = currentSettings.ui.showMinimap
+	})
+	
+	-- Apply gameplay settings
+	-- This would require communication with other systems
+	ErrorHandler:LogDebug(ErrorHandler, "Gameplay settings applied", {
+		cameraSensitivity = currentSettings.gameplay.cameraSensitivity,
+		invertYAxis = currentSettings.gameplay.invertYAxis
+	})
+end
+
+-- Helper: Reset settings to defaults
+local function resetSettings()
+	currentSettings = DEFAULT_SETTINGS
+	hasUnsavedChanges = true
+	updateUnsavedIndicator()
+	
+	-- Refresh current tab
+	switchTab(currentTab)
+	
+	ErrorHandler:LogDebug(ErrorHandler, "Settings reset to defaults")
+end
+
+-- Button click handlers
+saveButton.MouseButton1Click:Connect(function()
+	local success = saveSettings()
+	
+	if success then
+		-- Show success message
+		local successLabel = Instance.new("TextLabel")
+		successLabel.Name = "SaveSuccess"
+		successLabel.Size = UDim2.new(0.5, 0, 0, 40)
+		successLabel.Position = UDim2.new(0.25, 0, 0.5, -20)
+		successLabel.BackgroundColor3 = Color3.fromRGB(40, 80, 40)
+		successLabel.BorderColor3 = Color3.fromRGB(80, 120, 80)
+		successLabel.Text = "Settings Saved!"
+		successLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		successLabel.Font = Enum.Font.GothamBold
+		successLabel.TextSize = 16
+		successLabel.Parent = bottomFrame
+		
+		task.wait(1.5)
+		successLabel:Destroy()
+	end
+end)
+
+resetButton.MouseButton1Click:Connect(function()
+	resetSettings()
+end)
+
+cancelButton.MouseButton1Click:Connect(function()
+	if hasUnsavedChanges then
+		showUnsavedChangesPrompt()
+	else
+		toggleUI(false)
+	end
+end)
+
+-- Keybind to open/close settings
+UserInputService.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Keyboard then
+		if input.KeyCode == currentSettings.keybinds.settings then
+			toggleUI(not isUIOpen)
+		end
+	end
+end)
+
+-- Initialize
+task.wait(1) -- Wait for everything to load
+
+-- Load initial settings
+loadSettings()
+
+-- Apply initial settings
+applySettings()
+
+ErrorHandler:LogDebug(ErrorHandler, "SettingsUI loaded successfully", {
+	defaultKeybind = currentSettings.keybinds.settings.Name
+})
+
+-- Return the toggle function for other scripts to use
+return {
+	Toggle = function() toggleUI(not isUIOpen) end,
+	IsOpen = function() return isUIOpen end,
+	GetSettings = function() return currentSettings end,
+	ApplySettings = applySettings
+}

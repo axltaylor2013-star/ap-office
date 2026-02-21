@@ -1,0 +1,20 @@
+# Message Rotation Tracker for Destiny
+# Updates automatically with each sent message
+
+## Current Status
+Last Morning Message Sent: #2
+Last Goodnight Message Sent: #1
+Date: 2026-02-21
+Time: 8:05 AM EST
+
+## Next Messages
+Next Morning Message: #3 (scheduled for 8:00 AM, 2026-02-22)
+Next Goodnight Message: #2 (scheduled for 8:00 PM, 2026-02-21)
+
+## Rotation Pattern
+Morning Messages: 1-14, then repeat
+Goodnight Messages: 1-14, then repeat
+
+## Message History
+- 2026-02-20 8:00 PM: Goodnight #1 sent successfully via Forge
+- 2026-02-21 8:05 AM: Morning #2 assigned to Forge (timed out - agent busy)

@@ -1,0 +1,404 @@
+-- PartyUI.client.lua
+-- Client-side party interface
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+-- Wait for dependencies with timeouts
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+
+-- Load ErrorHandler
+local ErrorHandler
+local errorHandlerSuccess, errorHandlerResult = pcall(function()
+	return require(Modules:WaitForChild("ErrorHandler", 5))
+end)
+
+if errorHandlerSuccess then
+	ErrorHandler = errorHandlerResult
+else
+	-- Fallback ErrorHandler
+	ErrorHandler = {
+		LogWarning = function(self, msg) warn(tostring(msg)) end,
+		LogDebug = function(self, msg) warn(tostring(msg)) end
+	}
+end
+
+-- RemoteEvents
+local PartyInviteEvent = Remotes and Remotes:WaitForChild("PartyInvite", 5)
+local PartyAcceptEvent = Remotes and Remotes:WaitForChild("PartyAccept", 5)
+local PartyLeaveEvent = Remotes and Remotes:WaitForChild("PartyLeave", 5)
+local PartyKickEvent = Remotes and Remotes:WaitForChild("PartyKick", 5)
+local PartyUpdateEvent = Remotes and Remotes:WaitForChild("PartyUpdate", 5)
+local PartyChatEvent = Remotes and Remotes:WaitForChild("PartyChat", 5)
+
+-- Validate remotes
+if not PartyInviteEvent or not PartyAcceptEvent or not PartyLeaveEvent or not PartyKickEvent or not PartyUpdateEvent or not PartyChatEvent then
+	ErrorHandler:LogWarning("Party remotes not found")
+	return
+end
+
+-- UI State
+local currentParty = nil
+local partyMembers = {}
+local partyInvites = {}
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "PartyUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Party Frame
+local partyFrame = Instance.new("Frame")
+partyFrame.Name = "PartyFrame"
+partyFrame.Size = UDim2.new(0, 250, 0, 300)
+partyFrame.Position = UDim2.new(1, -260, 0.5, -150)
+partyFrame.AnchorPoint = Vector2.new(1, 0.5)
+partyFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+partyFrame.BackgroundTransparency = 0.2
+partyFrame.BorderSizePixel = 0
+partyFrame.Visible = false
+partyFrame.Parent = screenGui
+
+-- Corner
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = partyFrame
+
+-- Stroke
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(218, 165, 32)
+stroke.Thickness = 2
+stroke.Parent = partyFrame
+
+-- Title
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, 0, 0, 30)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "PARTY"
+titleLabel.TextColor3 = Color3.fromRGB(218, 165, 32)
+titleLabel.TextScaled = true
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextStrokeTransparency = 0.5
+titleLabel.Parent = partyFrame
+
+-- Members List
+local membersScrollingFrame = Instance.new("ScrollingFrame")
+membersScrollingFrame.Name = "MembersScrollingFrame"
+membersScrollingFrame.Size = UDim2.new(0.9, 0, 0, 180)
+membersScrollingFrame.Position = UDim2.new(0.05, 0, 0.15, 0)
+membersScrollingFrame.BackgroundTransparency = 1
+membersScrollingFrame.BorderSizePixel = 0
+membersScrollingFrame.ScrollBarThickness = 4
+membersScrollingFrame.Parent = partyFrame
+
+local membersListLayout = Instance.new("UIListLayout")
+membersListLayout.Padding = UDim.new(0, 5)
+membersListLayout.Parent = membersScrollingFrame
+
+-- Chat Frame
+local chatFrame = Instance.new("Frame")
+chatFrame.Name = "ChatFrame"
+chatFrame.Size = UDim2.new(0.9, 0, 0, 60)
+chatFrame.Position = UDim2.new(0.05, 0, 0.8, 0)
+chatFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+chatFrame.BorderSizePixel = 0
+chatFrame.Visible = false
+chatFrame.Parent = partyFrame
+
+local chatCorner = Instance.new("UICorner")
+chatCorner.CornerRadius = UDim.new(0, 4)
+chatCorner.Parent = chatFrame
+
+local chatInput = Instance.new("TextBox")
+chatInput.Name = "ChatInput"
+chatInput.Size = UDim2.new(1, -10, 1, -10)
+chatInput.Position = UDim2.new(0, 5, 0, 5)
+chatInput.BackgroundTransparency = 1
+chatInput.Text = ""
+chatInput.PlaceholderText = "Type party message..."
+chatInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+chatInput.TextScaled = true
+chatInput.ClearTextOnFocus = false
+chatInput.Font = Enum.Font.Gotham
+chatInput.Parent = chatFrame
+
+-- Buttons Frame
+local buttonsFrame = Instance.new("Frame")
+buttonsFrame.Name = "ButtonsFrame"
+buttonsFrame.Size = UDim2.new(0.9, 0, 0, 80)
+buttonsFrame.Position = UDim2.new(0.05, 0, 0.65, 0)
+buttonsFrame.BackgroundTransparency = 1
+buttonsFrame.Parent = partyFrame
+
+local buttonsLayout = Instance.new("UIListLayout")
+buttonsLayout.Padding = UDim.new(0, 5)
+buttonsLayout.FillDirection = Enum.FillDirection.Horizontal
+buttonsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+buttonsLayout.Parent = buttonsFrame
+
+-- Invite Button
+local inviteButton = createButton("Invite", Color3.fromRGB(65, 130, 175))
+inviteButton.Parent = buttonsFrame
+
+-- Leave Button
+local leaveButton = createButton("Leave", Color3.fromRGB(175, 65, 65))
+leaveButton.Parent = buttonsFrame
+
+-- Disband Button (leader only)
+local disbandButton = createButton("Disband", Color3.fromRGB(175, 65, 65))
+disbandButton.Visible = false
+disbandButton.Parent = buttonsFrame
+
+-- Invite Notification
+local inviteNotification = Instance.new("Frame")
+inviteNotification.Name = "InviteNotification"
+inviteNotification.Size = UDim2.new(0, 300, 0, 100)
+inviteNotification.Position = UDim2.new(0.5, -150, 0.3, -50)
+inviteNotification.AnchorPoint = Vector2.new(0.5, 0.5)
+inviteNotification.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+inviteNotification.BackgroundTransparency = 0.2
+inviteNotification.BorderSizePixel = 0
+inviteNotification.Visible = false
+inviteNotification.Parent = screenGui
+
+local inviteCorner = Instance.new("UICorner")
+inviteCorner.CornerRadius = UDim.new(0, 8)
+inviteCorner.Parent = inviteNotification
+
+local inviteStroke = Instance.new("UIStroke")
+inviteStroke.Color = Color3.fromRGB(218, 165, 32)
+inviteStroke.Thickness = 2
+inviteStroke.Parent = inviteNotification
+
+local inviteText = Instance.new("TextLabel")
+inviteText.Name = "InviteText"
+inviteText.Size = UDim2.new(1, 0, 0, 50)
+inviteText.Position = UDim2.new(0, 0, 0, 10)
+inviteText.BackgroundTransparency = 1
+inviteText.Text = ""
+inviteText.TextColor3 = Color3.fromRGB(255, 255, 255)
+inviteText.TextScaled = true
+inviteText.Font = Enum.Font.Gotham
+inviteText.Parent = inviteNotification
+
+local acceptButton = createButton("Accept", Color3.fromRGB(65, 175, 65))
+acceptButton.Size = UDim2.new(0, 80, 0, 30)
+acceptButton.Position = UDim2.new(0.2, 0, 0.7, 0)
+acceptButton.Visible = false
+acceptButton.Parent = inviteNotification
+
+local declineButton = createButton("Decline", Color3.fromRGB(175, 65, 65))
+declineButton.Size = UDim2.new(0, 80, 0, 30)
+declineButton.Position = UDim2.new(0.6, 0, 0.7, 0)
+declineButton.Visible = false
+declineButton.Parent = inviteNotification
+
+-- Helper function to create buttons
+local function createButton(text, color)
+	local button = Instance.new("TextButton")
+	button.Name = text .. "Button"
+	button.Size = UDim2.new(0, 100, 0, 30)
+	button.BackgroundColor3 = color
+	button.Text = text
+	button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	button.TextScaled = true
+	button.Font = Enum.Font.GothamBold
+	
+	local buttonCorner = Instance.new("UICorner")
+	buttonCorner.CornerRadius = UDim.new(0, 4)
+	buttonCorner.Parent = button
+	
+	return button
+end
+
+-- Function to update party display
+local function updatePartyDisplay(partyData)
+	if not partyData then
+		partyFrame.Visible = false
+		chatFrame.Visible = false
+		disbandButton.Visible = false
+		return
+	end
+	
+	partyFrame.Visible = true
+	chatFrame.Visible = true
+	
+	-- Clear existing members
+	for _, child in ipairs(membersScrollingFrame:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	
+	-- Add members
+	partyMembers = {}
+	for _, memberId in ipairs(partyData.members or {}) do
+		local member = Players:GetPlayerByUserId(memberId)
+		if member then
+			table.insert(partyMembers, member)
+			
+			-- Create member entry
+			local memberFrame = Instance.new("Frame")
+			memberFrame.Name = "Member_" .. memberId
+			memberFrame.Size = UDim2.new(1, 0, 0, 30)
+			memberFrame.BackgroundTransparency = 1
+			
+			local memberName = Instance.new("TextLabel")
+			memberName.Size = UDim2.new(0.7, 0, 1, 0)
+			memberName.BackgroundTransparency = 1
+			memberName.Text = member.Name
+			memberName.TextColor3 = memberId == partyData.leader and Color3.fromRGB(218, 165, 32) or Color3.fromRGB(255, 255, 255)
+			memberName.TextScaled = true
+			memberName.Font = Enum.Font.Gotham
+			memberName.TextXAlignment = Enum.TextXAlignment.Left
+			memberName.Parent = memberFrame
+			
+			-- Health bar (placeholder)
+			local healthBar = Instance.new("Frame")
+			healthBar.Size = UDim2.new(0.25, 0, 0, 4)
+			healthBar.Position = UDim2.new(0.7, 0, 0.5, -2)
+			healthBar.AnchorPoint = Vector2.new(0, 0.5)
+			healthBar.BackgroundColor3 = Color3.fromRGB(65, 175, 65)
+			healthBar.BorderSizePixel = 0
+			healthBar.Parent = memberFrame
+			
+			memberFrame.Parent = membersScrollingFrame
+		end
+	end
+	
+	-- Update scrolling frame size
+	membersScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, (#partyMembers * 35))
+	
+	-- Show/hide buttons based on leadership
+	local isLeader = player.UserId == partyData.leader
+	disbandButton.Visible = isLeader
+	leaveButton.Visible = not isLeader
+	
+	-- Store current party
+	currentParty = partyData
+end
+
+-- Function to show invite
+local function showInvite(inviterName, partyId, inviterId)
+	inviteText.Text = inviterName .. " invited you to a party!"
+	acceptButton.Visible = true
+	declineButton.Visible = true
+	inviteNotification.Visible = true
+	
+	-- Store invite data
+	partyInvites[inviterId] = {
+		partyId = partyId,
+		timestamp = os.time()
+	}
+	
+	-- Auto-decline after 30 seconds
+	task.delay(30, function()
+		if inviteNotification.Visible then
+			inviteNotification.Visible = false
+			partyInvites[inviterId] = nil
+		end
+	end)
+end
+
+-- Button events
+inviteButton.MouseButton1Click:Connect(function()
+	-- Get player under mouse
+	local target = player:GetMouse().Target
+	if target then
+		local humanoid = target.Parent:FindFirstChild("Humanoid")
+		if humanoid then
+			local targetPlayer = Players:GetPlayerFromCharacter(target.Parent)
+			if targetPlayer and targetPlayer ~= player then
+				PartyInviteEvent:FireServer(targetPlayer)
+			end
+		end
+	end
+end)
+
+leaveButton.MouseButton1Click:Connect(function()
+	PartyLeaveEvent:FireServer()
+end)
+
+disbandButton.MouseButton1Click:Connect(function()
+	if currentParty and currentParty.leader == player.UserId then
+		-- Kick all members
+		for _, member in ipairs(partyMembers) do
+			if member.UserId ~= player.UserId then
+				PartyKickEvent:FireServer(member.UserId)
+			end
+		end
+		PartyLeaveEvent:FireServer()
+	end
+end)
+
+acceptButton.MouseButton1Click:Connect(function()
+	for inviterId, inviteData in pairs(partyInvites) do
+		PartyAcceptEvent:FireServer(inviteData.partyId, inviterId)
+		inviteNotification.Visible = false
+		partyInvites[inviterId] = nil
+		break
+	end
+end)
+
+declineButton.MouseButton1Click:Connect(function()
+	inviteNotification.Visible = false
+	for inviterId in pairs(partyInvites) do
+		partyInvites[inviterId] = nil
+		break
+	end
+end)
+
+-- Chat input
+chatInput.FocusLost:Connect(function(enterPressed)
+	if enterPressed and chatInput.Text ~= "" then
+		PartyChatEvent:FireServer(chatInput.Text)
+		chatInput.Text = ""
+	end
+end)
+
+-- Listen for party updates
+PartyUpdateEvent.OnClientEvent:Connect(function(data)
+	if data.type == "created" or data.type == "member_joined" or data.type == "member_left" then
+		updatePartyDisplay(data)
+	elseif data.type == "invite" then
+		showInvite(data.inviterName, data.partyId, data.inviter)
+	elseif data.type == "disbanded" or data.type == "left" or data.type == "kicked" then
+		updatePartyDisplay(nil)
+		if data.type == "kicked" then
+			-- Show kicked message
+			inviteText.Text = "You were kicked from the party"
+			inviteNotification.Visible = true
+			task.delay(3, function()
+				inviteNotification.Visible = false
+			end)
+		end
+	elseif data.type == "chat" then
+		-- Show chat message (could implement chat log)
+		print("[Party] " .. data.senderName .. ": " .. data.message)
+	elseif data.type == "error" then
+		inviteText.Text = data.message
+		inviteNotification.Visible = true
+		task.delay(3, function()
+			inviteNotification.Visible = false
+		end)
+	end
+end)
+
+-- Toggle party UI with key (P key)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	
+	if input.KeyCode == Enum.KeyCode.P then
+		partyFrame.Visible = not partyFrame.Visible
+	end
+end)
+
+print("[PartyUI] Ready!")

@@ -1,0 +1,184 @@
+-- VisualEquipment.client.lua v2.0
+-- Optimized visual equipment system - no more lag spikes!
+
+print("[VisualEquipment] Loading v2.0 - Performance optimized")
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local Modules = ReplicatedStorage:WaitForChild("Modules", 10)
+local ItemVisuals = require(Modules:WaitForChild("ItemVisuals", 10))
+local ItemDatabase = require(Modules:WaitForChild("ItemDatabase", 10))
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+
+local currentEquipment = {}
+local visualParts = {}
+local lastUpdate = 0
+local UPDATE_THROTTLE = 0.5 -- Only update every 0.5 seconds max
+
+-- Performance: Clean up all visual equipment
+local function clearVisuals(character)
+    if not character then return end
+    
+    -- Clean up our tracked parts
+    for slot, part in pairs(visualParts) do
+        if part and part.Parent then
+            part:Destroy()
+        end
+        visualParts[slot] = nil
+    end
+    
+    -- Safety cleanup - remove any orphaned parts
+    for _, child in ipairs(character:GetDescendants()) do
+        if child:GetAttribute("EquipVisual") then
+            child:Destroy()
+        end
+    end
+end
+
+-- Performance: Create equipment part with minimal overhead
+local function createEquipmentPart(character, slot, itemName)
+    if not character or not itemName or itemName == "" then return end
+    
+    local itemInfo = ItemDatabase.GetItem(itemName)
+    local visuals = ItemVisuals.GetVisual(itemName)
+    if not itemInfo or not visuals then return end
+    
+    -- Find attachment point
+    local attachPoint = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
+    if slot == "Head" then
+        attachPoint = character:FindFirstChild("Head")
+    end
+    
+    if not attachPoint then return end
+    
+    -- Remove old part for this slot
+    if visualParts[slot] then
+        visualParts[slot]:Destroy()
+        visualParts[slot] = nil
+    end
+    
+    -- Create new part - OPTIMIZED
+    local part = Instance.new("Part")
+    part.Name = slot .. "Visual"
+    part.Size = Vector3.new(1, 1, 1) -- Standard size
+    part.Color = visuals.color
+    part.Material = Enum.Material.SmoothPlastic
+    part.CanCollide = false
+    part.CanTouch = false
+    part.CanQuery = false  -- CRITICAL: Prevents camera issues
+    part.CastShadow = false -- CRITICAL: Reduces rendering load
+    part.Transparency = itemInfo.rarity == "legendary" and 0.1 or 0
+    
+    -- Mark as equipment visual
+    part:SetAttribute("EquipVisual", true)
+    part:SetAttribute("Slot", slot)
+    
+    -- Position based on slot
+    local offset = Vector3.new(0, 0, 0)
+    if slot == "Head" then
+        offset = Vector3.new(0, 0.2, 0)
+    elseif slot == "Body" then
+        offset = Vector3.new(0, 0, -0.3)
+    elseif slot == "Cape" then
+        offset = Vector3.new(0, 0, 0.8)
+        part.Size = Vector3.new(2, 3, 0.1)
+    end
+    
+    -- Attach to character - PERFORMANCE OPTIMIZED
+    part.Parent = character
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = attachPoint
+    weld.Part1 = part
+    weld.Parent = part
+    
+    -- Position offset
+    part.CFrame = attachPoint.CFrame * CFrame.new(offset)
+    
+    -- Add glow effect for rare items (minimal performance impact)
+    if itemInfo.rarity == "legendary" or itemInfo.rarity == "epic" then
+        local light = Instance.new("PointLight")
+        light.Color = visuals.color
+        light.Brightness = 0.5
+        light.Range = 3
+        light.Parent = part
+    end
+    
+    -- Track the part
+    visualParts[slot] = part
+    
+    print("[VisualEquipment] Equipped visual:", itemName, "in slot", slot)
+end
+
+-- Performance: Only render if character exists and enough time passed
+local function renderEquipment(equipment)
+    local now = tick()
+    if now - lastUpdate < UPDATE_THROTTLE then
+        return -- Throttle updates
+    end
+    lastUpdate = now
+    
+    local character = player.Character
+    if not character or not character.Parent then return end
+    
+    -- Clear old visuals first
+    clearVisuals(character)
+    
+    -- Create new equipment visuals
+    for slot, itemName in pairs(equipment or {}) do
+        if itemName and itemName ~= "" then
+            createEquipmentPart(character, slot, itemName)
+        end
+    end
+end
+
+-- OPTIMIZED: Listen for equipment updates with throttling
+local equipmentRemote = Remotes:WaitForChild("EquipmentUpdate", 10)
+if equipmentRemote then
+    equipmentRemote.OnClientEvent:Connect(function(equipment)
+        currentEquipment = equipment or {}
+        renderEquipment(currentEquipment)
+    end)
+    print("[VisualEquipment] Equipment update listener active")
+else
+    warn("[VisualEquipment] No EquipmentUpdate remote found!")
+end
+
+-- OPTIMIZED: Re-render on character spawn with delay
+player.CharacterAdded:Connect(function(character)
+    -- Clear visuals immediately
+    visualParts = {}
+    
+    -- Wait for character to fully load
+    character:WaitForChild("Humanoid", 5)
+    task.wait(2) -- Longer wait to ensure everything is loaded
+    
+    if currentEquipment then
+        renderEquipment(currentEquipment)
+    end
+    
+    print("[VisualEquipment] Character respawned, equipment rendered")
+end)
+
+-- Cleanup on character removal
+player.CharacterRemoving:Connect(function(character)
+    clearVisuals(character)
+    visualParts = {}
+    print("[VisualEquipment] Character cleanup complete")
+end)
+
+-- Safety: Cleanup if player leaves
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+    if leavingPlayer == player then
+        for _, part in pairs(visualParts) do
+            if part and part.Parent then
+                part:Destroy()
+            end
+        end
+        visualParts = {}
+    end
+end)
+
+print("[VisualEquipment] v2.0 loaded - equipment will render on character! 🎭")

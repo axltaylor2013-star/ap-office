@@ -1,0 +1,239 @@
+-- RangedCombat.client.lua
+-- Client-side ranged combat visuals and input
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+
+-- Wait for dependencies
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+local ItemDatabase = require(Modules:WaitForChild("ItemDatabase", 5))
+
+-- RemoteEvents
+local RangedAttackEvent = Remotes:WaitForChild("RangedAttack", 5)
+local RangedHitEvent = Remotes:WaitForChild("RangedHit", 5)
+
+-- State
+local currentWeapon = nil
+local isAiming = false
+local aimPosition = Vector3.new()
+local activeProjectiles = {}
+
+-- UI Elements
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "RangedCombatUI"
+screenGui.Parent = player:WaitForChild("PlayerGui", 5)
+
+local crosshair = Instance.new("ImageLabel")
+crosshair.Name = "Crosshair"
+crosshair.Size = UDim2.new(0, 32, 0, 32)
+crosshair.Position = UDim2.new(0.5, -16, 0.5, -16)
+crosshair.BackgroundTransparency = 1
+crosshair.Image = "rbxassetid://3570695787" -- Default crosshair image
+crosshair.Visible = false
+crosshair.Parent = screenGui
+
+local rangeIndicator = Instance.new("TextLabel")
+rangeIndicator.Name = "RangeIndicator"
+rangeIndicator.Size = UDim2.new(0, 200, 0, 30)
+rangeIndicator.Position = UDim2.new(0.5, -100, 0.1, 0)
+rangeIndicator.BackgroundTransparency = 0.7
+rangeIndicator.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+rangeIndicator.TextColor3 = Color3.fromRGB(255, 255, 255)
+rangeIndicator.Text = "Range: --"
+rangeIndicator.Visible = false
+rangeIndicator.Parent = screenGui
+
+-- Helper: Check if item is a ranged weapon
+local function isRangedWeapon(itemId)
+	local itemData = ItemDatabase[itemId]
+	if not itemData then return false end
+	
+	if itemData.type == "Weapon" then
+		local subtype = itemData.subtype or ""
+		return subtype == "Bow" or subtype == "Crossbow"
+	end
+	
+	return false
+end
+
+-- Helper: Get weapon range
+local function getWeaponRange(weaponId)
+	local itemData = ItemDatabase[weaponId]
+	if not itemData then return 0 end
+	
+	local subtype = itemData.subtype or "Bow"
+	if subtype == "Bow" then
+		return 50
+	elseif subtype == "Crossbow" then
+		return 70
+	end
+	
+	return 0
+end
+
+-- Input handling
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	
+	-- Right mouse button for aiming
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+		if currentWeapon then
+			isAiming = true
+			crosshair.Visible = true
+			rangeIndicator.Visible = true
+		end
+	end
+	
+	-- Left mouse button for shooting
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if isAiming and currentWeapon then
+			-- Get target position from mouse hit
+			local target = mouse.Hit.Position
+			
+			-- Check range
+			local character = player.Character
+			if character then
+				local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+				if humanoidRootPart then
+					local distance = (target - humanoidRootPart.Position).Magnitude
+					local maxRange = getWeaponRange(currentWeapon)
+					
+					if distance <= maxRange then
+						-- Fire ranged attack
+						RangedAttackEvent:FireServer(currentWeapon, target)
+						
+						-- Visual feedback
+						crosshair.ImageColor3 = Color3.fromRGB(255, 100, 100)
+						task.wait(0.1)
+						crosshair.ImageColor3 = Color3.fromRGB(255, 255, 255)
+					end
+				end
+			end
+		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	
+	-- Stop aiming when right mouse button released
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+		isAiming = false
+		crosshair.Visible = false
+		rangeIndicator.Visible = false
+	end
+end)
+
+-- Update aim position and UI
+RunService.RenderStepped:Connect(function()
+	if isAiming and currentWeapon then
+		-- Update crosshair position (follows mouse)
+		local mousePos = UserInputService:GetMouseLocation()
+		crosshair.Position = UDim2.new(0, mousePos.X - 16, 0, mousePos.Y - 16)
+		
+		-- Update range indicator
+		local character = player.Character
+		if character then
+			local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+			if humanoidRootPart then
+				local target = mouse.Hit.Position
+				local distance = (target - humanoidRootPart.Position).Magnitude
+				local maxRange = getWeaponRange(currentWeapon)
+				
+				rangeIndicator.Text = string.format("Range: %.1f / %d", distance, maxRange)
+				
+				-- Color based on range
+				if distance > maxRange then
+					rangeIndicator.TextColor3 = Color3.fromRGB(255, 50, 50)
+				else
+					rangeIndicator.TextColor3 = Color3.fromRGB(50, 255, 50)
+				end
+			end
+		end
+	end
+end)
+
+-- Handle projectile visuals
+RangedHitEvent.OnClientEvent:Connect(function(shooter, startPos, endPos, weaponType)
+	-- Only show projectiles from other players
+	if shooter == player then return end
+	
+	-- Create visual projectile
+	local projectile = Instance.new("Part")
+	projectile.Name = "RangedProjectileVisual"
+	projectile.Size = Vector3.new(0.2, 0.2, 0.2)
+	
+	-- Color based on weapon type
+	if weaponType == "Bow" then
+		projectile.Color = Color3.fromRGB(200, 150, 50) -- Wooden color
+		projectile.Material = Enum.Material.Wood
+	elseif weaponType == "Crossbow" then
+		projectile.Color = Color3.fromRGB(150, 150, 150) -- Metal color
+		projectile.Material = Enum.Material.Metal
+	else
+		projectile.Color = Color3.fromRGB(255, 255, 255)
+		projectile.Material = Enum.Material.Neon
+	end
+	
+	projectile.CanCollide = false
+	projectile.Anchored = true
+	projectile.Position = startPos
+	projectile.Parent = workspace
+	
+	-- Animate projectile
+	local startTime = tick()
+	local distance = (endPos - startPos).Magnitude
+	local speed = 100 -- studs per second
+	local duration = distance / speed
+	
+	-- Store for animation
+	local projectileId = #activeProjectiles + 1
+	activeProjectiles[projectileId] = {
+		part = projectile,
+		startPos = startPos,
+		endPos = endPos,
+		startTime = startTime,
+		duration = duration
+	}
+	
+	-- Cleanup
+	game:GetService("Debris"):AddItem(projectile, duration + 1)
+end)
+
+-- Animate projectiles
+RunService.RenderStepped:Connect(function()
+	for id, projectileData in pairs(activeProjectiles) do
+		local projectile = projectileData.part
+		if not projectile or not projectile.Parent then
+			activeProjectiles[id] = nil
+			continue
+		end
+		
+		local elapsed = tick() - projectileData.startTime
+		if elapsed >= projectileData.duration then
+			projectile:Destroy()
+			activeProjectiles[id] = nil
+		else
+			local progress = elapsed / projectileData.duration
+			projectile.Position = projectileData.startPos:Lerp(projectileData.endPos, progress)
+		end
+	end
+end)
+
+-- Equipment change handler
+local function onEquipmentChanged()
+	-- Check if player has a ranged weapon equipped
+	-- This would interface with the existing equipment system
+	-- For now, we'll simulate with a test weapon
+	currentWeapon = "oak_shortbow" -- Test weapon ID
+end
+
+-- Initialize
+onEquipmentChanged()
+print("[RangedCombat] Loaded!")

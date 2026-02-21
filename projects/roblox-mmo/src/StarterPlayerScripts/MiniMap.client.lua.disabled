@@ -1,0 +1,561 @@
+--[[
+	MiniMap.client.lua
+	Circular minimap HUD for Roscape Runeblocks.
+	Player-centric, heading-up rotation. Shows players, NPCs,
+	monsters, resource nodes, loot drops, and a legend.
+	Click to zoom, M to toggle, drag to move.
+]]
+
+print("[MiniMap] SCRIPT LOADING...")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+print("[MiniMap] Services loaded")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 5)
+
+-- Config
+local MAP_SIZE = 200
+local HALF = MAP_SIZE / 2
+local RADIUS = HALF
+local UPDATE_INTERVAL = 0.08
+local DOT_SIZE = 8
+local SMALL_DOT = 6
+local ARROW_SIZE = 16
+
+local viewRadius = 180
+local zoomed = false
+local visible = true
+
+-- Colors
+local COLOR_BG = Color3.fromRGB(15, 15, 30)
+local COLOR_BORDER = Color3.fromRGB(240, 192, 64)
+local COLOR_GOLD = Color3.fromRGB(240, 192, 64)
+local COLOR_WHITE = Color3.fromRGB(255, 255, 255)
+local COLOR_GREEN = Color3.fromRGB(40, 200, 60)
+local COLOR_RED = Color3.fromRGB(220, 50, 50)
+local COLOR_BROWN = Color3.fromRGB(200, 140, 60)
+local COLOR_TREE_GREEN = Color3.fromRGB(30, 180, 50)
+local COLOR_BLUE = Color3.fromRGB(60, 150, 255)
+local COLOR_YELLOW = Color3.fromRGB(255, 220, 40)
+local COLOR_COMPASS = Color3.fromRGB(200, 200, 210)
+local COLOR_NPC_GREEN = Color3.fromRGB(50, 255, 80)
+local COLOR_MONSTER_RED = Color3.fromRGB(255, 60, 60)
+local COLOR_PLAYER_CYAN = Color3.fromRGB(80, 220, 255)
+
+local WILDERNESS_Z = -100
+
+------------------------------------------------------------------------
+-- UI Construction
+------------------------------------------------------------------------
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MiniMapGui"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.DisplayOrder = 10
+screenGui.Parent = PlayerGui
+
+-- Container for minimap + zone label + legend
+local container = Instance.new("Frame")
+container.Name = "MiniMapContainer"
+container.Size = UDim2.fromOffset(MAP_SIZE + 20, MAP_SIZE + 100)
+container.Position = UDim2.new(1, -(MAP_SIZE + 30), 0, 10)
+container.BackgroundTransparency = 1
+container.Parent = screenGui
+
+-- Circular frame with darker BG
+local frame = Instance.new("Frame")
+frame.Name = "MiniMapFrame"
+frame.Size = UDim2.fromOffset(MAP_SIZE, MAP_SIZE)
+frame.Position = UDim2.fromOffset(10, 10)
+frame.BackgroundColor3 = COLOR_BG
+frame.BorderSizePixel = 0
+frame.ClipsDescendants = true
+frame.Parent = container
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(1, 0)
+corner.Parent = frame
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = COLOR_BORDER
+stroke.Thickness = 3
+stroke.Parent = frame
+
+-- Inner ring for depth effect
+local innerRing = Instance.new("Frame")
+innerRing.Name = "InnerRing"
+innerRing.Size = UDim2.new(1, -8, 1, -8)
+innerRing.Position = UDim2.fromOffset(4, 4)
+innerRing.BackgroundTransparency = 1
+innerRing.Parent = frame
+local innerCorner = Instance.new("UICorner")
+innerCorner.CornerRadius = UDim.new(1, 0)
+innerCorner.Parent = innerRing
+local innerStroke = Instance.new("UIStroke")
+innerStroke.Color = Color3.fromRGB(50, 50, 80)
+innerStroke.Thickness = 1
+innerStroke.Parent = innerRing
+
+-- Click button overlay for zoom toggle
+local clickBtn = Instance.new("TextButton")
+clickBtn.Name = "ClickOverlay"
+clickBtn.Size = UDim2.fromScale(1, 1)
+clickBtn.BackgroundTransparency = 1
+clickBtn.Text = ""
+clickBtn.ZIndex = 20
+clickBtn.Parent = frame
+
+-- Cardinal direction labels
+local compassLabels = {}
+local compassOffsets = {
+	N = {angle = 0, color = COLOR_GOLD},
+	E = {angle = math.pi / 2, color = COLOR_COMPASS},
+	S = {angle = math.pi, color = COLOR_COMPASS},
+	W = {angle = -math.pi / 2, color = COLOR_COMPASS},
+}
+
+for letter, data in compassOffsets do
+	local cl = Instance.new("TextLabel")
+	cl.Name = "Compass_" .. letter
+	cl.Size = UDim2.fromOffset(16, 16)
+	cl.BackgroundTransparency = 1
+	cl.Text = letter
+	cl.TextColor3 = data.color
+	cl.TextSize = 13
+	cl.Font = Enum.Font.GothamBold
+	cl.ZIndex = 15
+	cl.Parent = frame
+	compassLabels[letter] = {label = cl, baseAngle = data.angle}
+end
+
+-- Player arrow (gold triangle)
+local selfArrow = Instance.new("ImageLabel")
+selfArrow.Name = "SelfArrow"
+selfArrow.Size = UDim2.fromOffset(ARROW_SIZE, ARROW_SIZE)
+selfArrow.Position = UDim2.fromOffset(HALF - ARROW_SIZE / 2, HALF - ARROW_SIZE / 2)
+selfArrow.BackgroundTransparency = 1
+selfArrow.ImageColor3 = COLOR_GOLD
+selfArrow.Image = "rbxassetid://6031075938"
+selfArrow.ZIndex = 10
+selfArrow.Rotation = 0
+selfArrow.Parent = frame
+
+-- Zone indicator below minimap
+local zoneLabel = Instance.new("TextLabel")
+zoneLabel.Name = "ZoneLabel"
+zoneLabel.Size = UDim2.new(1, 0, 0, 22)
+zoneLabel.Position = UDim2.fromOffset(0, MAP_SIZE + 14)
+zoneLabel.BackgroundTransparency = 1
+zoneLabel.Text = "SAFE ZONE"
+zoneLabel.TextColor3 = COLOR_GREEN
+zoneLabel.TextSize = 14
+zoneLabel.Font = Enum.Font.GothamBold
+zoneLabel.TextXAlignment = Enum.TextXAlignment.Center
+zoneLabel.Parent = container
+
+-- Zoom indicator
+local zoomLabel = Instance.new("TextLabel")
+zoomLabel.Name = "ZoomLabel"
+zoomLabel.Size = UDim2.fromOffset(50, 16)
+zoomLabel.Position = UDim2.fromOffset(MAP_SIZE - 40, MAP_SIZE + 14)
+zoomLabel.BackgroundTransparency = 1
+zoomLabel.Text = "1x"
+zoomLabel.TextColor3 = Color3.fromRGB(150, 150, 170)
+zoomLabel.TextSize = 10
+zoomLabel.Font = Enum.Font.Gotham
+zoomLabel.TextXAlignment = Enum.TextXAlignment.Right
+zoomLabel.Parent = container
+
+-- === LEGEND ===
+local legendFrame = Instance.new("Frame")
+legendFrame.Name = "Legend"
+legendFrame.Size = UDim2.new(1, -10, 0, 56)
+legendFrame.Position = UDim2.fromOffset(5, MAP_SIZE + 38)
+legendFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
+legendFrame.BackgroundTransparency = 0.3
+legendFrame.BorderSizePixel = 0
+legendFrame.Parent = container
+
+local legendCorner = Instance.new("UICorner")
+legendCorner.CornerRadius = UDim.new(0, 6)
+legendCorner.Parent = legendFrame
+
+local legendItems = {
+	{color = COLOR_PLAYER_CYAN, text = "Player"},
+	{color = COLOR_NPC_GREEN, text = "NPC"},
+	{color = COLOR_MONSTER_RED, text = "Enemy"},
+	{color = COLOR_BROWN, text = "Mine"},
+	{color = COLOR_TREE_GREEN, text = "Tree"},
+	{color = COLOR_BLUE, text = "Fish"},
+	{color = COLOR_YELLOW, text = "Loot"},
+}
+
+-- Layout: 4 on top row, 3 on bottom
+local legendPad = 4
+local colWidth = (MAP_SIZE + 10) / 4
+
+for i, item in ipairs(legendItems) do
+	local row = i <= 4 and 0 or 1
+	local col = i <= 4 and (i - 1) or (i - 5)
+	local x = legendPad + col * colWidth
+	local y = 4 + row * 26
+
+	local dot = Instance.new("Frame")
+	dot.Size = UDim2.fromOffset(8, 8)
+	dot.Position = UDim2.fromOffset(x, y + 4)
+	dot.BackgroundColor3 = item.color
+	dot.BorderSizePixel = 0
+	dot.Parent = legendFrame
+	local dc = Instance.new("UICorner")
+	dc.CornerRadius = UDim.new(1, 0)
+	dc.Parent = dot
+
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.fromOffset(colWidth - 16, 16)
+	lbl.Position = UDim2.fromOffset(x + 12, y + 1)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = item.text
+	lbl.TextColor3 = Color3.fromRGB(200, 200, 210)
+	lbl.TextSize = 9
+	lbl.Font = Enum.Font.Gotham
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Parent = legendFrame
+end
+
+-- Tooltip label (shows on hover near dots)
+local tooltip = Instance.new("TextLabel")
+tooltip.Name = "Tooltip"
+tooltip.Size = UDim2.fromOffset(120, 20)
+tooltip.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+tooltip.BackgroundTransparency = 0.2
+tooltip.TextColor3 = COLOR_WHITE
+tooltip.TextSize = 10
+tooltip.Font = Enum.Font.GothamBold
+tooltip.TextStrokeTransparency = 0.5
+tooltip.Visible = false
+tooltip.ZIndex = 25
+tooltip.Parent = frame
+local ttCorner = Instance.new("UICorner")
+ttCorner.CornerRadius = UDim.new(0, 4)
+ttCorner.Parent = tooltip
+
+------------------------------------------------------------------------
+-- Dot Pool
+------------------------------------------------------------------------
+
+local dotPool = {}
+local activeDots = 0
+local dotData = {} -- index -> {px, py, name, kind}
+
+local function getDot()
+	activeDots += 1
+	local dot = dotPool[activeDots]
+	if not dot then
+		dot = Instance.new("Frame")
+		dot.BorderSizePixel = 0
+		dot.ZIndex = 5
+		local c = Instance.new("UICorner")
+		c.CornerRadius = UDim.new(1, 0)
+		c.Parent = dot
+		dot.Parent = frame
+		dotPool[activeDots] = dot
+	end
+	dot.Visible = true
+	dot.BackgroundTransparency = 0
+	return dot
+end
+
+local function resetDots()
+	for i = 1, activeDots do
+		dotPool[i].Visible = false
+	end
+	activeDots = 0
+	dotData = {}
+end
+
+------------------------------------------------------------------------
+-- Helpers
+------------------------------------------------------------------------
+
+local function getRoot(player)
+	local char = player.Character
+	if not char then return nil end
+	return char:FindFirstChild("HumanoidRootPart")
+end
+
+local function worldToMap(myPos, worldPos, heading, scale)
+	local dx = worldPos.X - myPos.X
+	local dz = worldPos.Z - myPos.Z
+	local cosH = math.cos(-heading)
+	local sinH = math.sin(-heading)
+	local rx = dx * cosH - dz * sinH
+	local ry = dx * sinH + dz * cosH
+	local px = HALF + rx * scale
+	local py = HALF + ry * scale
+	return px, py
+end
+
+local function isInCircle(px, py)
+	local cx = px - HALF
+	local cy = py - HALF
+	return (cx * cx + cy * cy) <= (RADIUS * RADIUS)
+end
+
+local function placeDot(dot, px, py, size, color)
+	dot.Size = UDim2.fromOffset(size, size)
+	dot.Position = UDim2.fromOffset(px - size / 2, py - size / 2)
+	dot.BackgroundColor3 = color
+end
+
+local function getResourceInfo(obj)
+	local name = obj.Name:lower()
+	if name:find("rock") or name:find("ore") or name:find("mine") or obj:HasTag("Rock") then
+		return COLOR_BROWN, "rock"
+	end
+	if name:find("tree") or name:find("wood") or obj:HasTag("Tree") then
+		return COLOR_TREE_GREEN, "tree"
+	end
+	if name:find("fish") or obj:HasTag("FishingSpot") then
+		return COLOR_BLUE, "fish"
+	end
+	return nil, nil
+end
+
+------------------------------------------------------------------------
+-- Compass Update
+------------------------------------------------------------------------
+
+local function updateCompass(heading)
+	local compassRadius = HALF - 12
+	for _, data in compassLabels do
+		local angle = data.baseAngle - heading
+		local x = HALF + math.sin(angle) * compassRadius - 8
+		local y = HALF - math.cos(angle) * compassRadius - 8
+		data.label.Position = UDim2.fromOffset(x, y)
+	end
+end
+
+------------------------------------------------------------------------
+-- Loot pulse state
+------------------------------------------------------------------------
+
+local lootPulseTime = 0
+
+------------------------------------------------------------------------
+-- Main Update
+------------------------------------------------------------------------
+
+local elapsed = 0
+
+local function update(dt)
+	local root = getRoot(LocalPlayer)
+	if not root then return end
+
+	local myPos = root.Position
+	local lookVector = root.CFrame.LookVector
+	local heading = math.atan2(lookVector.X, -lookVector.Z)
+	local scale = HALF / viewRadius
+
+	resetDots()
+
+	selfArrow.Rotation = 0
+	updateCompass(heading)
+
+	-- Zone indicator
+	if myPos.Z < WILDERNESS_Z then
+		zoneLabel.Text = "⚠️ WILDERNESS ⚠️"
+		zoneLabel.TextColor3 = COLOR_RED
+	else
+		zoneLabel.Text = "🏰 SAFE ZONE"
+		zoneLabel.TextColor3 = COLOR_GREEN
+	end
+
+	-- Wilderness border line (red dashed line at Z=-100)
+	-- Draw it as a series of small red dots across the map
+	local borderZ = WILDERNESS_Z
+	for bx = -viewRadius, viewRadius, 8 do
+		local worldBorderPos = Vector3.new(myPos.X + bx, 0, borderZ)
+		local px, py = worldToMap(myPos, worldBorderPos, heading, scale)
+		if isInCircle(px, py) then
+			local dot = getDot()
+			placeDot(dot, px, py, 3, COLOR_RED)
+			dot.BackgroundTransparency = 0.3
+		end
+	end
+
+	-- Loot pulse
+	lootPulseTime += dt
+	local lootAlpha = 0.5 + 0.5 * math.sin(lootPulseTime * 6)
+
+	-- Other players
+	for _, player in Players:GetPlayers() do
+		if player == LocalPlayer then continue end
+		local otherRoot = getRoot(player)
+		if not otherRoot then continue end
+		local dist = (otherRoot.Position - myPos).Magnitude
+		if dist > viewRadius then continue end
+		local px, py = worldToMap(myPos, otherRoot.Position, heading, scale)
+		if not isInCircle(px, py) then continue end
+		local dot = getDot()
+		placeDot(dot, px, py, DOT_SIZE, COLOR_PLAYER_CYAN)
+		dotData[activeDots] = {px = px, py = py, name = player.DisplayName, kind = "Player"}
+	end
+
+	-- NPCs
+	local npcsFolder = Workspace:FindFirstChild("NPCs")
+	if npcsFolder then
+		for _, npc in npcsFolder:GetChildren() do
+			local npcPart = npc:FindFirstChild("Torso") or npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChildWhichIsA("BasePart")
+			if not npcPart then continue end
+			local dist = (npcPart.Position - myPos).Magnitude
+			if dist > viewRadius then continue end
+			local px, py = worldToMap(myPos, npcPart.Position, heading, scale)
+			if not isInCircle(px, py) then continue end
+			local dot = getDot()
+			placeDot(dot, px, py, DOT_SIZE + 2, COLOR_NPC_GREEN)
+			dotData[activeDots] = {px = px, py = py, name = npc.Name, kind = "NPC"}
+		end
+	end
+
+	-- Monsters
+	local monstersFolder = Workspace:FindFirstChild("Monsters") or Workspace:FindFirstChild("Enemies")
+	if monstersFolder then
+		for _, mob in monstersFolder:GetChildren() do
+			local mobPart = mob:FindFirstChild("Body") or mob:FindFirstChild("HumanoidRootPart") or mob:FindFirstChildWhichIsA("BasePart")
+			if not mobPart then continue end
+			local dist = (mobPart.Position - myPos).Magnitude
+			if dist > viewRadius then continue end
+			local px, py = worldToMap(myPos, mobPart.Position, heading, scale)
+			if not isInCircle(px, py) then continue end
+			local dot = getDot()
+			-- Boss gets bigger dot
+			local isBoss = mob.Name == "Shadow Dragon"
+			placeDot(dot, px, py, isBoss and (DOT_SIZE + 4) or DOT_SIZE, COLOR_MONSTER_RED)
+			dotData[activeDots] = {px = px, py = py, name = mob.Name, kind = "Monster"}
+		end
+	end
+
+	-- Resource nodes (only show Models, not individual parts to avoid duplicates)
+	local resourcesFolder = Workspace:FindFirstChild("ResourceNodes") or Workspace:FindFirstChild("Resources")
+	if resourcesFolder then
+		for _, obj in resourcesFolder:GetChildren() do
+			if not obj:IsA("Model") then continue end
+			local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+			if not primary then continue end
+			local color, kind = getResourceInfo(obj)
+			if not color then continue end
+			local pos = primary.Position
+			local dist = (pos - myPos).Magnitude
+			if dist > viewRadius then continue end
+			local px, py = worldToMap(myPos, pos, heading, scale)
+			if not isInCircle(px, py) then continue end
+			local dot = getDot()
+			-- Use diamond shape for resources (slightly bigger)
+			placeDot(dot, px, py, SMALL_DOT, color)
+			dotData[activeDots] = {px = px, py = py, name = obj.Name, kind = kind}
+		end
+	end
+
+	-- Loot drops
+	for _, obj in Workspace:GetChildren() do
+		if not obj:IsA("BasePart") then continue end
+		if obj.Name:sub(1, 9) ~= "LootDrop_" then continue end
+		local dist = (obj.Position - myPos).Magnitude
+		if dist > viewRadius then continue end
+		local px, py = worldToMap(myPos, obj.Position, heading, scale)
+		if not isInCircle(px, py) then continue end
+		local dot = getDot()
+		placeDot(dot, px, py, DOT_SIZE, COLOR_YELLOW)
+		dot.BackgroundTransparency = 1 - lootAlpha
+		local itemName = obj.Name:sub(10) -- strip "LootDrop_"
+		dotData[activeDots] = {px = px, py = py, name = itemName, kind = "Loot"}
+	end
+end
+
+------------------------------------------------------------------------
+-- Tooltip on mouse hover
+------------------------------------------------------------------------
+
+local function updateTooltip()
+	local mouse = UserInputService:GetMouseLocation()
+	local framePos = frame.AbsolutePosition
+	local mx = mouse.X - framePos.X
+	local my = mouse.Y - framePos.Y
+
+	-- Check if mouse is inside minimap circle
+	local cx = mx - HALF
+	local cy = my - HALF
+	if (cx * cx + cy * cy) > (RADIUS * RADIUS) then
+		tooltip.Visible = false
+		return
+	end
+
+	-- Find nearest dot
+	local bestDist = 15 -- pixel threshold
+	local bestData = nil
+	for i, data in dotData do
+		local dx = mx - data.px
+		local dy = my - data.py
+		local d = math.sqrt(dx * dx + dy * dy)
+		if d < bestDist then
+			bestDist = d
+			bestData = data
+		end
+	end
+
+	if bestData then
+		tooltip.Text = " " .. bestData.name .. " "
+		tooltip.Position = UDim2.fromOffset(
+			math.clamp(mx - 60, 0, MAP_SIZE - 120),
+			math.clamp(my - 24, 0, MAP_SIZE - 20)
+		)
+		tooltip.Visible = true
+	else
+		tooltip.Visible = false
+	end
+end
+
+------------------------------------------------------------------------
+-- Input
+------------------------------------------------------------------------
+
+clickBtn.MouseButton1Click:Connect(function()
+	if zoomed then
+		viewRadius = 180
+		zoomed = false
+		zoomLabel.Text = "1x"
+	else
+		viewRadius = 400
+		zoomed = true
+		zoomLabel.Text = "2x"
+	end
+end)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.M then
+		visible = not visible
+		container.Visible = visible
+	end
+end)
+
+------------------------------------------------------------------------
+-- Heartbeat
+------------------------------------------------------------------------
+
+RunService.Heartbeat:Connect(function(dt)
+	if not visible then return end
+	elapsed += dt
+	if elapsed >= UPDATE_INTERVAL then
+		local passed = elapsed
+		elapsed = 0
+		update(passed)
+		updateTooltip()
+	end
+end)
+
+print("[MiniMap] Loaded!")

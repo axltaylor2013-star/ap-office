@@ -1,0 +1,576 @@
+--[[
+	Hotbar.client.lua
+	RuneScape/MMO-style hotbar at the bottom center of the screen
+	9 slots (keys 1-9) for quick item access and usage
+]]
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+print("[Hotbar] Starting...")
+
+-- Modules and Remotes
+local Modules = ReplicatedStorage:WaitForChild("Modules", 10)
+local ItemDatabase = require(Modules:WaitForChild("ItemDatabase", 5))
+local ItemVisuals = require(Modules:WaitForChild("ItemVisuals", 5))
+local DataManager = require(Modules:WaitForChild("DataManager", 5))
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+local EquipItemRemote = Remotes:WaitForChild("EquipItem", 10)
+local UseItemRemote = Remotes:WaitForChild("UseItem", 10)
+local GetStatsPanel = Remotes:WaitForChild("GetStatsPanel", 10)
+local TogglePrayerRemote = Remotes:WaitForChild("TogglePrayer", 10)
+
+-- Colors (Dark theme)
+local BG = Color3.fromRGB(26, 26, 46)
+local GOLD = Color3.fromRGB(240, 192, 64)
+local DARK = Color3.fromRGB(17, 17, 34)
+local TEXT = Color3.fromRGB(220, 220, 210)
+local GREEN = Color3.fromRGB(0, 255, 0)  -- Equipped weapon
+local BLUE = Color3.fromRGB(0, 150, 255)  -- Equipped armor
+
+-- Hotbar state
+local hotbarSlots = {}
+local hotbarData = {} -- Persistent hotbar assignment data
+local cooldowns = {} -- Cooldown tracking
+local currentEquipment = {} -- Track current equipment for highlighting
+
+-- Constants
+local SLOT_SIZE = 50
+local SLOT_COUNT = 9
+local COOLDOWN_TIME = 1.5
+
+-----------------------------------------------------------------------
+-- CREATE HOTBAR GUI
+-----------------------------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "HotbarGui"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = playerGui
+
+-- Main hotbar frame
+local hotbarFrame = Instance.new("Frame")
+hotbarFrame.Name = "Hotbar"
+hotbarFrame.Size = UDim2.new(0, (SLOT_SIZE + 4) * SLOT_COUNT + 10, 0, SLOT_SIZE + 10)
+hotbarFrame.Position = UDim2.new(0.5, -((SLOT_SIZE + 4) * SLOT_COUNT + 10) / 2, 1, -70)
+hotbarFrame.BackgroundColor3 = BG
+hotbarFrame.BackgroundTransparency = 0.1
+hotbarFrame.Parent = gui
+
+local hfc = Instance.new("UICorner")
+hfc.CornerRadius = UDim.new(0, 8)
+hfc.Parent = hotbarFrame
+
+local hfs = Instance.new("UIStroke")
+hfs.Color = GOLD
+hfs.Thickness = 2
+hfs.Parent = hotbarFrame
+
+-- Create 9 hotbar slots
+for i = 1, SLOT_COUNT do
+	local slot = Instance.new("Frame")
+	slot.Name = "Slot" .. i
+	slot.Size = UDim2.new(0, SLOT_SIZE, 0, SLOT_SIZE)
+	slot.Position = UDim2.new(0, 5 + (i - 1) * (SLOT_SIZE + 4), 0, 5)
+	slot.BackgroundColor3 = DARK
+	slot.Parent = hotbarFrame
+	
+	local sc = Instance.new("UICorner")
+	sc.CornerRadius = UDim.new(0, 6)
+	sc.Parent = slot
+	
+	-- Slot border (for equipment highlighting)
+	local slotStroke = Instance.new("UIStroke")
+	slotStroke.Name = "SlotStroke"
+	slotStroke.Color = GOLD
+	slotStroke.Thickness = 2
+	slotStroke.Transparency = 0.7
+	slotStroke.Parent = slot
+	
+	-- Slot number (top-left corner)
+	local slotNumber = Instance.new("TextLabel")
+	slotNumber.Size = UDim2.new(0, 15, 0, 15)
+	slotNumber.Position = UDim2.new(0, 2, 0, 2)
+	slotNumber.BackgroundTransparency = 1
+	slotNumber.Text = tostring(i)
+	slotNumber.TextSize = 10
+	slotNumber.Font = Enum.Font.GothamBold
+	slotNumber.TextColor3 = Color3.fromRGB(150, 150, 150)
+	slotNumber.Parent = slot
+	
+	-- Item emoji/icon
+	local itemIcon = Instance.new("TextLabel")
+	itemIcon.Name = "Icon"
+	itemIcon.Size = UDim2.new(1, -4, 0, 24)
+	itemIcon.Position = UDim2.new(0, 2, 0, 8)
+	itemIcon.BackgroundTransparency = 1
+	itemIcon.Text = "+"
+	itemIcon.TextSize = 20
+	itemIcon.Font = Enum.Font.GothamBold
+	itemIcon.TextColor3 = Color3.fromRGB(100, 100, 100)
+	itemIcon.Parent = slot
+	
+	-- Item name
+	local itemName = Instance.new("TextLabel")
+	itemName.Name = "ItemName"
+	itemName.Size = UDim2.new(1, -4, 0, 10)
+	itemName.Position = UDim2.new(0, 2, 0, 32)
+	itemName.BackgroundTransparency = 1
+	itemName.Text = ""
+	itemName.TextSize = 7
+	itemName.Font = Enum.Font.Gotham
+	itemName.TextColor3 = TEXT
+	itemName.TextTruncate = Enum.TextTruncate.AtEnd
+	itemName.Parent = slot
+	
+	-- Quantity badge
+	local quantityLabel = Instance.new("TextLabel")
+	quantityLabel.Name = "Quantity"
+	quantityLabel.Size = UDim2.new(0, 20, 0, 12)
+	quantityLabel.Position = UDim2.new(1, -22, 1, -14)
+	quantityLabel.BackgroundTransparency = 1
+	quantityLabel.Text = ""
+	quantityLabel.TextSize = 8
+	quantityLabel.Font = Enum.Font.GothamBold
+	quantityLabel.TextColor3 = GOLD
+	quantityLabel.Parent = slot
+	
+	-- Click button
+	local clickBtn = Instance.new("TextButton")
+	clickBtn.Size = UDim2.new(1, 0, 1, 0)
+	clickBtn.BackgroundTransparency = 1
+	clickBtn.Text = ""
+	clickBtn.Parent = slot
+	
+	-- Cooldown overlay
+	local cooldownOverlay = Instance.new("Frame")
+	cooldownOverlay.Name = "Cooldown"
+	cooldownOverlay.Size = UDim2.new(1, 0, 1, 0)
+	cooldownOverlay.Position = UDim2.new(0, 0, 0, 0)
+	cooldownOverlay.BackgroundColor3 = Color3.fromRGB(64, 64, 64)
+	cooldownOverlay.BackgroundTransparency = 0.4
+	cooldownOverlay.Visible = false
+	cooldownOverlay.ZIndex = 5
+	cooldownOverlay.Parent = slot
+	local cdc = Instance.new("UICorner")
+	cdc.CornerRadius = UDim.new(0, 6)
+	cdc.Parent = cooldownOverlay
+	
+	-- Store slot references
+	hotbarSlots[i] = {
+		frame = slot,
+		icon = itemIcon,
+		name = itemName,
+		quantity = quantityLabel,
+		button = clickBtn,
+		stroke = slotStroke,
+		cooldown = cooldownOverlay,
+		itemName = nil,
+		itemData = nil
+	}
+	
+	-- Click handler for slot assignment
+	clickBtn.MouseButton1Click:Connect(function()
+		onHotbarSlotClick(i)
+	end)
+end
+
+-----------------------------------------------------------------------
+-- TOOLTIP
+-----------------------------------------------------------------------
+local tooltip = Instance.new("Frame")
+tooltip.Name = "Tooltip"
+tooltip.Size = UDim2.new(0, 180, 0, 80)
+tooltip.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
+tooltip.BackgroundTransparency = 0.05
+tooltip.Visible = false
+tooltip.ZIndex = 100
+tooltip.Parent = gui
+
+local ttCorner = Instance.new("UICorner")
+ttCorner.CornerRadius = UDim.new(0, 6)
+ttCorner.Parent = tooltip
+
+local ttStroke = Instance.new("UIStroke")
+ttStroke.Color = GOLD
+ttStroke.Thickness = 2
+ttStroke.Parent = tooltip
+
+local ttPadding = Instance.new("UIPadding")
+ttPadding.PaddingLeft = UDim.new(0, 6)
+ttPadding.PaddingRight = UDim.new(0, 6)
+ttPadding.PaddingTop = UDim.new(0, 4)
+ttPadding.PaddingBottom = UDim.new(0, 4)
+ttPadding.Parent = tooltip
+
+local ttName = Instance.new("TextLabel")
+ttName.Size = UDim2.new(1, 0, 0, 16)
+ttName.BackgroundTransparency = 1
+ttName.Text = "Item Name"
+ttName.TextSize = 12
+ttName.Font = Enum.Font.GothamBold
+ttName.TextColor3 = GOLD
+ttName.TextXAlignment = Enum.TextXAlignment.Left
+ttName.ZIndex = 101
+ttName.Parent = tooltip
+
+local ttType = Instance.new("TextLabel")
+ttType.Size = UDim2.new(1, 0, 0, 12)
+ttType.Position = UDim2.new(0, 0, 0, 16)
+ttType.BackgroundTransparency = 1
+ttType.Text = "Type"
+ttType.TextSize = 10
+ttType.Font = Enum.Font.Gotham
+ttType.TextColor3 = TEXT
+ttType.TextXAlignment = Enum.TextXAlignment.Left
+ttType.ZIndex = 101
+ttType.Parent = tooltip
+
+local ttStats = Instance.new("TextLabel")
+ttStats.Size = UDim2.new(1, 0, 0, 24)
+ttStats.Position = UDim2.new(0, 0, 0, 30)
+ttStats.BackgroundTransparency = 1
+ttStats.Text = ""
+ttStats.TextSize = 9
+ttStats.Font = Enum.Font.Gotham
+ttStats.TextColor3 = Color3.fromRGB(0, 255, 0)
+ttStats.TextXAlignment = Enum.TextXAlignment.Left
+ttStats.TextWrapped = true
+ttStats.ZIndex = 101
+ttStats.Parent = tooltip
+
+local ttAction = Instance.new("TextLabel")
+ttAction.Size = UDim2.new(1, 0, 0, 14)
+ttAction.Position = UDim2.new(0, 0, 1, -16)
+ttAction.BackgroundTransparency = 1
+ttAction.Text = "Left click to use"
+ttAction.TextSize = 9
+ttAction.Font = Enum.Font.GothamBold
+ttAction.TextColor3 = Color3.fromRGB(150, 150, 150)
+ttAction.TextXAlignment = Enum.TextXAlignment.Left
+ttAction.ZIndex = 101
+ttAction.Parent = tooltip
+
+-----------------------------------------------------------------------
+-- HOTBAR LOGIC
+-----------------------------------------------------------------------
+
+-- Update visual display of a hotbar slot
+local function updateHotbarSlot(slotIndex)
+	local slot = hotbarSlots[slotIndex]
+	local assignedItem = hotbarData[slotIndex]
+	
+	if assignedItem and assignedItem.name then
+		-- Check if this is a prayer or an item
+		if assignedItem.type == "prayer" then
+			-- Prayer slot
+			slot.icon.Text = assignedItem.icon or "🙏"
+			slot.icon.TextColor3 = Color3.fromRGB(220, 220, 255)
+			slot.name.Text = assignedItem.name
+			slot.quantity.Text = ""
+			slot.stroke.Color = Color3.fromRGB(220, 220, 255)
+			slot.stroke.Transparency = 0.5
+			slot.itemName = assignedItem.name
+			slot.itemData = { type = "prayer", prayerId = assignedItem.prayerId }
+		else
+			-- Regular item slot
+			local visual = ItemVisuals.GetVisual(assignedItem.name)
+			local itemDef = ItemDatabase.GetItem(assignedItem.name)
+			
+			slot.icon.Text = visual.emoji
+			slot.icon.TextColor3 = visual.color
+			slot.name.Text = assignedItem.name
+			slot.quantity.Text = (assignedItem.quantity and assignedItem.quantity > 1) and tostring(assignedItem.quantity) or ""
+			
+			-- Highlight if currently equipped
+			if currentEquipment.Weapon == assignedItem.name then
+				slot.stroke.Color = GREEN
+				slot.stroke.Transparency = 0
+			elseif itemDef and itemDef.equipSlot and itemDef.equipSlot ~= "Weapon" and currentEquipment[itemDef.equipSlot] == assignedItem.name then
+				slot.stroke.Color = BLUE
+				slot.stroke.Transparency = 0
+			else
+				slot.stroke.Color = GOLD
+				slot.stroke.Transparency = 0.7
+			end
+			
+			slot.itemName = assignedItem.name
+			slot.itemData = itemDef
+		end
+	else
+		-- Empty slot
+		slot.icon.Text = "+"
+		slot.icon.TextColor3 = Color3.fromRGB(100, 100, 100)
+		slot.name.Text = ""
+		slot.quantity.Text = ""
+		slot.stroke.Color = GOLD
+		slot.stroke.Transparency = 0.7
+		slot.itemName = nil
+		slot.itemData = nil
+	end
+end
+
+-- Use item in hotbar slot
+local function useHotbarItem(slotIndex)
+	local assignedItem = hotbarData[slotIndex]
+	if not assignedItem or not assignedItem.name then return end
+	
+	-- Handle prayer type
+	if assignedItem.type == "prayer" then
+		if TogglePrayerRemote and assignedItem.prayerId then
+			print("[Hotbar] Toggling prayer: " .. assignedItem.name)
+			TogglePrayerRemote:FireServer(assignedItem.prayerId)
+		end
+		return
+	end
+	
+	local itemDef = ItemDatabase.GetItem(assignedItem.name)
+	if not itemDef then return end
+	
+	-- Check cooldown
+	if cooldowns[slotIndex] and cooldowns[slotIndex] > tick() then return end
+	
+	-- Handle different item types
+	if itemDef.equipSlot then
+		-- Weapon/armor: equip via EquipItem remote
+		print("[Hotbar] Equipping " .. assignedItem.name .. " to " .. itemDef.equipSlot)
+		EquipItemRemote:FireServer(itemDef.equipSlot, assignedItem.name)
+	elseif itemDef.type == "food" then
+		-- Food: use via UseItem remote and start cooldown
+		print("[Hotbar] Using food " .. assignedItem.name)
+		UseItemRemote:FireServer(assignedItem.name)
+		
+		-- Start cooldown
+		cooldowns[slotIndex] = tick() + COOLDOWN_TIME
+		local slot = hotbarSlots[slotIndex]
+		slot.cooldown.Visible = true
+		
+		-- Animate cooldown
+		local tween = TweenService:Create(slot.cooldown, TweenInfo.new(COOLDOWN_TIME, Enum.EasingStyle.Linear), {
+			BackgroundTransparency = 1
+		})
+		tween:Play()
+		tween.Completed:Connect(function()
+			slot.cooldown.Visible = false
+			slot.cooldown.BackgroundTransparency = 0.4
+		end)
+	end
+	
+	-- Refresh data after a short delay
+	task.wait(0.2)
+	refreshHotbarData()
+end
+
+-- Handle hotbar slot clicks — if inventory item pending, assign it; otherwise use
+function onHotbarSlotClick(slotIndex)
+	-- Check if StatsPanel or PrayerUI has a pending item for hotbar assignment
+	if _G.PendingHotbarItem then
+		local pending = _G.PendingHotbarItem
+		if pending.type == "prayer" then
+			-- Assign prayer to hotbar
+			hotbarData[slotIndex] = {
+				name = pending.name,
+				type = "prayer",
+				prayerId = pending.prayerId,
+				icon = pending.icon,
+			}
+			updateHotbarSlot(slotIndex)
+			print("[Hotbar] Assigned prayer " .. pending.name .. " to slot " .. slotIndex)
+		else
+			assignItemToHotbar(slotIndex, pending.name, pending.quantity)
+			print("[Hotbar] Assigned " .. pending.name .. " to slot " .. slotIndex)
+		end
+		_G.PendingHotbarItem = nil
+		-- Clear visual highlight in inventory
+		if _G.ClearInventorySelection then
+			_G.ClearInventorySelection()
+		end
+		return
+	end
+	useHotbarItem(slotIndex)
+end
+
+-- Load hotbar configuration from player data
+local function loadHotbarData()
+	local ok, data = pcall(function()
+		return GetStatsPanel:InvokeServer()
+	end)
+	if ok and data and data.hotbar then
+		hotbarData = data.hotbar
+	else
+		-- Initialize empty hotbar
+		hotbarData = {}
+		for i = 1, SLOT_COUNT do
+			hotbarData[i] = nil
+		end
+	end
+	
+	-- Update current equipment info
+	if data and data.equipment then
+		currentEquipment = data.equipment
+	end
+end
+
+-- Save hotbar configuration to player data
+local function saveHotbarData()
+	-- This would typically be handled server-side
+	-- For now, we'll let the server manage persistence
+end
+
+-- Refresh hotbar display and data
+function refreshHotbarData()
+	loadHotbarData()
+	for i = 1, SLOT_COUNT do
+		updateHotbarSlot(i)
+	end
+end
+
+-- Assign item from inventory to hotbar slot (called from outside)
+function assignItemToHotbar(slotIndex, itemName, quantity)
+	hotbarData[slotIndex] = {
+		name = itemName,
+		quantity = quantity
+	}
+	updateHotbarSlot(slotIndex)
+	saveHotbarData()
+end
+
+-----------------------------------------------------------------------
+-- INPUT HANDLING
+-----------------------------------------------------------------------
+UIS.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	
+	-- Handle number keys 1-9
+	if input.KeyCode == Enum.KeyCode.One then
+		useHotbarItem(1)
+	elseif input.KeyCode == Enum.KeyCode.Two then
+		useHotbarItem(2)
+	elseif input.KeyCode == Enum.KeyCode.Three then
+		useHotbarItem(3)
+	elseif input.KeyCode == Enum.KeyCode.Four then
+		useHotbarItem(4)
+	elseif input.KeyCode == Enum.KeyCode.Five then
+		useHotbarItem(5)
+	elseif input.KeyCode == Enum.KeyCode.Six then
+		useHotbarItem(6)
+	elseif input.KeyCode == Enum.KeyCode.Seven then
+		useHotbarItem(7)
+	elseif input.KeyCode == Enum.KeyCode.Eight then
+		useHotbarItem(8)
+	elseif input.KeyCode == Enum.KeyCode.Nine then
+		useHotbarItem(9)
+	end
+end)
+
+-----------------------------------------------------------------------
+-- TOOLTIP HANDLING
+-----------------------------------------------------------------------
+for i = 1, SLOT_COUNT do
+	local slot = hotbarSlots[i]
+	
+	slot.button.MouseEnter:Connect(function()
+		if not slot.itemName or not slot.itemData then
+			tooltip.Visible = false
+			return
+		end
+		
+		ttName.Text = slot.itemName
+		
+		-- Prayer tooltip
+		if slot.itemData.type == "prayer" then
+			ttType.Text = "Prayer"
+			ttStats.Text = "Toggle on/off"
+			ttAction.Text = "Left click to toggle"
+			local slotPos = slot.frame.AbsolutePosition
+			tooltip.Position = UDim2.fromOffset(slotPos.X, slotPos.Y - 90)
+			tooltip.Visible = true
+			return
+		end
+		
+		if slot.itemData.type == "weapon" then
+			ttType.Text = "Weapon"
+			ttStats.Text = "Damage: " .. (slot.itemData.damage or 0)
+			ttAction.Text = "Left click to equip"
+		elseif slot.itemData.type == "armor" then
+			ttType.Text = "Armor (" .. (slot.itemData.equipSlot or "Unknown") .. ")"
+			ttStats.Text = "Defense: " .. (slot.itemData.defense or 0)
+			ttAction.Text = "Left click to equip"
+		elseif slot.itemData.type == "food" then
+			ttType.Text = "Food"
+			ttStats.Text = "Heals: " .. (slot.itemData.healAmount or 0) .. " HP"
+			ttAction.Text = "Left click to eat"
+		elseif slot.itemData.type == "tool" then
+			ttType.Text = "Tool"
+			ttStats.Text = "Level: " .. (slot.itemData.levelReq or 1) .. " " .. (slot.itemData.skill or "")
+			ttAction.Text = "Left click to equip"
+		else
+			ttType.Text = slot.itemData.type or "Item"
+			ttStats.Text = ""
+			ttAction.Text = "Left click to use"
+		end
+		
+		-- Position tooltip above hotbar
+		local slotPos = slot.frame.AbsolutePosition
+		tooltip.Position = UDim2.fromOffset(slotPos.X, slotPos.Y - 90)
+		tooltip.Visible = true
+	end)
+	
+	slot.button.MouseLeave:Connect(function()
+		tooltip.Visible = false
+	end)
+end
+
+-----------------------------------------------------------------------
+-- INTEGRATION WITH STATS PANEL
+-----------------------------------------------------------------------
+-- Listen for inventory updates
+local invRemote = Remotes:FindFirstChild("InventoryUpdate")
+if invRemote then
+	invRemote.OnClientEvent:Connect(refreshHotbarData)
+end
+
+local equipRemote = Remotes:FindFirstChild("EquipmentUpdate")
+if equipRemote then
+	equipRemote.OnClientEvent:Connect(refreshHotbarData)
+end
+
+-----------------------------------------------------------------------
+-- INITIALIZATION
+-----------------------------------------------------------------------
+task.spawn(function()
+	task.wait(2) -- Wait for other systems to load
+	refreshHotbarData()
+	print("[Hotbar] Ready! Use keys 1-9 to use hotbar items.")
+end)
+
+-- Make functions global for Stats Panel integration
+_G.HotbarAssignItem = assignItemToHotbar
+_G.HotbarRefresh = refreshHotbarData
+
+-- Drag-and-drop receiver: check if mouse position is over a hotbar slot
+_G.HotbarTryDrop = function(mouseX, mouseY, itemName, quantity)
+	for i = 1, SLOT_COUNT do
+		local slot = hotbarSlots[i]
+		local pos = slot.frame.AbsolutePosition
+		local size = slot.frame.AbsoluteSize
+		if mouseX >= pos.X and mouseX <= pos.X + size.X and mouseY >= pos.Y and mouseY <= pos.Y + size.Y then
+			assignItemToHotbar(i, itemName, quantity)
+			print("[Hotbar] Drag-dropped " .. itemName .. " into slot " .. i)
+			return true
+		end
+	end
+	return false
+end
+
+-- Expose hotbar slot frames for drag-and-drop hit detection
+_G.HotbarSlotFrames = {}
+for i = 1, SLOT_COUNT do
+	_G.HotbarSlotFrames[i] = hotbarSlots[i].frame
+end

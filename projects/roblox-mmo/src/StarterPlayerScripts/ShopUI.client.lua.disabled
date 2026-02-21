@@ -1,0 +1,606 @@
+--[[
+	ShopUI.client.lua
+	Client-side shop interface for merchant NPCs.
+	Dark theme with gold accents, buy/sell functionality.
+	Completely rewritten with proper function ordering and valid items.
+]]
+
+-- Services, requires, remotes
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+-- Wait for Remotes folder
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+local BuyItemEvent = Remotes:WaitForChild("BuyItem", 10)
+local SellItemEvent = Remotes:WaitForChild("SellItem", 10)
+local NPCInteractEvent = Remotes:WaitForChild("NPCInteract", 10)
+local GetStatsPanel = Remotes:WaitForChild("GetStatsPanel", 10)
+
+-- Require modules
+local ItemDatabase
+do
+	local ok, result = pcall(function()
+		return require(ReplicatedStorage.Modules.ItemDatabase)
+	end)
+	if ok then
+		ItemDatabase = result
+	else
+		warn("[ShopUI] Failed to load ItemDatabase:", result)
+		ItemDatabase = { Items = {} }
+	end
+end
+
+-- Constants/theme colors
+local C = {
+	bg        = Color3.fromHex("#1a1a2e"),
+	bgDark    = Color3.fromHex("#0f0f23"),
+	bgLight   = Color3.fromHex("#16213e"),
+	gold      = Color3.fromHex("#f0c040"),
+	goldDim   = Color3.fromHex("#a08030"),
+	text      = Color3.fromHex("#e0e0e0"),
+	textDim   = Color3.fromHex("#888899"),
+	green     = Color3.fromHex("#40c060"),
+	red       = Color3.fromHex("#c04040"),
+	locked    = Color3.fromHex("#555566"),
+}
+
+local TWEEN_OPEN = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local TWEEN_CLOSE = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+
+-- ShopInventories table (ONLY items that exist in ItemDatabase)
+local ShopInventories = {
+	["Mara the Merchant"] = {
+		{item = "Cooked Shrimp", stock = 40, basePrice = 15},
+		{item = "Cooked Trout", stock = 30, basePrice = 30},
+		{item = "Cooked Chicken", stock = 30, basePrice = 12},
+		{item = "Cooked Beef", stock = 25, basePrice = 20},
+		{item = "Cooked Lobster", stock = 15, basePrice = 80},
+		{item = "Wooden Shield", stock = 5, basePrice = 50},
+		{item = "Bronze Helmet", stock = 5, basePrice = 60},
+		{item = "Bones", stock = 20, basePrice = 10},
+		{item = "Feather", stock = 50, basePrice = 5},
+	},
+	["Grimnir the Smith"] = {
+		{item = "Copper Sword", stock = 10, basePrice = 50},
+		{item = "Iron Sword", stock = 8, basePrice = 200},
+		{item = "Gold Sword", stock = 5, basePrice = 800},
+		{item = "Bronze Platebody", stock = 8, basePrice = 100},
+		{item = "Iron Platebody", stock = 5, basePrice = 400},
+		{item = "Gold Platebody", stock = 3, basePrice = 1500},
+		{item = "Bronze Platelegs", stock = 8, basePrice = 80},
+		{item = "Iron Platelegs", stock = 5, basePrice = 350},
+		{item = "Iron Chainbody", stock = 5, basePrice = 300},
+		{item = "Iron Shield", stock = 5, basePrice = 250},
+		{item = "Gold Shield", stock = 3, basePrice = 900},
+		{item = "Copper Bar", stock = 30, basePrice = 25},
+		{item = "Iron Bar", stock = 20, basePrice = 60},
+		{item = "Gold Bar", stock = 10, basePrice = 200},
+	},
+	["Old Bess the Cook"] = {
+		{item = "Cooked Shrimp", stock = 40, basePrice = 15},
+		{item = "Cooked Trout", stock = 30, basePrice = 30},
+		{item = "Cooked Chicken", stock = 30, basePrice = 12},
+		{item = "Cooked Beef", stock = 25, basePrice = 20},
+		{item = "Cooked Lobster", stock = 15, basePrice = 80},
+		{item = "Raw Chicken", stock = 20, basePrice = 5},
+		{item = "Raw Beef", stock = 20, basePrice = 8},
+	},
+	["Fisher Tom"] = {
+		{item = "Wooden Rod", stock = 10, basePrice = 50},
+		{item = "Iron Rod", stock = 5, basePrice = 200},
+		{item = "Gold Rod", stock = 3, basePrice = 600},
+		{item = "Shrimp", stock = 30, basePrice = 8},
+		{item = "Trout", stock = 20, basePrice = 20},
+		{item = "Lobster", stock = 10, basePrice = 50},
+	},
+	["Woodsman Jake"] = {
+		{item = "Bronze Axe", stock = 10, basePrice = 50},
+		{item = "Iron Axe", stock = 5, basePrice = 200},
+		{item = "Gold Axe", stock = 3, basePrice = 600},
+		{item = "Oak Shortbow", stock = 8, basePrice = 100},
+		{item = "Willow Shortbow", stock = 5, basePrice = 300},
+		{item = "Bronze Arrows", stock = 99, basePrice = 5},
+		{item = "Iron Arrows", stock = 50, basePrice = 15},
+		{item = "Arrow Shafts", stock = 99, basePrice = 3},
+		{item = "Bowstring", stock = 30, basePrice = 10},
+		{item = "Feather", stock = 99, basePrice = 5},
+	},
+	["Captain Blackbeard"] = {
+		{item = "Pirate Cutlass", stock = 3, basePrice = 500},
+		{item = "Gold Crossbow", stock = 2, basePrice = 1200},
+		{item = "Gold Arrows", stock = 30, basePrice = 40},
+		{item = "Gold Bolts", stock = 20, basePrice = 50},
+		{item = "Studded Body", stock = 3, basePrice = 600},
+		{item = "Studded Chaps", stock = 3, basePrice = 500},
+		{item = "Leather Body", stock = 5, basePrice = 200},
+		{item = "Leather Chaps", stock = 5, basePrice = 150},
+	},
+	["Priestess Solara"] = {
+		{item = "Bronze Pickaxe", stock = 10, basePrice = 50},
+		{item = "Iron Pickaxe", stock = 5, basePrice = 200},
+		{item = "Gold Pickaxe", stock = 3, basePrice = 600},
+		{item = "Bones", stock = 20, basePrice = 10},
+		{item = "Bone Dust", stock = 15, basePrice = 20},
+	},
+}
+
+-- State variables
+local currentShop = nil
+local currentNPCName = ""
+local isShopOpen = false
+
+-- Helper functions
+local function getPlayerGold()
+	local ok, data = pcall(function() return GetStatsPanel:InvokeServer() end)
+	if ok and data then return data.Gold or 0 end
+	return 0
+end
+
+local function getPlayerInventory()
+	local ok, data = pcall(function() return GetStatsPanel:InvokeServer() end)
+	if ok and data then return data.Inventory or {} end
+	return {}
+end
+
+-- UI creation function
+local function createItemFrame(itemName, quantity, price, isBuying)
+	local frame = Instance.new("Frame")
+	frame.Name = itemName
+	frame.Size = UDim2.new(0, 180, 0, 80)
+	frame.BackgroundColor3 = C.bgDark
+	frame.BorderSizePixel = 0
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = frame
+
+	-- Item name
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Size = UDim2.new(1, -10, 0, 20)
+	nameLabel.Position = UDim2.new(0, 5, 0, 5)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = itemName
+	nameLabel.TextColor3 = C.text
+	nameLabel.TextScaled = true
+	nameLabel.Font = Enum.Font.GothamSemibold
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Parent = frame
+
+	-- Quantity/Stock
+	local qtyLabel = Instance.new("TextLabel")
+	qtyLabel.Size = UDim2.new(1, -10, 0, 15)
+	qtyLabel.Position = UDim2.new(0, 5, 0, 25)
+	qtyLabel.BackgroundTransparency = 1
+	qtyLabel.Text = isBuying and ("Stock: " .. quantity) or ("You have: " .. quantity)
+	qtyLabel.TextColor3 = C.textDim
+	qtyLabel.TextScaled = true
+	qtyLabel.Font = Enum.Font.Gotham
+	qtyLabel.TextXAlignment = Enum.TextXAlignment.Left
+	qtyLabel.Parent = frame
+
+	-- Price
+	local priceLabel = Instance.new("TextLabel")
+	priceLabel.Size = UDim2.new(1, -10, 0, 15)
+	priceLabel.Position = UDim2.new(0, 5, 0, 42)
+	priceLabel.BackgroundTransparency = 1
+	priceLabel.Text = "Price: " .. price .. " gold"
+	priceLabel.TextColor3 = C.gold
+	priceLabel.TextScaled = true
+	priceLabel.Font = Enum.Font.Gotham
+	priceLabel.TextXAlignment = Enum.TextXAlignment.Left
+	priceLabel.Parent = frame
+
+	-- Action button
+	local actionBtn = Instance.new("TextButton")
+	actionBtn.Size = UDim2.new(0, 60, 0, 20)
+	actionBtn.Position = UDim2.new(1, -65, 1, -25)
+	actionBtn.BackgroundColor3 = isBuying and C.green or C.goldDim
+	actionBtn.Text = isBuying and "BUY" or "SELL"
+	actionBtn.TextColor3 = C.text
+	actionBtn.TextScaled = true
+	actionBtn.Font = Enum.Font.GothamBold
+	actionBtn.Parent = frame
+
+	local btnCorner = Instance.new("UICorner")
+	btnCorner.CornerRadius = UDim.new(0, 4)
+	btnCorner.Parent = actionBtn
+
+	-- Button handler
+	actionBtn.MouseButton1Click:Connect(function()
+		if isBuying then
+			buyItem(itemName, 1)
+		else
+			sellItem(itemName, 1)
+		end
+	end)
+
+	return frame
+end
+
+local function createShopUI()
+	-- Main frame
+	local shopGui = Instance.new("ScreenGui")
+	shopGui.Name = "ShopUI"
+	shopGui.Parent = playerGui
+	shopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+	-- Background overlay
+	local overlay = Instance.new("Frame")
+	overlay.Name = "Overlay"
+	overlay.Size = UDim2.new(1, 0, 1, 0)
+	overlay.Position = UDim2.new(0, 0, 0, 0)
+	overlay.BackgroundColor3 = Color3.new(0, 0, 0)
+	overlay.BackgroundTransparency = 0.5
+	overlay.BorderSizePixel = 0
+	overlay.Parent = shopGui
+
+	-- Main shop frame
+	local mainFrame = Instance.new("Frame")
+	mainFrame.Name = "MainFrame"
+	mainFrame.Size = UDim2.new(0, 800, 0, 600)
+	mainFrame.Position = UDim2.new(0.5, -400, 0.5, -300)
+	mainFrame.BackgroundColor3 = C.bg
+	mainFrame.BorderSizePixel = 0
+	mainFrame.Parent = shopGui
+
+	-- Add corner rounding
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 12)
+	corner.Parent = mainFrame
+
+	-- Header
+	local header = Instance.new("Frame")
+	header.Name = "Header"
+	header.Size = UDim2.new(1, 0, 0, 60)
+	header.Position = UDim2.new(0, 0, 0, 0)
+	header.BackgroundColor3 = C.bgDark
+	header.BorderSizePixel = 0
+	header.Parent = mainFrame
+
+	local headerCorner = Instance.new("UICorner")
+	headerCorner.CornerRadius = UDim.new(0, 12)
+	headerCorner.Parent = header
+
+	-- Shop title
+	local title = Instance.new("TextLabel")
+	title.Name = "Title"
+	title.Size = UDim2.new(1, -80, 1, 0)
+	title.Position = UDim2.new(0, 20, 0, 0)
+	title.BackgroundTransparency = 1
+	title.Text = "Shop"
+	title.TextColor3 = C.gold
+	title.TextScaled = true
+	title.Font = Enum.Font.GothamBold
+	title.Parent = header
+
+	-- Close button
+	local closeBtn = Instance.new("TextButton")
+	closeBtn.Name = "CloseButton"
+	closeBtn.Size = UDim2.new(0, 40, 0, 40)
+	closeBtn.Position = UDim2.new(1, -50, 0.5, -20)
+	closeBtn.BackgroundColor3 = C.red
+	closeBtn.Text = "×"
+	closeBtn.TextColor3 = C.text
+	closeBtn.TextScaled = true
+	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.Parent = header
+
+	local closeBtnCorner = Instance.new("UICorner")
+	closeBtnCorner.CornerRadius = UDim.new(0, 8)
+	closeBtnCorner.Parent = closeBtn
+
+	-- Gold display
+	local goldFrame = Instance.new("Frame")
+	goldFrame.Name = "GoldFrame"
+	goldFrame.Size = UDim2.new(1, -20, 0, 40)
+	goldFrame.Position = UDim2.new(0, 10, 0, 70)
+	goldFrame.BackgroundColor3 = C.bgLight
+	goldFrame.BorderSizePixel = 0
+	goldFrame.Parent = mainFrame
+
+	local goldCorner = Instance.new("UICorner")
+	goldCorner.CornerRadius = UDim.new(0, 8)
+	goldCorner.Parent = goldFrame
+
+	local goldLabel = Instance.new("TextLabel")
+	goldLabel.Name = "GoldLabel"
+	goldLabel.Size = UDim2.new(1, -20, 1, 0)
+	goldLabel.Position = UDim2.new(0, 10, 0, 0)
+	goldLabel.BackgroundTransparency = 1
+	goldLabel.Text = "Gold: 0"
+	goldLabel.TextColor3 = C.gold
+	goldLabel.TextScaled = true
+	goldLabel.Font = Enum.Font.Gotham
+	goldLabel.TextXAlignment = Enum.TextXAlignment.Left
+	goldLabel.Parent = goldFrame
+
+	-- Content area with tabs
+	local contentFrame = Instance.new("Frame")
+	contentFrame.Name = "ContentFrame"
+	contentFrame.Size = UDim2.new(1, -20, 1, -130)
+	contentFrame.Position = UDim2.new(0, 10, 0, 120)
+	contentFrame.BackgroundTransparency = 1
+	contentFrame.Parent = mainFrame
+
+	-- Tab buttons
+	local tabFrame = Instance.new("Frame")
+	tabFrame.Name = "TabFrame"
+	tabFrame.Size = UDim2.new(1, 0, 0, 40)
+	tabFrame.Position = UDim2.new(0, 0, 0, 0)
+	tabFrame.BackgroundTransparency = 1
+	tabFrame.Parent = contentFrame
+
+	local buyTab = Instance.new("TextButton")
+	buyTab.Name = "BuyTab"
+	buyTab.Size = UDim2.new(0.5, -5, 1, 0)
+	buyTab.Position = UDim2.new(0, 0, 0, 0)
+	buyTab.BackgroundColor3 = C.gold
+	buyTab.Text = "BUY"
+	buyTab.TextColor3 = C.bgDark
+	buyTab.TextScaled = true
+	buyTab.Font = Enum.Font.GothamBold
+	buyTab.Parent = tabFrame
+
+	local buyTabCorner = Instance.new("UICorner")
+	buyTabCorner.CornerRadius = UDim.new(0, 8)
+	buyTabCorner.Parent = buyTab
+
+	local sellTab = Instance.new("TextButton")
+	sellTab.Name = "SellTab"
+	sellTab.Size = UDim2.new(0.5, -5, 1, 0)
+	sellTab.Position = UDim2.new(0.5, 5, 0, 0)
+	sellTab.BackgroundColor3 = C.bgLight
+	sellTab.Text = "SELL"
+	sellTab.TextColor3 = C.text
+	sellTab.TextScaled = true
+	sellTab.Font = Enum.Font.GothamBold
+	sellTab.Parent = tabFrame
+
+	local sellTabCorner = Instance.new("UICorner")
+	sellTabCorner.CornerRadius = UDim.new(0, 8)
+	sellTabCorner.Parent = sellTab
+
+	-- Items scroll frame
+	local scrollFrame = Instance.new("ScrollingFrame")
+	scrollFrame.Name = "ItemsScroll"
+	scrollFrame.Size = UDim2.new(1, 0, 1, -50)
+	scrollFrame.Position = UDim2.new(0, 0, 0, 50)
+	scrollFrame.BackgroundColor3 = C.bgLight
+	scrollFrame.BorderSizePixel = 0
+	scrollFrame.ScrollBarThickness = 8
+	scrollFrame.ScrollBarImageColor3 = C.gold
+	scrollFrame.Parent = contentFrame
+
+	local scrollCorner = Instance.new("UICorner")
+	scrollCorner.CornerRadius = UDim.new(0, 8)
+	scrollCorner.Parent = scrollFrame
+
+	-- Grid layout for items
+	local gridLayout = Instance.new("UIGridLayout")
+	gridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
+	gridLayout.CellSize = UDim2.new(0, 180, 0, 80)
+	gridLayout.SortOrder = Enum.SortOrder.Name
+	gridLayout.Parent = scrollFrame
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 10)
+	padding.PaddingLeft = UDim.new(0, 10)
+	padding.PaddingRight = UDim.new(0, 10)
+	padding.PaddingBottom = UDim.new(0, 10)
+	padding.Parent = scrollFrame
+
+	-- Initial state (start small for animation)
+	mainFrame.Size = UDim2.new(0, 800, 0, 0)
+	mainFrame.Position = UDim2.new(0.5, -400, 0.5, 0)
+
+	-- Event handlers
+	closeBtn.MouseButton1Click:Connect(function()
+		closeShop()
+	end)
+
+	buyTab.MouseButton1Click:Connect(function()
+		switchTab("buy")
+	end)
+
+	sellTab.MouseButton1Click:Connect(function()
+		switchTab("sell")
+	end)
+
+	-- Close on overlay click
+	overlay.MouseButton1Click:Connect(function()
+		closeShop()
+	end)
+
+	-- Return a table with all references
+	return {
+		Gui = shopGui,
+		MainFrame = mainFrame,
+		Title = title,
+		GoldLabel = goldLabel,
+		ItemsScroll = scrollFrame,
+		BuyTab = buyTab,
+		SellTab = sellTab,
+	}
+end
+
+-- Population functions
+local function populateShopItems()
+	if not currentShop or not currentNPCName then return end
+
+	-- Clear existing items
+	for _, child in ipairs(currentShop.ItemsScroll:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+
+	-- Get shop inventory
+	local shopItems = ShopInventories[currentNPCName]
+	if not shopItems then return end
+
+	-- Create item frames
+	for _, shopItem in ipairs(shopItems) do
+		local frame = createItemFrame(shopItem.item, shopItem.stock, shopItem.basePrice, true)
+		frame.Parent = currentShop.ItemsScroll
+	end
+
+	-- Update scroll canvas size
+	local gridLayout = currentShop.ItemsScroll:FindFirstChild("UIGridLayout")
+	if gridLayout then
+		currentShop.ItemsScroll.CanvasSize = UDim2.new(0, 0, 0, gridLayout.AbsoluteContentSize.Y + 20)
+	end
+end
+
+local function populateInventoryItems()
+	if not currentShop then return end
+
+	-- Clear existing items
+	for _, child in ipairs(currentShop.ItemsScroll:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+
+	-- Get player inventory
+	local playerInventory = getPlayerInventory()
+	if not playerInventory then return end
+
+	-- Create item frames for sellable items
+	for _, invItem in ipairs(playerInventory) do
+		local itemData = ItemDatabase.Items[invItem.name]
+		if itemData and itemData.value then
+			local sellPrice = math.floor(itemData.value * 0.6) -- 60% of base value
+			local frame = createItemFrame(invItem.name, invItem.quantity, sellPrice, false)
+			frame.Parent = currentShop.ItemsScroll
+		end
+	end
+
+	-- Update scroll canvas size
+	local gridLayout = currentShop.ItemsScroll:FindFirstChild("UIGridLayout")
+	if gridLayout then
+		currentShop.ItemsScroll.CanvasSize = UDim2.new(0, 0, 0, gridLayout.AbsoluteContentSize.Y + 20)
+	end
+end
+
+-- Action functions
+local function buyItem(itemName, quantity)
+	if BuyItemEvent and currentNPCName then
+		BuyItemEvent:FireServer(currentNPCName, itemName, quantity)
+		-- Refresh shop after purchase
+		task.wait(0.1)
+		populateShopItems()
+		updateGoldDisplay()
+	end
+end
+
+local function sellItem(itemName, quantity)
+	if SellItemEvent and currentNPCName then
+		SellItemEvent:FireServer(currentNPCName, itemName, quantity)
+		-- Refresh inventory after sale
+		task.wait(0.1)
+		populateInventoryItems()
+		updateGoldDisplay()
+	end
+end
+
+local function updateGoldDisplay()
+	if not currentShop then return end
+
+	local gold = getPlayerGold()
+	currentShop.GoldLabel.Text = "Gold: " .. tostring(gold)
+end
+
+-- Shop management
+local function switchTab(tabName)
+	if not currentShop then return end
+
+	local buyTab = currentShop.BuyTab
+	local sellTab = currentShop.SellTab
+
+	if tabName == "buy" then
+		buyTab.BackgroundColor3 = C.gold
+		buyTab.TextColor3 = C.bgDark
+		sellTab.BackgroundColor3 = C.bgLight
+		sellTab.TextColor3 = C.text
+		populateShopItems()
+	else
+		sellTab.BackgroundColor3 = C.gold
+		sellTab.TextColor3 = C.bgDark
+		buyTab.BackgroundColor3 = C.bgLight
+		buyTab.TextColor3 = C.text
+		populateInventoryItems()
+	end
+end
+
+local function openShop(npcName)
+	if isShopOpen then return end
+
+	-- Check if NPC has a shop
+	if not ShopInventories[npcName] then return end
+
+	currentNPCName = npcName
+	isShopOpen = true
+
+	-- Create UI
+	currentShop = createShopUI()
+	currentShop.Title.Text = npcName .. "'s Shop"
+
+	-- Update gold display
+	updateGoldDisplay()
+
+	-- Show buy tab by default
+	switchTab("buy")
+
+	-- Animate open
+	TweenService:Create(currentShop.MainFrame, TWEEN_OPEN, {
+		Size = UDim2.new(0, 800, 0, 600),
+		Position = UDim2.new(0.5, -400, 0.5, -300)
+	}):Play()
+end
+
+local function closeShop()
+	if not isShopOpen or not currentShop then return end
+
+	isShopOpen = false
+
+	-- Animate close
+	local closeTween = TweenService:Create(currentShop.MainFrame, TWEEN_CLOSE, {
+		Size = UDim2.new(0, 800, 0, 0),
+		Position = UDim2.new(0.5, -400, 0.5, 0)
+	})
+
+	closeTween:Play()
+	closeTween.Completed:Connect(function()
+		if currentShop and currentShop.Gui then
+			currentShop.Gui:Destroy()
+			currentShop = nil
+		end
+		currentNPCName = ""
+	end)
+end
+
+-- Event connections
+if NPCInteractEvent then
+	NPCInteractEvent.OnClientEvent:Connect(function(npcName, npcRole)
+		-- Check if this NPC is a merchant
+		if ShopInventories[npcName] then
+			openShop(npcName)
+		end
+	end)
+end
+
+-- Close shop on Escape key
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+
+	if input.KeyCode == Enum.KeyCode.Escape and isShopOpen then
+		closeShop()
+	end
+end)
+
+print("[ShopUI] Initialized")

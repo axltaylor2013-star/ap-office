@@ -1,0 +1,373 @@
+-- MiningUI.client.lua
+-- Client-side mining interface with error handling
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+
+-- Wait for dependencies with timeouts
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+
+-- Load ErrorHandler
+local ErrorHandler
+local errorHandlerSuccess, errorHandlerResult = pcall(function()
+	return require(Modules:WaitForChild("ErrorHandler", 5))
+end)
+
+if errorHandlerSuccess then
+	ErrorHandler = errorHandlerResult
+else
+	-- Fallback ErrorHandler
+	ErrorHandler = {
+		LogWarning = function(self, msg) warn(tostring(msg)) end,
+		LogDebug = function(self, msg) warn(tostring(msg)) end
+	}
+end
+
+-- RemoteEvents
+local StartMiningEvent = Remotes and Remotes:WaitForChild("StartMining", 5)
+local MiningProgressEvent = Remotes and Remotes:WaitForChild("MiningProgress", 5)
+local MiningCompleteEvent = Remotes and Remotes:WaitForChild("MiningComplete", 5)
+
+-- Validate remotes
+if not StartMiningEvent then
+	ErrorHandler:LogWarning("Mining remotes not found")
+	return
+end
+
+-- UI State
+local isMining = false
+local currentOreNode = nil
+local miningProgress = 0
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MiningUI"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Mining progress frame
+local progressFrame = Instance.new("Frame")
+progressFrame.Name = "ProgressFrame"
+progressFrame.Size = UDim2.new(0, 300, 0, 60)
+progressFrame.Position = UDim2.new(0.5, -150, 0.7, 0)
+progressFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+progressFrame.BorderColor3 = Color3.fromRGB(60, 60, 70)
+progressFrame.BorderSizePixel = 2
+progressFrame.Visible = false
+progressFrame.Parent = screenGui
+
+-- Progress bar background
+local progressBarBg = Instance.new("Frame")
+progressBarBg.Name = "ProgressBarBg"
+progressBarBg.Size = UDim2.new(0.9, 0, 0, 20)
+progressBarBg.Position = UDim2.new(0.05, 0, 0.3, 0)
+progressBarBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+progressBarBg.BorderColor3 = Color3.fromRGB(80, 80, 90)
+progressBarBg.Parent = progressFrame
+
+-- Progress bar fill
+local progressBar = Instance.new("Frame")
+progressBar.Name = "ProgressBar"
+progressBar.Size = UDim2.new(0, 0, 1, 0)
+progressBar.Position = UDim2.new(0, 0, 0, 0)
+progressBar.BackgroundColor3 = Color3.fromRGB(80, 160, 80)
+progressBar.BorderSizePixel = 0
+progressBar.Parent = progressBarBg
+
+-- Progress text
+local progressText = Instance.new("TextLabel")
+progressText.Name = "ProgressText"
+progressText.Size = UDim2.new(1, 0, 0, 30)
+progressText.Position = UDim2.new(0, 0, 0, -5)
+progressText.BackgroundTransparency = 1
+progressText.Text = "Mining..."
+progressText.TextColor3 = Color3.fromRGB(220, 220, 220)
+progressText.Font = Enum.Font.GothamBold
+progressText.TextSize = 18
+progressText.Parent = progressFrame
+
+-- Ore info text
+local oreInfoText = Instance.new("TextLabel")
+oreInfoText.Name = "OreInfoText"
+oreInfoText.Size = UDim2.new(1, 0, 0, 20)
+oreInfoText.Position = UDim2.new(0, 0, 0.7, 0)
+oreInfoText.BackgroundTransparency = 1
+oreInfoText.Text = ""
+oreInfoText.TextColor3 = Color3.fromRGB(180, 180, 200)
+oreInfoText.Font = Enum.Font.Gotham
+oreInfoText.TextSize = 14
+oreInfoText.Parent = progressFrame
+
+-- Mining prompt (appears when looking at ore)
+local miningPrompt = Instance.new("TextLabel")
+miningPrompt.Name = "MiningPrompt"
+miningPrompt.Size = UDim2.new(0, 200, 0, 40)
+miningPrompt.Position = UDim2.new(0.5, -100, 0.6, 0)
+miningPrompt.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+miningPrompt.BackgroundTransparency = 0.7
+miningPrompt.BorderColor3 = Color3.fromRGB(80, 80, 90)
+miningPrompt.Text = "[E] Mine Ore"
+miningPrompt.TextColor3 = Color3.fromRGB(220, 180, 100)
+miningPrompt.Font = Enum.Font.GothamBold
+miningPrompt.TextSize = 16
+miningPrompt.Visible = false
+miningPrompt.Parent = screenGui
+
+-- Helper: Check if part is an ore node
+local function isOreNode(part)
+	if not part or not part:IsA("BasePart") then
+		return false
+	end
+	
+	-- Check common ore node names
+	local oreNames = {
+		"Copper Ore", "Tin Ore", "Iron Ore", "Coal Ore",
+		"Mithril Ore", "Adamant Ore", "Runite Ore"
+	}
+	
+	for _, oreName in ipairs(oreNames) do
+		if part.Name == oreName then
+			return true
+		end
+	end
+	
+	return false
+end
+
+-- Helper: Get ore info from node
+local function getOreInfo(oreNode)
+	if not oreNode then return nil end
+	
+	-- Simple mapping of ore names to colors and info
+	local oreInfo = {
+		["Copper Ore"] = {
+			color = Color3.fromRGB(184, 115, 51), -- Copper color
+			level = 1,
+			name = "Copper"
+		},
+		["Tin Ore"] = {
+			color = Color3.fromRGB(160, 160, 160), -- Tin color
+			level = 1,
+			name = "Tin"
+		},
+		["Iron Ore"] = {
+			color = Color3.fromRGB(150, 150, 150), -- Iron color
+			level = 15,
+			name = "Iron"
+		},
+		["Coal Ore"] = {
+			color = Color3.fromRGB(30, 30, 30), -- Coal color
+			level = 30,
+			name = "Coal"
+		},
+		["Mithril Ore"] = {
+			color = Color3.fromRGB(150, 200, 255), -- Mithril blue
+			level = 55,
+			name = "Mithril"
+		},
+		["Adamant Ore"] = {
+			color = Color3.fromRGB(100, 255, 100), -- Adamant green
+			level = 70,
+			name = "Adamant"
+		},
+		["Runite Ore"] = {
+			color = Color3.fromRGB(255, 100, 100), -- Runite red
+			level = 85,
+			name = "Runite"
+		}
+	}
+	
+	return oreInfo[oreNode.Name]
+end
+
+-- Helper: Start mining
+local function startMining(oreNode)
+	if isMining then
+		ErrorHandler:LogDebug("Already mining")
+		return
+	end
+	
+	if not oreNode then
+		ErrorHandler:LogWarning("No ore node to mine")
+		return
+	end
+	
+	-- Send mining request to server
+	StartMiningEvent:FireServer(oreNode)
+	
+	-- Update UI state
+	isMining = true
+	currentOreNode = oreNode
+	miningPrompt.Visible = false
+	
+	ErrorHandler:LogDebug("Mining started", {ore = oreNode.Name})
+end
+
+-- Helper: Update mining progress
+local function updateMiningProgress(oreType, progress)
+	if not isMining then return end
+	
+	miningProgress = progress
+	
+	-- Update progress bar
+	progressBar.Size = UDim2.new(progress, 0, 1, 0)
+	
+	-- Update text
+	local percent = math.floor(progress * 100)
+	progressText.Text = string.format("Mining %s... %d%%", oreType, percent)
+	
+	-- Update ore info
+	local oreInfo = getOreInfo(currentOreNode)
+	if oreInfo then
+		oreInfoText.Text = string.format("%s Ore (Level %d)", oreInfo.name, oreInfo.level)
+	end
+	
+	-- Show progress frame
+	progressFrame.Visible = true
+end
+
+-- Helper: Complete mining
+local function completeMining(success, message)
+	isMining = false
+	currentOreNode = nil
+	miningProgress = 0
+	
+	-- Hide progress frame
+	progressFrame.Visible = false
+	
+	if success then
+		-- Show success message briefly
+		progressText.Text = message or "Mining complete!"
+		progressBar.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+		progressFrame.Visible = true
+		
+		-- Hide after delay
+		wait(1.5)
+		progressFrame.Visible = false
+		
+		-- Reset bar color
+		progressBar.BackgroundColor3 = Color3.fromRGB(80, 160, 80)
+	else
+		-- Show error message
+		progressText.Text = message or "Mining failed"
+		progressBar.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+		progressFrame.Visible = true
+		
+		-- Hide after delay
+		wait(1.5)
+		progressFrame.Visible = false
+		
+		-- Reset bar color
+		progressBar.BackgroundColor3 = Color3.fromRGB(80, 160, 80)
+	end
+	
+	ErrorHandler:LogDebug("Mining completed", {success = success, message = message})
+end
+
+-- Input handling for mining
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	
+	-- E key for mining
+	if input.KeyCode == Enum.KeyCode.E then
+		local target = mouse.Target
+		if target and isOreNode(target) then
+			startMining(target)
+		end
+	end
+	
+	-- Escape key to cancel mining
+	if input.KeyCode == Enum.KeyCode.Escape and isMining then
+		completeMining(false, "Mining cancelled")
+	end
+end)
+
+-- Mouse hover detection for ore nodes
+local lastHoveredOre = nil
+local hoverCheckInterval = 0.1 -- Check every 100ms
+local lastHoverCheck = tick()
+
+RunService.RenderStepped:Connect(function()
+	-- Throttle hover checks
+	if tick() - lastHoverCheck < hoverCheckInterval then
+		return
+	end
+	lastHoverCheck = tick()
+	
+	if isMining then
+		miningPrompt.Visible = false
+		return
+	end
+	
+	local target = mouse.Target
+	if target and isOreNode(target) then
+		-- Show mining prompt
+		local oreInfo = getOreInfo(target)
+		if oreInfo then
+			miningPrompt.Text = string.format("[E] Mine %s Ore", oreInfo.name)
+			miningPrompt.TextColor3 = oreInfo.color
+		else
+			miningPrompt.Text = "[E] Mine Ore"
+			miningPrompt.TextColor3 = Color3.fromRGB(220, 180, 100)
+		end
+		
+		miningPrompt.Visible = true
+		lastHoveredOre = target
+	else
+		miningPrompt.Visible = false
+		lastHoveredOre = nil
+	end
+end)
+
+-- Remote event handlers
+MiningProgressEvent.OnClientEvent:Connect(function(oreType, progress)
+	updateMiningProgress(oreType, progress)
+end)
+
+MiningCompleteEvent.OnClientEvent:Connect(function(success, message)
+	completeMining(success, message)
+end)
+
+-- Animation: Simple mining swing
+local function playMiningAnimation()
+	if not player.Character then return end
+	
+	local humanoid = player.Character:FindFirstChild("Humanoid")
+	if not humanoid then return end
+	
+	-- Load animation (would need an actual Animation object)
+	-- For now, just log that animation would play
+	ErrorHandler:LogDebug("Would play mining animation")
+end
+
+-- Initialize
+ErrorHandler:LogDebug("MiningUI loaded successfully")
+
+-- Test: Create a test ore node in workspace (remove in production)
+local function createTestOreNode()
+	-- Only create test node if in studio
+	if not game:GetService("RunService"):IsStudio() then
+		return
+	end
+	
+	local testOre = Instance.new("Part")
+	testOre.Name = "Copper Ore"
+	testOre.Size = Vector3.new(4, 4, 4)
+	testOre.Position = Vector3.new(0, 5, 0)
+	testOre.Color = Color3.fromRGB(184, 115, 51)
+	testOre.Material = Enum.Material.Slate
+	testOre.Anchored = true
+	testOre.CanCollide = true
+	testOre.Parent = workspace
+	
+	ErrorHandler:LogDebug("Created test ore node")
+end
+
+-- Create test node after delay
+wait(2)
+createTestOreNode()

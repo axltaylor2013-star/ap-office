@@ -1,0 +1,6 @@
+FORCE RELOAD - 2026-02-17 21:30
+
+If you're reading this in Studio, the scripts have reloaded successfully.
+Check console for: [FORCE RELOAD] Script updated successfully
+
+Delete this file after confirming.

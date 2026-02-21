@@ -1,0 +1,891 @@
+--[[
+	QuestUI.client.lua
+	Full quest journal/tracker UI for Roscape Runeblocks.
+	Press J to toggle. Dark medieval theme with gold accents.
+]]
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+-- Require QuestDatabase
+local QuestDatabase
+do
+	local ok, result = pcall(function()
+		return require(game.ReplicatedStorage.Modules.QuestDatabase)
+	end)
+	if ok then
+		QuestDatabase = result
+	else
+		warn("[QuestUI] Failed to load QuestDatabase:", result)
+		QuestDatabase = { Quests = {}, ById = {} }
+	end
+end
+
+------------------------------------------------------------
+-- Theme
+------------------------------------------------------------
+local C = {
+	bg        = Color3.fromHex("#1a1a2e"),
+	bgDark    = Color3.fromHex("#0f0f23"),
+	bgLight   = Color3.fromHex("#16213e"),
+	gold      = Color3.fromHex("#f0c040"),
+	goldDim   = Color3.fromHex("#a08030"),
+	text      = Color3.fromHex("#e0e0e0"),
+	textDim   = Color3.fromHex("#888899"),
+	green     = Color3.fromHex("#40c060"),
+	red       = Color3.fromHex("#c04040"),
+	locked    = Color3.fromHex("#555566"),
+}
+
+local TWEEN_OPEN = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local TWEEN_CLOSE = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+
+------------------------------------------------------------
+-- State
+------------------------------------------------------------
+local isOpen = false
+local selectedQuestId = nil
+local playerLevel = 1 -- placeholder, would come from server
+
+-- Initialize quest progress (will be updated from server)
+local questProgress = {
+	activeQuest = nil,
+	completedQuests = {},
+	questProgress = {},
+}
+
+-- Request quest data from server on startup
+local function requestQuestData()
+	local QRemotes = ReplicatedStorage:FindFirstChild("Remotes")
+	local questListEvent = QRemotes and QRemotes:FindFirstChild("QuestList")
+	if questListEvent and questListEvent:IsA("RemoteEvent") then
+		questListEvent:FireServer() -- Request current quest state
+	end
+end
+
+-- Try to get player level
+local QRemotes2 = ReplicatedStorage:FindFirstChild("Remotes")
+local getStatsRemote = QRemotes2 and QRemotes2:FindFirstChild("GetStatsPanel")
+if getStatsRemote and getStatsRemote:IsA("RemoteFunction") then
+	local ok, result = pcall(function()
+		return getStatsRemote:InvokeServer()
+	end)
+	if ok and result and result.level then
+		playerLevel = result.level
+	end
+end
+
+------------------------------------------------------------
+-- Helpers
+------------------------------------------------------------
+local function clearChildren(parent)
+	for _, child in parent:GetChildren() do
+		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") and not child:IsA("UICorner") and not child:IsA("UIGridLayout") then
+			child:Destroy()
+		end
+	end
+end
+
+local function getQuestStatus(quest)
+	-- Check completed
+	for _, cid in questProgress.completedQuests do
+		if cid == quest.id then
+			return "completed"
+		end
+	end
+	-- Check active
+	if questProgress.activeQuest == quest.id then
+		return "active"
+	end
+	-- Check level lock
+	if quest.level > playerLevel then
+		return "locked"
+	end
+	return "available"
+end
+
+local function getStatusIcon(status)
+	if status == "completed" then return "✅" end
+	if status == "active" then return "🟢" end
+	if status == "locked" then return "🔒" end
+	return "⭐"
+end
+
+local function getStatusColor(status)
+	if status == "completed" then return C.green end
+	if status == "active" then return C.green end
+	if status == "locked" then return C.locked end
+	return C.gold
+end
+
+local function getObjectiveProgress(questId, objIndex)
+	local qp = questProgress.questProgress[questId]
+	if qp and qp[objIndex] then
+		return qp[objIndex]
+	end
+	return { current = 0, done = false }
+end
+
+local function getObjectiveDescription(obj)
+	if obj.label then
+		return obj.label
+	end
+	local target = obj.target or obj.item or obj.npc or obj.location or ""
+	if obj.type == "kill" then
+		return "Kill " .. target
+	elseif obj.type == "gather" then
+		return "Gather " .. target
+	elseif obj.type == "talk" then
+		return "Talk to " .. target
+	elseif obj.type == "visit" or obj.type == "travel" then
+		return "Go to " .. (obj.location or target)
+	elseif obj.type == "pay" then
+		return "Pay " .. tostring(obj.amount or 0) .. " Gold"
+	elseif obj.type == "interact" then
+		return "Use " .. target
+	elseif obj.type == "choice" then
+		return obj.label or "Make a choice"
+	end
+	return obj.type .. ": " .. target
+end
+
+local function getObjectiveTypeIcon(objType)
+	if objType == "kill" then return "⚔" end
+	if objType == "gather" then return "📦" end
+	if objType == "talk" then return "💬" end
+	if objType == "visit" or objType == "travel" then return "🗺" end
+	if objType == "pay" then return "🪙" end
+	if objType == "interact" then return "🔮" end
+	if objType == "choice" then return "⚖" end
+	return "•"
+end
+
+------------------------------------------------------------
+-- ScreenGui
+------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "QuestUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.DisplayOrder = 5
+screenGui.Parent = playerGui
+
+------------------------------------------------------------
+-- Active Quest HUD (always visible, top-right)
+------------------------------------------------------------
+local hudFrame = Instance.new("Frame")
+hudFrame.Name = "QuestHUD"
+hudFrame.Size = UDim2.fromOffset(240, 70)
+hudFrame.Position = UDim2.new(1, -250, 0, 100)
+hudFrame.BackgroundColor3 = C.bg
+hudFrame.BackgroundTransparency = 0.15
+hudFrame.BorderSizePixel = 0
+hudFrame.Parent = screenGui
+
+local hudCorner = Instance.new("UICorner")
+hudCorner.CornerRadius = UDim.new(0, 8)
+hudCorner.Parent = hudFrame
+
+local hudStroke = Instance.new("UIStroke")
+hudStroke.Color = C.goldDim
+hudStroke.Thickness = 1.5
+hudStroke.Parent = hudFrame
+
+local hudPad = Instance.new("UIPadding")
+hudPad.PaddingLeft = UDim.new(0, 10)
+hudPad.PaddingRight = UDim.new(0, 10)
+hudPad.PaddingTop = UDim.new(0, 8)
+hudPad.PaddingBottom = UDim.new(0, 8)
+hudPad.Parent = hudFrame
+
+local hudQuestName = Instance.new("TextLabel")
+hudQuestName.Name = "QuestName"
+hudQuestName.Size = UDim2.new(1, 0, 0, 20)
+hudQuestName.BackgroundTransparency = 1
+hudQuestName.TextColor3 = C.gold
+hudQuestName.Font = Enum.Font.GothamBold
+hudQuestName.TextSize = 14
+hudQuestName.TextXAlignment = Enum.TextXAlignment.Left
+hudQuestName.TextTruncate = Enum.TextTruncate.AtEnd
+hudQuestName.Text = ""
+hudQuestName.Parent = hudFrame
+
+local hudObjective = Instance.new("TextLabel")
+hudObjective.Name = "Objective"
+hudObjective.Size = UDim2.new(1, 0, 0, 32)
+hudObjective.Position = UDim2.fromOffset(0, 22)
+hudObjective.BackgroundTransparency = 1
+hudObjective.TextColor3 = C.text
+hudObjective.Font = Enum.Font.Gotham
+hudObjective.TextSize = 12
+hudObjective.TextXAlignment = Enum.TextXAlignment.Left
+hudObjective.TextYAlignment = Enum.TextYAlignment.Top
+hudObjective.TextWrapped = true
+hudObjective.Text = ""
+hudObjective.Parent = hudFrame
+
+local hudButton = Instance.new("TextButton")
+hudButton.Name = "ClickArea"
+hudButton.Size = UDim2.new(1, 0, 1, 0)
+hudButton.BackgroundTransparency = 1
+hudButton.Text = ""
+hudButton.Parent = hudFrame
+
+local function updateHUD()
+	local activeId = questProgress.activeQuest
+	if not activeId then
+		hudFrame.Visible = false
+		return
+	end
+	local quest = QuestDatabase.ById[activeId]
+	if not quest then
+		hudFrame.Visible = false
+		return
+	end
+	hudFrame.Visible = true
+	hudQuestName.Text = quest.name
+
+	-- Find first incomplete objective
+	local objectives = quest.objectives
+	local foundObj = nil
+	for i, obj in objectives do
+		local prog = getObjectiveProgress(activeId, i)
+		if not prog.done then
+			local desc = getObjectiveDescription(obj)
+			if obj.amount and obj.amount > 0 then
+				local cur = prog.current or 0
+				desc = desc .. " " .. tostring(cur) .. "/" .. tostring(obj.amount)
+			end
+			foundObj = getObjectiveTypeIcon(obj.type) .. " " .. desc
+			break
+		end
+	end
+	hudObjective.Text = foundObj or "All objectives complete!"
+end
+
+------------------------------------------------------------
+-- Main Journal Frame
+------------------------------------------------------------
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "QuestJournal"
+mainFrame.Size = UDim2.fromOffset(450, 500)
+mainFrame.Position = UDim2.fromScale(0.5, 0.5)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundColor3 = C.bg
+mainFrame.BorderSizePixel = 0
+mainFrame.Visible = false
+mainFrame.BackgroundTransparency = 1
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 8)
+mainCorner.Parent = mainFrame
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = C.gold
+mainStroke.Thickness = 2
+mainStroke.Parent = mainFrame
+
+-- Title bar
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 38)
+titleBar.BackgroundColor3 = C.bgDark
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 8)
+titleCorner.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Text = "⚔ Quest Journal"
+titleLabel.Size = UDim2.new(1, -40, 1, 0)
+titleLabel.Position = UDim2.fromOffset(12, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextColor3 = C.gold
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 18
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = titleBar
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Text = "✕"
+closeBtn.Size = UDim2.fromOffset(38, 38)
+closeBtn.Position = UDim2.new(1, -38, 0, 0)
+closeBtn.BackgroundTransparency = 1
+closeBtn.TextColor3 = C.textDim
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 18
+closeBtn.Parent = titleBar
+
+-- Content area: left list + right detail
+local contentFrame = Instance.new("Frame")
+contentFrame.Name = "Content"
+contentFrame.Size = UDim2.new(1, -8, 1, -46)
+contentFrame.Position = UDim2.fromOffset(4, 42)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = mainFrame
+
+-- Left panel: quest list (40%)
+local listPanel = Instance.new("ScrollingFrame")
+listPanel.Name = "QuestList"
+listPanel.Size = UDim2.new(0.4, -2, 1, 0)
+listPanel.Position = UDim2.fromOffset(0, 0)
+listPanel.BackgroundColor3 = C.bgDark
+listPanel.BorderSizePixel = 0
+listPanel.ScrollBarThickness = 4
+listPanel.ScrollBarImageColor3 = C.goldDim
+listPanel.CanvasSize = UDim2.new(0, 0, 0, 0)
+listPanel.AutomaticCanvasSize = Enum.AutomaticSize.Y
+listPanel.Parent = contentFrame
+
+local listCorner = Instance.new("UICorner")
+listCorner.CornerRadius = UDim.new(0, 6)
+listCorner.Parent = listPanel
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 2)
+listLayout.Parent = listPanel
+
+local listPad = Instance.new("UIPadding")
+listPad.PaddingLeft = UDim.new(0, 4)
+listPad.PaddingRight = UDim.new(0, 4)
+listPad.PaddingTop = UDim.new(0, 4)
+listPad.PaddingBottom = UDim.new(0, 4)
+listPad.Parent = listPanel
+
+-- Right panel: quest details (60%)
+local detailPanel = Instance.new("ScrollingFrame")
+detailPanel.Name = "QuestDetail"
+detailPanel.Size = UDim2.new(0.6, -2, 1, 0)
+detailPanel.Position = UDim2.new(0.4, 2, 0, 0)
+detailPanel.BackgroundColor3 = C.bgDark
+detailPanel.BorderSizePixel = 0
+detailPanel.ScrollBarThickness = 4
+detailPanel.ScrollBarImageColor3 = C.goldDim
+detailPanel.CanvasSize = UDim2.new(0, 0, 0, 0)
+detailPanel.AutomaticCanvasSize = Enum.AutomaticSize.Y
+detailPanel.Parent = contentFrame
+
+local detailCorner = Instance.new("UICorner")
+detailCorner.CornerRadius = UDim.new(0, 6)
+detailCorner.Parent = detailPanel
+
+local detailLayout = Instance.new("UIListLayout")
+detailLayout.Padding = UDim.new(0, 6)
+detailLayout.Parent = detailPanel
+
+local detailPad = Instance.new("UIPadding")
+detailPad.PaddingLeft = UDim.new(0, 10)
+detailPad.PaddingRight = UDim.new(0, 10)
+detailPad.PaddingTop = UDim.new(0, 10)
+detailPad.PaddingBottom = UDim.new(0, 10)
+detailPad.Parent = detailPanel
+
+------------------------------------------------------------
+-- UI Factory Helpers
+------------------------------------------------------------
+local function makeLabel(parent, text, size, color, font)
+	local label = Instance.new("TextLabel")
+	label.Text = text
+	label.Size = UDim2.new(1, 0, 0, 0)
+	label.AutomaticSize = Enum.AutomaticSize.Y
+	label.BackgroundTransparency = 1
+	label.TextColor3 = color or C.text
+	label.Font = font or Enum.Font.Gotham
+	label.TextSize = size or 13
+	label.TextWrapped = true
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = parent
+	return label
+end
+
+local function makeSeparator(parent)
+	local sep = Instance.new("Frame")
+	sep.Size = UDim2.new(1, 0, 0, 1)
+	sep.BackgroundColor3 = C.goldDim
+	sep.BackgroundTransparency = 0.5
+	sep.BorderSizePixel = 0
+	sep.Parent = parent
+end
+
+------------------------------------------------------------
+-- Render Quest List
+------------------------------------------------------------
+local function renderList()
+	clearChildren(listPanel)
+
+	for _, quest in QuestDatabase.Quests do
+		local status = getQuestStatus(quest)
+		local icon = getStatusIcon(status)
+		local statusColor = getStatusColor(status)
+
+		local btn = Instance.new("TextButton")
+		btn.Name = quest.id
+		btn.Size = UDim2.new(1, 0, 0, 38)
+		btn.BackgroundColor3 = (selectedQuestId == quest.id) and C.bgLight or C.bg
+		btn.BorderSizePixel = 0
+		btn.AutoButtonColor = false
+		btn.Text = ""
+		btn.Parent = listPanel
+
+		local btnCorner = Instance.new("UICorner")
+		btnCorner.CornerRadius = UDim.new(0, 4)
+		btnCorner.Parent = btn
+
+		-- Status icon
+		local iconLabel = Instance.new("TextLabel")
+		iconLabel.Size = UDim2.fromOffset(24, 38)
+		iconLabel.Position = UDim2.fromOffset(4, 0)
+		iconLabel.BackgroundTransparency = 1
+		iconLabel.Text = icon
+		iconLabel.TextSize = 14
+		iconLabel.Font = Enum.Font.Gotham
+		iconLabel.TextColor3 = statusColor
+		iconLabel.Parent = btn
+
+		-- Quest name
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size = UDim2.new(1, -60, 0, 20)
+		nameLabel.Position = UDim2.fromOffset(28, 2)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text = quest.name
+		nameLabel.TextSize = 13
+		nameLabel.Font = Enum.Font.GothamMedium
+		nameLabel.TextColor3 = (status == "locked") and C.locked or C.text
+		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		nameLabel.Parent = btn
+
+		-- Level requirement
+		local lvlLabel = Instance.new("TextLabel")
+		lvlLabel.Size = UDim2.new(1, -32, 0, 14)
+		lvlLabel.Position = UDim2.fromOffset(28, 21)
+		lvlLabel.BackgroundTransparency = 1
+		lvlLabel.Text = "Lv. " .. tostring(quest.level)
+		lvlLabel.TextSize = 11
+		lvlLabel.Font = Enum.Font.Gotham
+		lvlLabel.TextColor3 = (status == "locked") and C.locked or C.textDim
+		lvlLabel.TextXAlignment = Enum.TextXAlignment.Left
+		lvlLabel.Parent = btn
+
+		-- Highlight on hover
+		btn.MouseEnter:Connect(function()
+			if selectedQuestId ~= quest.id then
+				TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = C.bgLight }):Play()
+			end
+		end)
+		btn.MouseLeave:Connect(function()
+			if selectedQuestId ~= quest.id then
+				TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = C.bg }):Play()
+			end
+		end)
+
+		btn.MouseButton1Click:Connect(function()
+			selectedQuestId = quest.id
+			renderList()
+		end)
+	end
+end
+
+------------------------------------------------------------
+-- Render Quest Detail
+------------------------------------------------------------
+local function renderDetail()
+	clearChildren(detailPanel)
+
+	if not selectedQuestId then
+		makeLabel(detailPanel, "Select a quest to view details.", 14, C.textDim)
+		return
+	end
+
+	local quest = QuestDatabase.ById[selectedQuestId]
+	if not quest then
+		makeLabel(detailPanel, "Quest not found.", 14, C.textDim)
+		return
+	end
+
+	local status = getQuestStatus(quest)
+
+	-- Quest Name
+	makeLabel(detailPanel, quest.name, 18, C.gold, Enum.Font.GothamBold)
+
+	-- Given by
+	makeLabel(detailPanel, "Given by: " .. (quest.giver or "Unknown"), 13, C.text)
+
+	-- Level requirement
+	local lvlColor = (quest.level > playerLevel) and C.red or C.textDim
+	makeLabel(detailPanel, "Level Required: " .. tostring(quest.level), 12, lvlColor)
+
+	-- Status badge
+	local statusText = getStatusIcon(status) .. " " .. status:sub(1, 1):upper() .. status:sub(2)
+	makeLabel(detailPanel, statusText, 12, getStatusColor(status), Enum.Font.GothamMedium)
+
+	makeSeparator(detailPanel)
+
+	-- Description
+	makeLabel(detailPanel, quest.description, 13, C.text)
+
+	makeSeparator(detailPanel)
+
+	-- Objectives
+	makeLabel(detailPanel, "Objectives", 15, C.gold, Enum.Font.GothamBold)
+
+	for i, obj in quest.objectives do
+		local prog = getObjectiveProgress(quest.id, i)
+		local isDone = prog.done or false
+		local current = prog.current or 0
+		local total = obj.amount or 1
+
+		local checkIcon = isDone and "✅" or "☐"
+		local desc = getObjectiveDescription(obj)
+		local typeIcon = getObjectiveTypeIcon(obj.type)
+		local objColor = isDone and C.green or C.text
+
+		-- Create objective container frame
+		local objFrame = Instance.new("Frame")
+		objFrame.Name = "Objective_" .. i
+		objFrame.Size = UDim2.new(1, 0, 0, 0)
+		objFrame.AutomaticSize = Enum.AutomaticSize.Y
+		objFrame.BackgroundTransparency = 1
+		objFrame.Parent = detailPanel
+
+		local objLayout = Instance.new("UIListLayout")
+		objLayout.Padding = UDim.new(0, 2)
+		objLayout.Parent = objFrame
+
+		-- Objective description
+		local objLabel = Instance.new("TextLabel")
+		objLabel.Name = "Description"
+		objLabel.Size = UDim2.new(1, 0, 0, 0)
+		objLabel.AutomaticSize = Enum.AutomaticSize.Y
+		objLabel.BackgroundTransparency = 1
+		objLabel.Text = checkIcon .. " " .. typeIcon .. " " .. desc
+		objLabel.TextColor3 = objColor
+		objLabel.TextXAlignment = Enum.TextXAlignment.Left
+		objLabel.Font = Enum.Font.Gotham
+		objLabel.TextSize = 12
+		objLabel.TextWrapped = true
+		objLabel.Parent = objFrame
+
+		-- Progress bar (only for active quests with amounts > 1)
+		if status == "active" and total > 1 then
+			local progressFrame = Instance.new("Frame")
+			progressFrame.Name = "ProgressFrame"
+			progressFrame.Size = UDim2.new(1, -20, 0, 20)
+			progressFrame.Position = UDim2.new(0, 10, 0, 0)
+			progressFrame.BackgroundColor3 = C.bgLight
+			progressFrame.BorderSizePixel = 0
+			progressFrame.Parent = objFrame
+
+			local progressCorner = Instance.new("UICorner")
+			progressCorner.CornerRadius = UDim.new(0, 4)
+			progressCorner.Parent = progressFrame
+
+			-- Progress fill
+			local progressBar = Instance.new("Frame")
+			progressBar.Name = "ProgressBar"
+			progressBar.Size = UDim2.new(math.min(current / total, 1), 0, 1, 0)
+			progressBar.Position = UDim2.new(0, 0, 0, 0)
+			progressBar.BackgroundColor3 = isDone and C.green or C.gold
+			progressBar.BorderSizePixel = 0
+			progressBar.Parent = progressFrame
+
+			local barCorner = Instance.new("UICorner")
+			barCorner.CornerRadius = UDim.new(0, 4)
+			barCorner.Parent = progressBar
+
+			-- Progress text overlay
+			local progressText = Instance.new("TextLabel")
+			progressText.Name = "ProgressText"
+			progressText.Size = UDim2.new(1, 0, 1, 0)
+			progressText.Position = UDim2.new(0, 0, 0, 0)
+			progressText.BackgroundTransparency = 1
+			progressText.Text = current .. " / " .. total
+			progressText.TextColor3 = C.text
+			progressText.TextScaled = true
+			progressText.Font = Enum.Font.GothamBold
+			progressText.Parent = progressFrame
+		elseif total > 1 then
+			-- Show simple progress text for non-active quests
+			local simpleProgress = Instance.new("TextLabel")
+			simpleProgress.Name = "SimpleProgress"
+			simpleProgress.Size = UDim2.new(1, -20, 0, 16)
+			simpleProgress.Position = UDim2.new(0, 10, 0, 0)
+			simpleProgress.BackgroundTransparency = 1
+			simpleProgress.Text = "Progress: " .. current .. " / " .. total
+			simpleProgress.TextColor3 = C.textDim
+			simpleProgress.TextXAlignment = Enum.TextXAlignment.Left
+			simpleProgress.Font = Enum.Font.Gotham
+			simpleProgress.TextSize = 11
+			simpleProgress.Parent = objFrame
+		end
+	end
+
+	-- Choice objectives (if quest has choices and is active)
+	if quest.choices and status == "active" then
+		makeSeparator(detailPanel)
+		makeLabel(detailPanel, "Choose a Path", 14, C.gold, Enum.Font.GothamMedium)
+		for _, choice in quest.choices do
+			local choiceFrame = Instance.new("Frame")
+			choiceFrame.Size = UDim2.new(1, 0, 0, 0)
+			choiceFrame.AutomaticSize = Enum.AutomaticSize.Y
+			choiceFrame.BackgroundColor3 = C.bg
+			choiceFrame.BorderSizePixel = 0
+			choiceFrame.Parent = detailPanel
+
+			local choiceCorner = Instance.new("UICorner")
+			choiceCorner.CornerRadius = UDim.new(0, 4)
+			choiceCorner.Parent = choiceFrame
+
+			local choicePad = Instance.new("UIPadding")
+			choicePad.PaddingLeft = UDim.new(0, 6)
+			choicePad.PaddingRight = UDim.new(0, 6)
+			choicePad.PaddingTop = UDim.new(0, 6)
+			choicePad.PaddingBottom = UDim.new(0, 6)
+			choicePad.Parent = choiceFrame
+
+			local choiceLayout = Instance.new("UIListLayout")
+			choiceLayout.Padding = UDim.new(0, 2)
+			choiceLayout.Parent = choiceFrame
+
+			makeLabel(choiceFrame, "⚖ " .. choice.label, 13, C.gold, Enum.Font.GothamMedium)
+			makeLabel(choiceFrame, choice.description, 11, C.textDim)
+		end
+	end
+
+	makeSeparator(detailPanel)
+
+	-- Rewards
+	makeLabel(detailPanel, "Rewards", 15, C.gold, Enum.Font.GothamBold)
+
+	local rewards = quest.rewards
+	if rewards then
+		if rewards.gold and rewards.gold > 0 then
+			makeLabel(detailPanel, "🪙 " .. tostring(rewards.gold) .. " Gold", 13, C.text)
+		end
+		if rewards.xp then
+			for skill, amount in rewards.xp do
+				makeLabel(detailPanel, "⭐ " .. tostring(amount) .. " " .. tostring(skill) .. " XP", 13, C.text)
+			end
+		end
+		if rewards.items then
+			for _, item in rewards.items do
+				makeLabel(detailPanel, "🎁 " .. tostring(item), 13, C.text)
+			end
+		end
+	end
+
+	-- Show choice-specific rewards too
+	if quest.choices then
+		for _, choice in quest.choices do
+			if choice.rewards and choice.rewards.xp then
+				makeLabel(detailPanel, "Path: " .. choice.label, 12, C.goldDim, Enum.Font.GothamMedium)
+				for skill, amount in choice.rewards.xp do
+					makeLabel(detailPanel, "  ⭐ " .. tostring(amount) .. " " .. tostring(skill) .. " XP", 12, C.textDim)
+				end
+			end
+		end
+	end
+
+	-- Accept Quest Button (if quest is available)
+	if status == "available" then
+		makeSeparator(detailPanel)
+		
+		local acceptBtn = Instance.new("TextButton")
+		acceptBtn.Name = "AcceptButton"
+		acceptBtn.Size = UDim2.new(1, 0, 0, 35)
+		acceptBtn.BackgroundColor3 = C.gold
+		acceptBtn.BorderSizePixel = 0
+		acceptBtn.Text = "⚔ Accept Quest"
+		acceptBtn.TextColor3 = C.bgDark
+		acceptBtn.Font = Enum.Font.GothamBold
+		acceptBtn.TextSize = 14
+		acceptBtn.Parent = detailPanel
+
+		local acceptCorner = Instance.new("UICorner")
+		acceptCorner.CornerRadius = UDim.new(0, 6)
+		acceptCorner.Parent = acceptBtn
+
+		acceptBtn.MouseButton1Click:Connect(function()
+			local qaRemotes = ReplicatedStorage:FindFirstChild("Remotes")
+			local questAcceptEvent = qaRemotes and qaRemotes:FindFirstChild("QuestAccept")
+			if questAcceptEvent then
+				questAcceptEvent:FireServer(quest.id)
+				print("[QuestUI] Accepting quest:", quest.name)
+			end
+		end)
+
+		-- Hover effects
+		acceptBtn.MouseEnter:Connect(function()
+			TweenService:Create(acceptBtn, TweenInfo.new(0.15), { BackgroundColor3 = C.goldDim }):Play()
+		end)
+		acceptBtn.MouseLeave:Connect(function()
+			TweenService:Create(acceptBtn, TweenInfo.new(0.15), { BackgroundColor3 = C.gold }):Play()
+		end)
+	end
+end
+
+------------------------------------------------------------
+-- Render All
+------------------------------------------------------------
+local function refreshUI()
+	renderList()
+	renderDetail()
+	updateHUD()
+end
+
+------------------------------------------------------------
+-- Open / Close Animation
+------------------------------------------------------------
+local function openJournal()
+	if isOpen then return end
+	isOpen = true
+	mainFrame.Visible = true
+	mainFrame.BackgroundTransparency = 1
+	mainFrame.Size = UDim2.fromOffset(450, 500)
+	TweenService:Create(mainFrame, TWEEN_OPEN, {
+		BackgroundTransparency = 0,
+	}):Play()
+	refreshUI()
+end
+
+local function closeJournal()
+	if not isOpen then return end
+	isOpen = false
+	local tween = TweenService:Create(mainFrame, TWEEN_CLOSE, {
+		BackgroundTransparency = 1,
+	})
+	tween:Play()
+	tween.Completed:Connect(function()
+		if not isOpen then
+			mainFrame.Visible = false
+		end
+	end)
+end
+
+local function toggleJournal()
+	if isOpen then
+		closeJournal()
+	else
+		openJournal()
+	end
+end
+
+------------------------------------------------------------
+-- Input Bindings
+------------------------------------------------------------
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.J then
+		toggleJournal()
+	end
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+	closeJournal()
+end)
+
+hudButton.MouseButton1Click:Connect(function()
+	openJournal()
+end)
+
+------------------------------------------------------------
+-- Listen for server updates
+------------------------------------------------------------
+-- Wait for remotes to exist, then connect
+task.spawn(function()
+	task.wait(2) -- Give server time to create remotes
+	
+	-- Listen for quest progress updates
+	local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+	local questProgressEvent = Remotes and Remotes:WaitForChild("QuestProgress", 10)
+	if questProgressEvent then
+		questProgressEvent.OnClientEvent:Connect(function(data)
+			if data then
+				questProgress = data
+				if isOpen then
+					refreshUI()
+				else
+					updateHUD()
+				end
+			end
+		end)
+		print("[QuestUI] Connected to QuestProgress remote")
+	else
+		warn("[QuestUI] Failed to find QuestProgress remote")
+	end
+
+	-- Listen for quest completions
+	local questCompleteEvent = Remotes and Remotes:WaitForChild("QuestComplete", 10)
+	if questCompleteEvent then
+		questCompleteEvent.OnClientEvent:Connect(function(questId, rewards)
+			-- Show notification
+			local notif = Instance.new("Frame")
+			notif.Size = UDim2.fromOffset(300, 50)
+			notif.Position = UDim2.new(0.5, -150, 0, 80)
+			notif.BackgroundColor3 = C.bgDark
+			notif.BorderSizePixel = 0
+			notif.Parent = screenGui
+
+			local nCorner = Instance.new("UICorner")
+			nCorner.CornerRadius = UDim.new(0, 8)
+			nCorner.Parent = notif
+
+			local nStroke = Instance.new("UIStroke")
+			nStroke.Color = C.gold
+			nStroke.Thickness = 1.5
+			nStroke.Parent = notif
+
+			local nLabel = Instance.new("TextLabel")
+			nLabel.Size = UDim2.new(1, 0, 1, 0)
+			nLabel.BackgroundTransparency = 1
+			nLabel.TextColor3 = C.gold
+			nLabel.Font = Enum.Font.GothamBold
+			nLabel.TextSize = 16
+			nLabel.Text = "✅ Quest Complete!"
+			if rewards and rewards.gold then
+				nLabel.Text = nLabel.Text .. " +" .. tostring(rewards.gold) .. " Gold"
+			end
+			nLabel.Parent = notif
+
+			task.delay(3, function()
+				local fadeOut = TweenService:Create(notif, TweenInfo.new(0.5), { BackgroundTransparency = 1 })
+				local fadeTxt = TweenService:Create(nLabel, TweenInfo.new(0.5), { TextTransparency = 1 })
+				local fadeStk = TweenService:Create(nStroke, TweenInfo.new(0.5), { Transparency = 1 })
+				fadeOut:Play()
+				fadeTxt:Play()
+				fadeStk:Play()
+				fadeOut.Completed:Connect(function()
+					notif:Destroy()
+				end)
+			end)
+		end)
+		print("[QuestUI] Connected to QuestComplete remote")
+	end
+	
+	-- Request initial quest data
+	requestQuestData()
+end)
+
+------------------------------------------------------------
+-- Initial startup
+------------------------------------------------------------
+-- Update HUD initially (will likely be empty until server responds)
+updateHUD()
+
+-- Request quest data a bit later to ensure server is ready
+task.spawn(function()
+	task.wait(3)
+	requestQuestData()
+	task.wait(1)
+	updateHUD() -- Update again after server response
+end)
+
+print("[QuestUI] Loaded - Press J to open quest journal")

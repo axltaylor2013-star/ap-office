@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Name — Kermicle Media</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0d0d0d;
+      color: #e0e0e0;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    h1, h2, h3 { color: #d4a843; letter-spacing: 0.5px; }
+    a { color: #d4a843; text-decoration: none; }
+    a:hover { color: #e6bc5a; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 24px;
+      transition: all 0.3s ease;
+    }
+    .card:hover {
+      border-color: #d4a843;
+      box-shadow: 0 0 20px rgba(212, 168, 67, 0.15);
+    }
+
+    .btn {
+      background: #d4a843;
+      color: #0d0d0d;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+    .btn:hover {
+      background: #e6bc5a;
+      box-shadow: 0 0 15px rgba(212, 168, 67, 0.3);
+    }
+
+    input, textarea, select {
+      background: #2a2a2a;
+      border: 1px solid #333;
+      color: #e0e0e0;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-family: inherit;
+      width: 100%;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: #d4a843;
+      outline: none;
+      box-shadow: 0 0 8px rgba(212, 168, 67, 0.2);
+    }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+
+    @media (max-width: 768px) {
+      .container { padding: 20px 16px; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>App Name</h1>
+    <div class="grid">
+      <div class="card">
+        <h2>Card Title</h2>
+        <p>Content goes here.</p>
+        <button class="btn">Action</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,156 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2026-02-15",
+  "templates": [
+    {
+      "id": "cold-outreach-restaurant",
+      "name": "Cold Outreach — Restaurant",
+      "category": "email",
+      "subcategory": "cold-outreach",
+      "platform": null,
+      "tags": ["cold", "outreach", "restaurant", "food", "hospitality"],
+      "variables": ["client_name", "company", "your_name", "your_company", "cta", "result"],
+      "description": "Cold email targeting restaurant owners for content/social media services."
+    },
+    {
+      "id": "cold-outreach-fitness",
+      "name": "Cold Outreach — Fitness / Personal Trainer",
+      "category": "email",
+      "subcategory": "cold-outreach",
+      "platform": null,
+      "tags": ["cold", "outreach", "fitness", "gym", "trainer", "health"],
+      "variables": ["client_name", "company", "your_name", "your_company", "result", "cta"],
+      "description": "Cold email targeting fitness pros and gym owners."
+    },
+    {
+      "id": "cold-outreach-real-estate",
+      "name": "Cold Outreach — Real Estate Agent",
+      "category": "email",
+      "subcategory": "cold-outreach",
+      "platform": null,
+      "tags": ["cold", "outreach", "real estate", "realtor", "property"],
+      "variables": ["client_name", "company", "your_name", "your_company", "result", "cta"],
+      "description": "Cold email targeting real estate agents for content/branding services."
+    },
+    {
+      "id": "follow-up-gentle",
+      "name": "Gentle Follow-Up",
+      "category": "email",
+      "subcategory": "follow-up",
+      "platform": null,
+      "tags": ["follow-up", "gentle", "reminder", "warm"],
+      "variables": ["client_name", "company", "your_name", "your_company", "service_type"],
+      "description": "Friendly follow-up email after no response to initial outreach."
+    },
+    {
+      "id": "follow-up-breakup",
+      "name": "Break-Up Email (Final Follow-Up)",
+      "category": "email",
+      "subcategory": "follow-up",
+      "platform": null,
+      "tags": ["follow-up", "breakup", "final", "last-chance"],
+      "variables": ["client_name", "company", "your_name", "your_company", "service_type"],
+      "description": "Final follow-up that gracefully closes the loop."
+    },
+    {
+      "id": "welcome-email",
+      "name": "Welcome Email — New Client",
+      "category": "email",
+      "subcategory": "welcome",
+      "platform": null,
+      "tags": ["welcome", "onboarding", "new-client"],
+      "variables": ["client_name", "client_first_name", "company", "your_name", "your_company", "service_type", "deliverables"],
+      "description": "Welcome email sent after a new client signs on."
+    },
+    {
+      "id": "invoice-reminder",
+      "name": "Invoice Payment Reminder",
+      "category": "email",
+      "subcategory": "invoice",
+      "platform": null,
+      "tags": ["invoice", "payment", "reminder", "billing"],
+      "variables": ["client_name", "client_first_name", "company", "your_name", "your_company", "invoice_number", "amount_due", "due_date"],
+      "description": "Friendly payment reminder for outstanding invoices."
+    },
+    {
+      "id": "caption-promo",
+      "name": "Social Media Caption — Promo/Service Highlight",
+      "category": "caption",
+      "subcategory": "promo",
+      "platform": "Instagram, TikTok, X",
+      "tags": ["caption", "social", "promo", "service", "instagram", "tiktok"],
+      "variables": ["company", "service_type", "result", "cta", "pain_point", "niche"],
+      "description": "Promotional caption template with platform-specific versions."
+    },
+    {
+      "id": "caption-value",
+      "name": "Social Media Caption — Value Post / Tips",
+      "category": "caption",
+      "subcategory": "value",
+      "platform": "Instagram, TikTok, YouTube",
+      "tags": ["caption", "social", "value", "tips", "educational"],
+      "variables": ["company", "niche", "your_name"],
+      "description": "Educational/value-driven caption with tips format."
+    },
+    {
+      "id": "proposal-email",
+      "name": "Proposal Cover Email",
+      "category": "email",
+      "subcategory": "proposal",
+      "platform": null,
+      "tags": ["proposal", "pitch", "formal", "service"],
+      "variables": ["client_name", "client_first_name", "company", "your_name", "your_company", "service_type", "price"],
+      "description": "Email to accompany a formal proposal document."
+    },
+    {
+      "id": "project-brief",
+      "name": "Project Brief Template",
+      "category": "brief",
+      "subcategory": "project",
+      "platform": null,
+      "tags": ["brief", "project", "planning", "scope", "creative"],
+      "variables": ["client_name", "company", "project_name", "service_type", "deliverables", "timeline", "date"],
+      "description": "Structured project brief for scoping new work."
+    },
+    {
+      "id": "weekly-report",
+      "name": "Weekly Report Template",
+      "category": "report",
+      "subcategory": "weekly",
+      "platform": null,
+      "tags": ["report", "weekly", "analytics", "progress", "update"],
+      "variables": ["client_name", "company", "your_name", "your_company", "date", "project_name"],
+      "description": "Weekly progress report with metrics and status updates."
+    },
+    {
+      "id": "testimonial-request",
+      "name": "Testimonial Request Email",
+      "category": "email",
+      "subcategory": "testimonial",
+      "platform": null,
+      "tags": ["testimonial", "review", "social-proof", "feedback"],
+      "variables": ["client_name", "client_first_name", "company", "your_name", "your_company", "service_type", "result"],
+      "description": "Email requesting a testimonial from a happy client."
+    },
+    {
+      "id": "partnership-inquiry",
+      "name": "Partnership / Collaboration Inquiry",
+      "category": "email",
+      "subcategory": "partnership",
+      "platform": null,
+      "tags": ["partnership", "collaboration", "B2B", "networking"],
+      "variables": ["client_name", "company", "your_name", "your_company", "service_type", "cta"],
+      "description": "Outreach email proposing a business collaboration."
+    },
+    {
+      "id": "rate-increase",
+      "name": "Rate Increase Notice",
+      "category": "email",
+      "subcategory": "rate-increase",
+      "platform": null,
+      "tags": ["rate", "pricing", "increase", "notice", "existing-client"],
+      "variables": ["client_name", "client_first_name", "company", "your_name", "your_company", "service_type", "price", "date"],
+      "description": "Professional notice to existing clients about a rate increase."
+    }
+  ]
+}

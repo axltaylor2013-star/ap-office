@@ -114,7 +114,7 @@ local function createLootPile(position, items, killerName)
 		-- Update their inventory UI
 		local invRemote = ReplicatedStorage.Remotes:FindFirstChild("InventoryUpdate")
 		if invRemote then
-			local data = DataManager.GetData(player)
+			local data = DataManager:GetData(player)
 			invRemote:FireClient(player, data.Inventory)
 		end
 
@@ -159,7 +159,7 @@ local function onCharacterDied(player, character)
 		if tag and tag.Value then
 			killerName = tag.Value.Name
 			-- Award kill to the killer
-			local killerData = DataManager.GetData(tag.Value)
+			local killerData = DataManager:GetData(tag.Value)
 			if killerData then
 				killerData.TotalKills = killerData.TotalKills + 1
 			end
@@ -182,7 +182,7 @@ end
 
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function(character)
-		local humanoid = character:WaitForChild("Humanoid")
+		local humanoid = character:WaitForChild("Humanoid", 5)
 		humanoid.Died:Connect(function()
 			onCharacterDied(player, character)
 		end)

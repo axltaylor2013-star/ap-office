@@ -1,0 +1,456 @@
+-- AchievementUI.client.lua
+-- Client-side achievement interface
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+
+-- Wait for dependencies with timeouts
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+
+-- Load ErrorHandler
+local ErrorHandler
+local errorHandlerSuccess, errorHandlerResult = pcall(function()
+	return require(Modules:WaitForChild("ErrorHandler", 5))
+end)
+
+if errorHandlerSuccess then
+	ErrorHandler = errorHandlerResult
+else
+	-- Fallback ErrorHandler
+	ErrorHandler = {
+		LogWarning = function(self, msg) warn("[AchievementUI] " .. msg) end,
+		LogDebug = function(self, msg) print("[DEBUG] " .. msg) end
+	}
+end
+
+-- RemoteEvents
+local AchievementUnlockEvent = Remotes and Remotes:WaitForChild("AchievementUnlock", 5)
+local AchievementProgressEvent = Remotes and Remotes:WaitForChild("AchievementProgress", 5)
+local GetAchievementsFunction = Remotes and Remotes:WaitForChild("GetAchievements", 5)
+
+-- Validate remotes
+if not AchievementUnlockEvent or not AchievementProgressEvent or not GetAchievementsFunction then
+	ErrorHandler:LogWarning("Achievement remotes not found")
+	return
+end
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AchievementUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Achievement Popup
+local popupFrame = Instance.new("Frame")
+popupFrame.Name = "AchievementPopup"
+popupFrame.Size = UDim2.new(0, 350, 0, 100)
+popupFrame.Position = UDim2.new(0.5, -175, 0, -100)
+popupFrame.AnchorPoint = Vector2.new(0.5, 0)
+popupFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+popupFrame.BackgroundTransparency = 0.1
+popupFrame.BorderSizePixel = 0
+popupFrame.Visible = false
+popupFrame.Parent = screenGui
+
+local popupCorner = Instance.new("UICorner")
+popupCorner.CornerRadius = UDim.new(0, 8)
+popupCorner.Parent = popupFrame
+
+local popupStroke = Instance.new("UIStroke")
+popupStroke.Color = Color3.fromRGB(218, 165, 32)
+popupStroke.Thickness = 3
+popupStroke.Parent = popupFrame
+
+local iconLabel = Instance.new("TextLabel")
+iconLabel.Name = "Icon"
+iconLabel.Size = UDim2.new(0, 60, 1, 0)
+iconLabel.BackgroundTransparency = 1
+iconLabel.Text = "🏆"
+iconLabel.TextColor3 = Color3.fromRGB(218, 165, 32)
+iconLabel.TextScaled = true
+iconLabel.Font = Enum.Font.GothamBlack
+iconLabel.Parent = popupFrame
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, -70, 0, 30)
+titleLabel.Position = UDim2.new(0, 65, 0, 10)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "ACHIEVEMENT UNLOCKED!"
+titleLabel.TextColor3 = Color3.fromRGB(218, 165, 32)
+titleLabel.TextScaled = true
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = popupFrame
+
+local nameLabel = Instance.new("TextLabel")
+nameLabel.Name = "Name"
+nameLabel.Size = UDim2.new(1, -70, 0, 30)
+nameLabel.Position = UDim2.new(0, 65, 0, 40)
+nameLabel.BackgroundTransparency = 1
+nameLabel.Text = ""
+nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+nameLabel.TextScaled = true
+nameLabel.Font = Enum.Font.GothamBold
+nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+nameLabel.Parent = popupFrame
+
+local descLabel = Instance.new("TextLabel")
+descLabel.Name = "Description"
+descLabel.Size = UDim2.new(1, -70, 0, 20)
+descLabel.Position = UDim2.new(0, 65, 0, 70)
+descLabel.BackgroundTransparency = 1
+descLabel.Text = ""
+descLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+descLabel.TextScaled = true
+descLabel.Font = Enum.Font.Gotham
+descLabel.TextXAlignment = Enum.TextXAlignment.Left
+descLabel.Parent = popupFrame
+
+-- Achievement Panel
+local panelFrame = Instance.new("Frame")
+panelFrame.Name = "AchievementPanel"
+panelFrame.Size = UDim2.new(0, 500, 0, 400)
+panelFrame.Position = UDim2.new(0.5, -250, 0.5, -200)
+panelFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+panelFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+panelFrame.BackgroundTransparency = 0.1
+panelFrame.BorderSizePixel = 0
+panelFrame.Visible = false
+panelFrame.Parent = screenGui
+
+local panelCorner = Instance.new("UICorner")
+panelCorner.CornerRadius = UDim.new(0, 8)
+panelCorner.Parent = panelFrame
+
+local panelStroke = Instance.new("UIStroke")
+panelStroke.Color = Color3.fromRGB(218, 165, 32)
+panelStroke.Thickness = 3
+panelStroke.Parent = panelFrame
+
+local panelTitle = Instance.new("TextLabel")
+panelTitle.Name = "PanelTitle"
+panelTitle.Size = UDim2.new(1, 0, 0, 40)
+panelTitle.BackgroundTransparency = 1
+panelTitle.Text = "ACHIEVEMENTS"
+panelTitle.TextColor3 = Color3.fromRGB(218, 165, 32)
+panelTitle.TextScaled = true
+panelTitle.Font = Enum.Font.GothamBlack
+panelTitle.Parent = panelFrame
+
+-- Category Tabs
+local tabsFrame = Instance.new("Frame")
+tabsFrame.Name = "TabsFrame"
+tabsFrame.Size = UDim2.new(1, -20, 0, 30)
+tabsFrame.Position = UDim2.new(0, 10, 0, 45)
+tabsFrame.BackgroundTransparency = 1
+tabsFrame.Parent = panelFrame
+
+local tabsLayout = Instance.new("UIListLayout")
+tabsLayout.Padding = UDim.new(0, 5)
+tabsLayout.FillDirection = Enum.FillDirection.Horizontal
+tabsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+tabsLayout.Parent = tabsFrame
+
+-- Achievement List
+local listScrollingFrame = Instance.new("ScrollingFrame")
+listScrollingFrame.Name = "AchievementList"
+listScrollingFrame.Size = UDim2.new(1, -20, 1, -100)
+listScrollingFrame.Position = UDim2.new(0, 10, 0, 85)
+listScrollingFrame.BackgroundTransparency = 1
+listScrollingFrame.BorderSizePixel = 0
+listScrollingFrame.ScrollBarThickness = 4
+listScrollingFrame.Parent = panelFrame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 5)
+listLayout.Parent = listScrollingFrame
+
+-- Close Button
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 100, 0, 30)
+closeButton.Position = UDim2.new(0.5, -50, 1, -40)
+closeButton.AnchorPoint = Vector2.new(0.5, 1)
+closeButton.BackgroundColor3 = Color3.fromRGB(65, 130, 175)
+closeButton.Text = "CLOSE"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextScaled = true
+closeButton.Font = Enum.Font.GothamBold
+closeButton.Parent = panelFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 4)
+closeCorner.Parent = closeButton
+
+-- State
+local achievements = {}
+local currentCategory = "All"
+local popupQueue = {}
+
+-- Function to create category tab
+local function createCategoryTab(name)
+	local tab = Instance.new("TextButton")
+	tab.Name = name .. "Tab"
+	tab.Size = UDim2.new(0, 80, 1, 0)
+	tab.BackgroundColor3 = currentCategory == name and Color3.fromRGB(65, 130, 175) or Color3.fromRGB(40, 40, 45)
+	tab.Text = name
+	tab.TextColor3 = Color3.fromRGB(255, 255, 255)
+	tab.TextScaled = true
+	tab.Font = Enum.Font.Gotham
+	
+	local tabCorner = Instance.new("UICorner")
+	tabCorner.CornerRadius = UDim.new(0, 4)
+	tabCorner.Parent = tab
+	
+	tab.MouseButton1Click:Connect(function()
+		currentCategory = name
+		updateAchievementList()
+	end)
+	
+	return tab
+end
+
+-- Function to show achievement popup
+local function showAchievementPopup(achievementData)
+	table.insert(popupQueue, achievementData)
+	processPopupQueue()
+end
+
+-- Function to process popup queue
+local function processPopupQueue()
+	if #popupQueue == 0 or popupFrame.Visible then return end
+	
+	local achievement = table.remove(popupQueue, 1)
+	
+	-- Update popup
+	iconLabel.Text = achievement.icon or "🏆"
+	nameLabel.Text = achievement.name
+	descLabel.Text = achievement.description
+	
+	-- Show and animate
+	popupFrame.Visible = true
+	popupFrame.Position = UDim2.new(0.5, -175, 0, -100)
+	
+	local slideIn = TweenService:Create(popupFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0.5, -175, 0, 20)
+	})
+	
+	slideIn:Play()
+	
+	-- Hide after delay
+	task.delay(3, function()
+		if popupFrame.Visible then
+			local slideOut = TweenService:Create(popupFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				Position = UDim2.new(0.5, -175, 0, -100)
+			})
+			
+			slideOut:Play()
+			slideOut.Completed:Connect(function()
+				popupFrame.Visible = false
+				-- Process next popup
+				processPopupQueue()
+			end)
+		end
+	end)
+end
+
+-- Function to create achievement entry
+local function createAchievementEntry(achievement)
+	local entry = Instance.new("Frame")
+	entry.Name = achievement.id
+	entry.Size = UDim2.new(1, 0, 0, 60)
+	entry.BackgroundColor3 = achievement.unlocked and Color3.fromRGB(30, 40, 30) or Color3.fromRGB(30, 30, 35)
+	entry.BorderSizePixel = 0
+	
+	local entryCorner = Instance.new("UICorner")
+entryCorner.CornerRadius = UDim.new(0, 4)
+	entryCorner.Parent = entry
+	
+	local icon = Instance.new("TextLabel")
+	icon.Name = "Icon"
+	icon.Size = UDim2.new(0, 50, 1, 0)
+	icon.BackgroundTransparency = 1
+	icon.Text = achievement.icon
+	icon.TextColor3 = achievement.unlocked and Color3.fromRGB(218, 165, 32) or Color3.fromRGB(100, 100, 100)
+	icon.TextScaled = true
+	icon.Font = Enum.Font.GothamBlack
+	icon.Parent = entry
+	
+	local infoFrame = Instance.new("Frame")
+	infoFrame.Name = "Info"
+	infoFrame.Size = UDim2.new(1, -60, 1, 0)
+	infoFrame.Position = UDim2.new(0, 55, 0, 0)
+	infoFrame.BackgroundTransparency = 1
+	infoFrame.Parent = entry
+	
+	local name = Instance.new("TextLabel")
+	name.Name = "Name"
+	name.Size = UDim2.new(1, 0, 0, 25)
+	name.BackgroundTransparency = 1
+	name.Text = achievement.name
+	name.TextColor3 = achievement.unlocked and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 150)
+	name.TextScaled = true
+	name.Font = Enum.Font.GothamBold
+	name.TextXAlignment = Enum.TextXAlignment.Left
+	name.Parent = infoFrame
+	
+	local desc = Instance.new("TextLabel")
+	desc.Name = "Description"
+	desc.Size = UDim2.new(1, 0, 0, 20)
+	desc.Position = UDim2.new(0, 0, 0, 25)
+	desc.BackgroundTransparency = 1
+	desc.Text = achievement.description
+	desc.TextColor3 = achievement.unlocked and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(100, 100, 100)
+	desc.TextScaled = true
+	desc.Font = Enum.Font.Gotham
+	desc.TextXAlignment = Enum.TextXAlignment.Left
+	desc.Parent = infoFrame
+	
+	-- Progress bar for incomplete achievements
+	if not achievement.unlocked and achievement.target > 0 then
+		local progressFrame = Instance.new("Frame")
+		progressFrame.Name = "ProgressFrame"
+		progressFrame.Size = UDim2.new(1, 0, 0, 15)
+		progressFrame.Position = UDim2.new(0, 0, 1, -15)
+		progressFrame.BackgroundTransparency = 1
+		progressFrame.Parent = infoFrame
+		
+		local progressText = Instance.new("TextLabel")
+		progressText.Name = "ProgressText"
+		progressText.Size = UDim2.new(1, 0, 1, 0)
+		progressText.BackgroundTransparency = 1
+		progressText.Text = tostring(achievement.current) .. "/" .. tostring(achievement.target) .. " (" .. tostring(achievement.progress) .. "%)"
+		progressText.TextColor3 = Color3.fromRGB(200, 200, 200)
+		progressText.TextScaled = true
+		progressText.Font = Enum.Font.Gotham
+		progressText.Parent = progressFrame
+	end
+	
+	return entry
+end
+
+-- Function to update achievement list
+local function updateAchievementList()
+	-- Clear existing entries
+	for _, child in ipairs(listScrollingFrame:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	
+	-- Filter by category
+	local filtered = {}
+	for _, achievement in ipairs(achievements) do
+		if currentCategory == "All" or achievement.category == currentCategory then
+			table.insert(filtered, achievement)
+		end
+	end
+	
+	-- Sort: unlocked first, then by progress
+	table.sort(filtered, function(a, b)
+		if a.unlocked and not b.unlocked then return true end
+		if not a.unlocked and b.unlocked then return false end
+		return a.progress > b.progress
+	end)
+	
+	-- Add entries
+	for _, achievement in ipairs(filtered) do
+		local entry = createAchievementEntry(achievement)
+		entry.Parent = listScrollingFrame
+	end
+	
+	-- Update scrolling frame size
+	listScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #filtered * 65)
+end
+
+-- Function to load achievements
+local function loadAchievements()
+	local success, result = pcall(function()
+		return GetAchievementsFunction:InvokeServer()
+	end)
+	
+	if success and result then
+		achievements = result
+		
+		-- Update tabs if not created yet
+		if #tabsFrame:GetChildren() == 1 then -- Only has UIListLayout
+			-- Get unique categories
+			local categories = {"All"}
+			for _, achievement in ipairs(achievements) do
+				if not table.find(categories, achievement.category) then
+					table.insert(categories, achievement.category)
+				end
+			end
+			
+			-- Create tabs
+			for _, category in ipairs(categories) do
+				local tab = createCategoryTab(category)
+				tab.Parent = tabsFrame
+			end
+		end
+		
+		updateAchievementList()
+	else
+		ErrorHandler:LogWarning("Failed to load achievements: " .. tostring(result))
+	end
+end
+
+-- Function to toggle achievement panel
+local function toggleAchievementPanel()
+	panelFrame.Visible = not panelFrame.Visible
+	
+	if panelFrame.Visible then
+		loadAchievements()
+	end
+end
+
+-- Listen for achievement unlocks
+AchievementUnlockEvent.OnClientEvent:Connect(function(achievementData)
+	showAchievementPopup(achievementData)
+	
+	-- Reload achievements if panel is open
+	if panelFrame.Visible then
+		loadAchievements()
+	end
+end)
+
+-- Listen for progress updates
+AchievementProgressEvent.OnClientEvent:Connect(function(progressData)
+	-- Update progress if panel is open
+	if panelFrame.Visible then
+		for i, achievement in ipairs(achievements) do
+			if achievement.id == progressData.id then
+				achievements[i].current = progressData.current
+				achievements[i].progress = progressData.target > 0 and math.floor((progressData.current / progressData.target) * 100) or 0
+				updateAchievementList()
+				break
+			end
+		end
+	end
+end)
+
+-- Button events
+closeButton.MouseButton1Click:Connect(function()
+	panelFrame.Visible = false
+end)
+
+-- Toggle with key (L key)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	
+	if input.KeyCode == Enum.KeyCode.L then
+		toggleAchievementPanel()
+	end
+end)
+
+-- Initial load
+task.wait(2) -- Wait for game to load
+loadAchievements()
+
+print("[AchievementUI] Ready!")

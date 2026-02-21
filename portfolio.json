@@ -1,0 +1,95 @@
+{
+  "portfolio": {
+    "name": "Kermicle Crypto Command",
+    "owner": "Jeremy",
+    "snapshotDate": "2026-02-14T12:53:07.545Z",
+    "totalValueAtSnapshot": 703.88,
+    "currency": "USD"
+  },
+  "holdings": [
+    {
+      "symbol": "USDC",
+      "name": "USD Coin",
+      "quantity": 0.17,
+      "valueAtSnapshot": 0.17,
+      "priceAtSnapshot": 0.999965,
+      "costBasis": 1,
+      "apy": 3.35,
+      "source": "coingecko",
+      "coingeckoId": "usd-coin",
+      "chain": "ethereum",
+      "change24h": 0.01
+    },
+    {
+      "symbol": "MOLT",
+      "name": "Moltbook",
+      "quantity": 6362004,
+      "valueAtSnapshot": 264.09,
+      "priceAtSnapshot": 0.00004151,
+      "costBasis": 0.00004216,
+      "change24h": -30.1,
+      "source": "dexscreener",
+      "searchQuery": "MOLT moltbook",
+      "chain": "ethereum"
+    },
+    {
+      "symbol": "UXRP",
+      "name": "XRP Universal",
+      "quantity": 152.8,
+      "valueAtSnapshot": 221.56,
+      "priceAtSnapshot": 1.45,
+      "costBasis": 1.4625,
+      "change24h": 6.38,
+      "source": "dexscreener",
+      "searchQuery": "UXRP",
+      "chain": "ethereum"
+    },
+    {
+      "symbol": "CLAWD",
+      "name": "clawd.atg.eth",
+      "quantity": 2313906,
+      "valueAtSnapshot": 105.47,
+      "priceAtSnapshot": 0.00004558,
+      "costBasis": 0.0000486,
+      "change24h": -18.42,
+      "source": "dexscreener",
+      "searchQuery": "CLAWD",
+      "chain": "ethereum"
+    },
+    {
+      "symbol": "RIPS",
+      "name": "RIPS",
+      "quantity": 20318120,
+      "valueAtSnapshot": 91.88,
+      "priceAtSnapshot": 0.000004522,
+      "costBasis": 0.00000458,
+      "change24h": 2.12,
+      "source": "dexscreener",
+      "searchQuery": "RIPS",
+      "chain": "ethereum"
+    },
+    {
+      "symbol": "ETH",
+      "name": "Ethereum",
+      "quantity": 0.01,
+      "valueAtSnapshot": 20.72,
+      "priceAtSnapshot": 2071.51,
+      "costBasis": 2790,
+      "change24h": 5.62,
+      "source": "coingecko",
+      "coingeckoId": "ethereum",
+      "chain": "ethereum"
+    }
+  ],
+  "alerts": {
+    "priceChange": 10,
+    "bigMove": 25,
+    "rugDetection": true,
+    "rugThreshold": -50,
+    "enabled": true
+  },
+  "tracking": {
+    "startDate": "2026-02-14T12:49:00Z",
+    "startValue": 755.42
+  }
+}

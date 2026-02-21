@@ -1,0 +1,482 @@
+--[[
+	TradeUI.client.lua
+	Client-side trade window UI for a RuneScape-inspired full-loot PvP MMO.
+	Two-column layout with dark theme and gold accents.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local TradeRequest = Remotes:WaitForChild("TradeRequest", 5)
+local TradeResponse = Remotes:WaitForChild("TradeResponse", 5)
+local TradeUpdate = Remotes:WaitForChild("TradeUpdate", 5)
+local TradeConfirm = Remotes:WaitForChild("TradeConfirm", 5)
+local TradeCancel = Remotes:WaitForChild("TradeCancel", 5)
+local TradeComplete = Remotes:WaitForChild("TradeComplete", 5)
+
+--------------------------------------------------------------------------------
+-- Theme
+--------------------------------------------------------------------------------
+
+local COLORS = {
+	bg = Color3.fromHex("#1a1a2e"),
+	bgLight = Color3.fromHex("#16213e"),
+	gold = Color3.fromHex("#f0c040"),
+	goldDim = Color3.fromHex("#a08020"),
+	text = Color3.fromRGB(220, 220, 220),
+	textDim = Color3.fromRGB(150, 150, 150),
+	red = Color3.fromHex("#e74c3c"),
+	green = Color3.fromHex("#2ecc71"),
+	slot = Color3.fromHex("#0f3460"),
+	slotBorder = Color3.fromHex("#1a5276"),
+}
+
+local GRID_COLS = 4
+local GRID_ROWS = 7
+local SLOT_SIZE = 50
+local SLOT_PAD = 4
+
+--------------------------------------------------------------------------------
+-- UI Construction
+--------------------------------------------------------------------------------
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TradeUI"
+screenGui.ResetOnSpawn = false
+screenGui.Enabled = false
+screenGui.Parent = playerGui
+
+-- Main frame
+local PANEL_W = (SLOT_SIZE + SLOT_PAD) * GRID_COLS + SLOT_PAD
+local TOTAL_W = PANEL_W * 2 + 40  -- two panels + divider + padding
+local TOTAL_H = (SLOT_SIZE + SLOT_PAD) * GRID_ROWS + SLOT_PAD + 120  -- grid + header + buttons
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.fromOffset(TOTAL_W, TOTAL_H)
+mainFrame.Position = UDim2.fromScale(0.5, 0.5)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundColor3 = COLORS.bg
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+-- Rounded corners
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = mainFrame
+
+-- Gold border stroke
+local stroke = Instance.new("UIStroke")
+stroke.Color = COLORS.gold
+stroke.Thickness = 2
+stroke.Parent = mainFrame
+
+--- Helper: create a TextLabel
+local function makeLabel(props: { [string]: any }): TextLabel
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.TextColor3 = props.Color or COLORS.text
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = props.TextSize or 14
+	label.Text = props.Text or ""
+	label.Size = props.Size or UDim2.new(1, 0, 0, 24)
+	label.Position = props.Position or UDim2.new()
+	label.TextXAlignment = props.Align or Enum.TextXAlignment.Center
+	label.Parent = props.Parent
+	return label
+end
+
+--- Helper: create a TextButton
+local function makeButton(props: { [string]: any }): TextButton
+	local btn = Instance.new("TextButton")
+	btn.Size = props.Size or UDim2.fromOffset(90, 32)
+	btn.Position = props.Position or UDim2.new()
+	btn.AnchorPoint = props.AnchorPoint or Vector2.zero
+	btn.BackgroundColor3 = props.Color or COLORS.gold
+	btn.TextColor3 = props.TextColor or COLORS.bg
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 14
+	btn.Text = props.Text or "Button"
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = true
+	btn.Parent = props.Parent
+
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, 6)
+	c.Parent = btn
+	return btn
+end
+
+-- Title bar
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 36)
+titleBar.BackgroundColor3 = COLORS.bgLight
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 8)
+titleCorner.Parent = titleBar
+
+makeLabel({
+	Text = "⚔️  TRADE  ⚔️",
+	TextSize = 16,
+	Color = COLORS.gold,
+	Size = UDim2.new(1, 0, 1, 0),
+	Parent = titleBar,
+})
+
+-- Close button (X)
+local closeBtn = makeButton({
+	Text = "X",
+	Size = UDim2.fromOffset(32, 32),
+	Position = UDim2.new(1, -36, 0, 2),
+	Color = COLORS.red,
+	TextColor = Color3.new(1, 1, 1),
+	Parent = titleBar,
+})
+
+-- Column headers
+makeLabel({
+	Text = "My Offer",
+	TextSize = 14,
+	Color = COLORS.gold,
+	Size = UDim2.fromOffset(PANEL_W, 20),
+	Position = UDim2.fromOffset(10, 42),
+	Parent = mainFrame,
+})
+
+makeLabel({
+	Text = "Their Offer",
+	TextSize = 14,
+	Color = COLORS.gold,
+	Size = UDim2.fromOffset(PANEL_W, 20),
+	Position = UDim2.fromOffset(PANEL_W + 30, 42),
+	Parent = mainFrame,
+})
+
+-- Divider line
+local divider = Instance.new("Frame")
+divider.Size = UDim2.new(0, 2, 0, (SLOT_SIZE + SLOT_PAD) * GRID_ROWS + SLOT_PAD + 20)
+divider.Position = UDim2.fromOffset(PANEL_W + 14, 40)
+divider.BackgroundColor3 = COLORS.goldDim
+divider.BorderSizePixel = 0
+divider.Parent = mainFrame
+
+--- Create a grid of item slots and return slot frames.
+local function createGrid(offsetX: number, offsetY: number): { Frame }
+	local slots = {}
+	for row = 0, GRID_ROWS - 1 do
+		for col = 0, GRID_COLS - 1 do
+			local slot = Instance.new("Frame")
+			slot.Size = UDim2.fromOffset(SLOT_SIZE, SLOT_SIZE)
+			slot.Position = UDim2.fromOffset(
+				offsetX + col * (SLOT_SIZE + SLOT_PAD) + SLOT_PAD,
+				offsetY + row * (SLOT_SIZE + SLOT_PAD) + SLOT_PAD
+			)
+			slot.BackgroundColor3 = COLORS.slot
+			slot.BorderSizePixel = 0
+			slot.Parent = mainFrame
+
+			local sc = Instance.new("UICorner")
+			sc.CornerRadius = UDim.new(0, 4)
+			sc.Parent = slot
+
+			local ss = Instance.new("UIStroke")
+			ss.Color = COLORS.slotBorder
+			ss.Thickness = 1
+			ss.Parent = slot
+
+			-- Item name label inside slot
+			local nameLabel = Instance.new("TextLabel")
+			nameLabel.Name = "ItemName"
+			nameLabel.Size = UDim2.new(1, -4, 0.6, 0)
+			nameLabel.Position = UDim2.new(0, 2, 0, 2)
+			nameLabel.BackgroundTransparency = 1
+			nameLabel.TextColor3 = COLORS.text
+			nameLabel.Font = Enum.Font.Gotham
+			nameLabel.TextSize = 10
+			nameLabel.TextWrapped = true
+			nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+			nameLabel.Text = ""
+			nameLabel.Parent = slot
+
+			-- Quantity label
+			local qtyLabel = Instance.new("TextLabel")
+			qtyLabel.Name = "Quantity"
+			qtyLabel.Size = UDim2.new(1, -4, 0.35, 0)
+			qtyLabel.Position = UDim2.new(0, 2, 0.65, 0)
+			qtyLabel.BackgroundTransparency = 1
+			qtyLabel.TextColor3 = COLORS.gold
+			qtyLabel.Font = Enum.Font.GothamBold
+			qtyLabel.TextSize = 11
+			qtyLabel.Text = ""
+			qtyLabel.Parent = slot
+
+			table.insert(slots, slot)
+		end
+	end
+	return slots
+end
+
+local mySlots = createGrid(10, 64)
+local theirSlots = createGrid(PANEL_W + 30, 64)
+
+-- Bottom bar: status + buttons
+local bottomY = 64 + (SLOT_SIZE + SLOT_PAD) * GRID_ROWS + SLOT_PAD + 6
+
+local statusLabel = makeLabel({
+	Text = "Waiting for items...",
+	TextSize = 13,
+	Color = COLORS.textDim,
+	Size = UDim2.new(1, -20, 0, 20),
+	Position = UDim2.fromOffset(10, bottomY),
+	Parent = mainFrame,
+})
+
+local btnY = bottomY + 26
+
+local acceptBtn = makeButton({
+	Text = "✔ Accept",
+	Position = UDim2.fromOffset(TOTAL_W / 2 - 145, btnY),
+	Color = COLORS.green,
+	TextColor = Color3.new(1, 1, 1),
+	Parent = mainFrame,
+})
+
+local declineBtn = makeButton({
+	Text = "✖ Decline",
+	Position = UDim2.fromOffset(TOTAL_W / 2 - 45, btnY),
+	Color = COLORS.red,
+	TextColor = Color3.new(1, 1, 1),
+	Parent = mainFrame,
+})
+
+local cancelBtn = makeButton({
+	Text = "Cancel",
+	Position = UDim2.fromOffset(TOTAL_W / 2 + 55, btnY),
+	Color = COLORS.goldDim,
+	TextColor = COLORS.text,
+	Parent = mainFrame,
+})
+
+--------------------------------------------------------------------------------
+-- Trade Request Popup (incoming request)
+--------------------------------------------------------------------------------
+
+local requestGui = Instance.new("ScreenGui")
+requestGui.Name = "TradeRequestUI"
+requestGui.ResetOnSpawn = false
+requestGui.Enabled = false
+requestGui.Parent = playerGui
+
+local requestFrame = Instance.new("Frame")
+requestFrame.Size = UDim2.fromOffset(280, 120)
+requestFrame.Position = UDim2.fromScale(0.5, 0.3)
+requestFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+requestFrame.BackgroundColor3 = COLORS.bg
+requestFrame.BorderSizePixel = 0
+requestFrame.Parent = requestGui
+
+local rc = Instance.new("UICorner")
+rc.CornerRadius = UDim.new(0, 8)
+rc.Parent = requestFrame
+
+local rs = Instance.new("UIStroke")
+rs.Color = COLORS.gold
+rs.Thickness = 2
+rs.Parent = requestFrame
+
+local requestLabel = makeLabel({
+	Text = "",
+	TextSize = 14,
+	Color = COLORS.text,
+	Size = UDim2.new(1, -20, 0, 50),
+	Position = UDim2.fromOffset(10, 10),
+	Parent = requestFrame,
+})
+requestLabel.TextWrapped = true
+
+local pendingRequesterId: number? = nil
+
+local acceptRequestBtn = makeButton({
+	Text = "Accept",
+	Size = UDim2.fromOffset(100, 30),
+	Position = UDim2.fromOffset(30, 70),
+	Color = COLORS.green,
+	TextColor = Color3.new(1, 1, 1),
+	Parent = requestFrame,
+})
+
+local declineRequestBtn = makeButton({
+	Text = "Decline",
+	Size = UDim2.fromOffset(100, 30),
+	Position = UDim2.fromOffset(150, 70),
+	Color = COLORS.red,
+	TextColor = Color3.new(1, 1, 1),
+	Parent = requestFrame,
+})
+
+acceptRequestBtn.MouseButton1Click:Connect(function()
+	if pendingRequesterId then
+		TradeResponse:FireServer(pendingRequesterId, true)
+		pendingRequesterId = nil
+		requestGui.Enabled = false
+	end
+end)
+
+declineRequestBtn.MouseButton1Click:Connect(function()
+	if pendingRequesterId then
+		TradeResponse:FireServer(pendingRequesterId, false)
+		pendingRequesterId = nil
+		requestGui.Enabled = false
+	end
+end)
+
+--------------------------------------------------------------------------------
+-- State
+--------------------------------------------------------------------------------
+
+local isTrading = false
+local myPlayerIndex: number? = nil  -- 1 or 2 (which side am I?)
+
+--- Populate a slot grid from an items dictionary.
+local function populateSlots(slots: { Frame }, items: { [string]: number })
+	-- Clear all
+	for _, slot in slots do
+		slot:FindFirstChild("ItemName").Text = ""
+		slot:FindFirstChild("Quantity").Text = ""
+	end
+	-- Fill
+	local idx = 1
+	for itemName, qty in items do
+		if idx > #slots then break end
+		local slot = slots[idx]
+		slot:FindFirstChild("ItemName").Text = itemName
+		slot:FindFirstChild("Quantity").Text = `x{qty}`
+		idx += 1
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Remote Handlers
+--------------------------------------------------------------------------------
+
+-- Incoming trade request from another player
+TradeRequest.OnClientEvent:Connect(function(fromUserId: number, fromName: string)
+	pendingRequesterId = fromUserId
+	requestLabel.Text = `{fromName} wants to trade with you!`
+	requestGui.Enabled = true
+end)
+
+-- Trade state update from server
+TradeUpdate.OnClientEvent:Connect(function(data)
+	if not isTrading then
+		isTrading = true
+		screenGui.Enabled = true
+		-- Figure out which side I am
+		if data.partner1 == player.Name then
+			myPlayerIndex = 1
+		else
+			myPlayerIndex = 2
+		end
+	end
+
+	local myItems = if myPlayerIndex == 1 then data.items1 else data.items2
+	local theirItems = if myPlayerIndex == 1 then data.items2 else data.items1
+	local myConfirmed = if myPlayerIndex == 1 then data.confirmed1 else data.confirmed2
+	local theirConfirmed = if myPlayerIndex == 1 then data.confirmed2 else data.confirmed1
+
+	populateSlots(mySlots, myItems)
+	populateSlots(theirSlots, theirItems)
+
+	-- Status text
+	if myConfirmed and theirConfirmed then
+		statusLabel.Text = "Both accepted! Completing trade..."
+		statusLabel.TextColor3 = COLORS.green
+	elseif myConfirmed then
+		statusLabel.Text = "Waiting for partner to accept..."
+		statusLabel.TextColor3 = COLORS.gold
+	elseif theirConfirmed then
+		statusLabel.Text = "Partner accepted. Review and accept!"
+		statusLabel.TextColor3 = COLORS.gold
+	else
+		statusLabel.Text = "Add items and accept when ready."
+		statusLabel.TextColor3 = COLORS.textDim
+	end
+end)
+
+-- Trade cancelled
+TradeCancel.OnClientEvent:Connect(function(reason: string?)
+	isTrading = false
+	myPlayerIndex = nil
+	screenGui.Enabled = false
+	requestGui.Enabled = false
+	if reason then
+		-- Brief notification (could be replaced with a toast system)
+		warn(`[TradeUI] {reason}`)
+	end
+end)
+
+-- Trade completed
+TradeComplete.OnClientEvent:Connect(function(_summary)
+	isTrading = false
+	myPlayerIndex = nil
+	statusLabel.Text = "Trade complete!"
+	statusLabel.TextColor3 = COLORS.green
+	task.delay(1.5, function()
+		screenGui.Enabled = false
+	end)
+end)
+
+--------------------------------------------------------------------------------
+-- Button Actions
+--------------------------------------------------------------------------------
+
+acceptBtn.MouseButton1Click:Connect(function()
+	if isTrading then
+		TradeConfirm:FireServer()
+	end
+end)
+
+declineBtn.MouseButton1Click:Connect(function()
+	if isTrading then
+		TradeCancel:FireServer()
+	end
+end)
+
+cancelBtn.MouseButton1Click:Connect(function()
+	if isTrading then
+		TradeCancel:FireServer()
+	end
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+	if isTrading then
+		TradeCancel:FireServer()
+	end
+end)
+
+--------------------------------------------------------------------------------
+-- Click-to-trade: click another player's character to send a request
+--------------------------------------------------------------------------------
+
+local mouse = player:GetMouse()
+mouse.Button1Down:Connect(function()
+	if isTrading then return end
+	local target = mouse.Target
+	if not target then return end
+	local model = target:FindFirstAncestorOfClass("Model")
+	if not model then return end
+	local targetPlayer = Players:GetPlayerFromCharacter(model)
+	if targetPlayer and targetPlayer ~= player then
+		TradeRequest:FireServer(targetPlayer.UserId)
+	end
+end)
+
+print("[TradeUI] Loaded!")

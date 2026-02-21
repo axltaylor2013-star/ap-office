@@ -1,0 +1,611 @@
+--[[
+	PrayerUI.client.lua
+	COMPLETE OVERHAUL: Visual skill tree with 30 prayers in 4 tiers
+	3 branching paths: Warrior (left), Protector (center), Ranger (right)
+	Toggle with P key, full-screen overlay
+]]
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+print("[PrayerUI] Starting new visual skill tree...")
+
+-- Remotes
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local toggleEvent = Remotes:WaitForChild("TogglePrayer", 5)
+local updateEvent = Remotes:WaitForChild("PrayerUpdate", 5)
+local getDataFunc = Remotes:WaitForChild("GetPrayerData", 5)
+
+-- Colors (Dark medieval theme)
+local BG_COLOR = Color3.fromRGB(15, 15, 25)
+local GOLD = Color3.fromRGB(240, 192, 64)
+local DARK_GOLD = Color3.fromRGB(120, 96, 32)
+local WHITE = Color3.fromRGB(255, 255, 255)
+local GREEN = Color3.fromRGB(0, 255, 0)
+local RED = Color3.fromRGB(255, 100, 100)
+local LOCKED_COLOR = Color3.fromRGB(60, 60, 60)
+local ACTIVE_COLOR = Color3.fromRGB(0, 255, 0)
+local AVAILABLE_COLOR = Color3.fromRGB(240, 192, 64)
+
+-- Prayer tree layout - positioned in 3 columns with tiers as rows
+local PRAYER_POSITIONS = {
+	-- TIER 1 - Novice (Level 1-15)
+	[1] = {x = 0.25, y = 0.15}, -- Thick Skin (Protector)
+	[2] = {x = 0.15, y = 0.15}, -- Burst of Strength (Warrior)  
+	[3] = {x = 0.35, y = 0.15}, -- Sharp Eye (Ranger)
+	[4] = {x = 0.25, y = 0.22}, -- Rock Skin (Protector)
+	[5] = {x = 0.15, y = 0.22}, -- Clarity of Thought (Warrior)
+	[6] = {x = 0.35, y = 0.22}, -- Mystic Will (Ranger)
+	
+	-- TIER 2 - Acolyte (Level 16-35)
+	[7] = {x = 0.15, y = 0.35}, -- Superhuman Strength (Warrior)
+	[8] = {x = 0.25, y = 0.35}, -- Improved Reflexes (Protector)
+	[9] = {x = 0.35, y = 0.35}, -- Hawk Eye (Ranger)
+	[10] = {x = 0.25, y = 0.42}, -- Steel Skin (Protector)
+	[11] = {x = 0.15, y = 0.42}, -- Ultimate Strength (Warrior)
+	[12] = {x = 0.35, y = 0.42}, -- Eagle Eye (Ranger)
+	[13] = {x = 0.22, y = 0.48}, -- Rapid Heal (Protector)
+	[14] = {x = 0.28, y = 0.48}, -- Rapid Restore (Protector)
+	
+	-- TIER 3 - Priest (Level 36-60)
+	[15] = {x = 0.20, y = 0.60}, -- Protect from Melee (Protector)
+	[16] = {x = 0.25, y = 0.58}, -- Protect from Ranged (Protector)
+	[17] = {x = 0.30, y = 0.60}, -- Protect from Magic (Protector)
+	[18] = {x = 0.12, y = 0.62}, -- Retribution (Warrior)
+	[19] = {x = 0.25, y = 0.67}, -- Redemption (Protector)
+	[20] = {x = 0.15, y = 0.70}, -- Smite (Warrior)
+	[21] = {x = 0.10, y = 0.75}, -- Holy Strength (Warrior)
+	[22] = {x = 0.38, y = 0.62}, -- Divine Aim (Ranger)
+	
+	-- TIER 4 - High Priest (Level 61-99)
+	[23] = {x = 0.12, y = 0.82}, -- Chivalry (Warrior)
+	[24] = {x = 0.08, y = 0.88}, -- Piety (Warrior)
+	[25] = {x = 0.40, y = 0.75}, -- Rigour (Ranger)
+	[26] = {x = 0.42, y = 0.82}, -- Augury (Ranger)
+	[27] = {x = 0.28, y = 0.82}, -- Soul Split (Protector)
+	[28] = {x = 0.05, y = 0.94}, -- Turmoil (Warrior)
+	[29] = {x = 0.02, y = 0.99}, -- Wrath (Warrior)
+	[30] = {x = 0.32, y = 0.94}, -- Divine Shield (Protector)
+}
+
+-- Prayer icons (emojis for each prayer)
+local PRAYER_ICONS = {
+	[1] = "🛡️", [2] = "💪", [3] = "🎯", [4] = "🪨", [5] = "🧠", [6] = "✨",
+	[7] = "🔥", [8] = "⚡", [9] = "🦅", [10] = "⚙️", [11] = "⚔️", [12] = "👁️",
+	[13] = "❤️", [14] = "💙", [15] = "🛡️", [16] = "🏹", [17] = "🔮", [18] = "💀",
+	[19] = "🙏", [20] = "⚡", [21] = "👼", [22] = "🎯", [23] = "👑", [24] = "✨",
+	[25] = "🏹", [26] = "🌟", [27] = "👻", [28] = "⚫", [29] = "💥", [30] = "🛡️"
+}
+
+-- State
+local isOpen = false
+local prayerData = {}
+local prayerNodes = {}
+local connectionLines = {}
+
+-----------------------------------------------------------------------
+-- CREATE MAIN UI
+-----------------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "PrayerTreeUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = playerGui
+
+-- Main frame (full screen overlay)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "PrayerTree"
+mainFrame.Size = UDim2.new(1, 0, 1, 0)
+mainFrame.Position = UDim2.new(0, 0, 0, 0)
+mainFrame.BackgroundColor3 = BG_COLOR
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+-- Background pattern
+local bgPattern = Instance.new("ImageLabel")
+bgPattern.Size = UDim2.new(1, 0, 1, 0)
+bgPattern.BackgroundTransparency = 1
+bgPattern.ImageTransparency = 0.9
+bgPattern.ScaleType = Enum.ScaleType.Tile
+bgPattern.TileSize = UDim2.new(0, 100, 0, 100)
+bgPattern.Parent = mainFrame
+
+-- Title
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(0, 400, 0, 50)
+titleLabel.Position = UDim2.new(0.5, -200, 0, 20)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Prayer Skill Tree"
+titleLabel.TextSize = 36
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextColor3 = GOLD
+titleLabel.Parent = mainFrame
+
+-- Prayer Points bar
+local ppFrame = Instance.new("Frame")
+ppFrame.Size = UDim2.new(0, 300, 0, 30)
+ppFrame.Position = UDim2.new(0.5, -150, 0, 80)
+ppFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+ppFrame.Parent = mainFrame
+
+local ppCorner = Instance.new("UICorner")
+ppCorner.CornerRadius = UDim.new(0, 6)
+ppCorner.Parent = ppFrame
+
+local ppBar = Instance.new("Frame")
+ppBar.Name = "PPBar"
+ppBar.Size = UDim2.new(1, 0, 1, 0)
+ppBar.Position = UDim2.new(0, 0, 0, 0)
+ppBar.BackgroundColor3 = GOLD
+ppBar.Parent = ppFrame
+
+local ppBarCorner = Instance.new("UICorner")
+ppBarCorner.CornerRadius = UDim.new(0, 6)
+ppBarCorner.Parent = ppBar
+
+local ppLabel = Instance.new("TextLabel")
+ppLabel.Size = UDim2.new(1, 0, 1, 0)
+ppLabel.BackgroundTransparency = 1
+ppLabel.Text = "Prayer Points: 100 / 100"
+ppLabel.TextSize = 14
+ppLabel.Font = Enum.Font.GothamBold
+ppLabel.TextColor3 = WHITE
+ppLabel.ZIndex = 2
+ppLabel.Parent = ppFrame
+
+-- PP drain rate display
+local drainLabel = Instance.new("TextLabel")
+drainLabel.Size = UDim2.new(0, 250, 0, 20)
+drainLabel.Position = UDim2.new(0.5, -125, 0, 115)
+drainLabel.BackgroundTransparency = 1
+drainLabel.Text = "PP Drain: 0 / minute"
+drainLabel.TextSize = 12
+drainLabel.Font = Enum.Font.Gotham
+drainLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+drainLabel.Parent = mainFrame
+
+-- Branch labels
+local branchLabels = {
+	{text = "WARRIOR", pos = UDim2.new(0.15, -50, 0, 140), color = Color3.fromRGB(220, 20, 60)},
+	{text = "PROTECTOR", pos = UDim2.new(0.25, -50, 0, 140), color = Color3.fromRGB(70, 130, 180)},
+	{text = "RANGER", pos = UDim2.new(0.35, -50, 0, 140), color = Color3.fromRGB(34, 139, 34)},
+}
+
+for _, branch in ipairs(branchLabels) do
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0, 100, 0, 25)
+	label.Position = branch.pos
+	label.BackgroundTransparency = 1
+	label.Text = branch.text
+	label.TextSize = 14
+	label.Font = Enum.Font.GothamBold
+	label.TextColor3 = branch.color
+	label.Parent = mainFrame
+end
+
+-- Close button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 40, 0, 40)
+closeBtn.Position = UDim2.new(1, -50, 0, 10)
+closeBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+closeBtn.Text = "X"
+closeBtn.TextSize = 24
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextColor3 = WHITE
+closeBtn.Parent = mainFrame
+
+local closeBtnCorner = Instance.new("UICorner")
+closeBtnCorner.CornerRadius = UDim.new(0, 8)
+closeBtnCorner.Parent = closeBtn
+
+-----------------------------------------------------------------------
+-- CREATE PRAYER NODES
+-----------------------------------------------------------------------
+local function createPrayerNode(prayerId)
+	local pos = PRAYER_POSITIONS[prayerId]
+	if not pos then return end
+	
+	local nodeFrame = Instance.new("Frame")
+	nodeFrame.Size = UDim2.new(0, 80, 0, 80)
+	nodeFrame.Position = UDim2.new(pos.x, -40, pos.y, -40)
+	nodeFrame.BackgroundColor3 = LOCKED_COLOR
+	nodeFrame.Parent = mainFrame
+	
+	local nodeCorner = Instance.new("UICorner")
+	nodeCorner.CornerRadius = UDim.new(0, 12)
+	nodeCorner.Parent = nodeFrame
+	
+	local nodeStroke = Instance.new("UIStroke")
+	nodeStroke.Name = "NodeStroke"
+	nodeStroke.Color = LOCKED_COLOR
+	nodeStroke.Thickness = 3
+	nodeStroke.Parent = nodeFrame
+	
+	-- Prayer icon
+	local iconLabel = Instance.new("TextLabel")
+	iconLabel.Size = UDim2.new(1, 0, 0, 32)
+	iconLabel.Position = UDim2.new(0, 0, 0, 8)
+	iconLabel.BackgroundTransparency = 1
+	iconLabel.Text = PRAYER_ICONS[prayerId] or "🔒"
+	iconLabel.TextSize = 28
+	iconLabel.Font = Enum.Font.GothamBold
+	iconLabel.TextColor3 = LOCKED_COLOR
+	iconLabel.Parent = nodeFrame
+	
+	-- Prayer name
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Size = UDim2.new(1, -4, 0, 20)
+	nameLabel.Position = UDim2.new(0, 2, 0, 42)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = "Locked"
+	nameLabel.TextSize = 8
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.TextColor3 = LOCKED_COLOR
+	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	nameLabel.Parent = nodeFrame
+	
+	-- Level requirement
+	local levelLabel = Instance.new("TextLabel")
+	levelLabel.Size = UDim2.new(1, 0, 0, 14)
+	levelLabel.Position = UDim2.new(0, 0, 1, -16)
+	levelLabel.BackgroundTransparency = 1
+	levelLabel.Text = "Lv. ?"
+	levelLabel.TextSize = 10
+	levelLabel.Font = Enum.Font.Gotham
+	levelLabel.TextColor3 = LOCKED_COLOR
+	levelLabel.Parent = nodeFrame
+	
+	-- Click button
+	local clickBtn = Instance.new("TextButton")
+	clickBtn.Size = UDim2.new(1, 0, 1, 0)
+	clickBtn.BackgroundTransparency = 1
+	clickBtn.Text = ""
+	clickBtn.Parent = nodeFrame
+	
+	-- Glowing effect for active prayers
+	local glowEffect = Instance.new("Frame")
+	glowEffect.Name = "Glow"
+	glowEffect.Size = UDim2.new(1, 20, 1, 20)
+	glowEffect.Position = UDim2.new(0, -10, 0, -10)
+	glowEffect.BackgroundColor3 = ACTIVE_COLOR
+	glowEffect.BackgroundTransparency = 0.7
+	glowEffect.Visible = false
+	glowEffect.ZIndex = 0
+	glowEffect.Parent = nodeFrame
+	
+	local glowCorner = Instance.new("UICorner")
+	glowCorner.CornerRadius = UDim.new(0, 16)
+	glowCorner.Parent = glowEffect
+	
+	-- Store references
+	prayerNodes[prayerId] = {
+		frame = nodeFrame,
+		icon = iconLabel,
+		name = nameLabel,
+		level = levelLabel,
+		button = clickBtn,
+		stroke = nodeStroke,
+		glow = glowEffect
+	}
+	
+	-- Left click: toggle prayer
+	clickBtn.MouseButton1Click:Connect(function()
+		onPrayerClick(prayerId)
+	end)
+	
+	-- Right click: add to hotbar
+	clickBtn.MouseButton2Click:Connect(function()
+		if not prayerData.prayers or not prayerData.prayers[prayerId] then return end
+		local prayer = prayerData.prayers[prayerId]
+		if not prayer.canUse then return end
+		
+		-- Set pending hotbar item as a prayer
+		_G.PendingHotbarItem = {
+			name = prayer.name,
+			type = "prayer",
+			prayerId = prayerId,
+			icon = PRAYER_ICONS[prayerId] or "🙏",
+		}
+		print("[PrayerUI] Prayer ready for hotbar: " .. prayer.name .. " (click a hotbar slot)")
+		
+		-- Visual feedback: flash the node
+		node.stroke.Color = Color3.fromRGB(0, 255, 128)
+		node.stroke.Thickness = 5
+		task.delay(2, function()
+			if node and node.stroke then
+				node.stroke.Thickness = 3
+				if isOpen then updatePrayerDisplay() end
+			end
+		end)
+	end)
+	
+	return nodeFrame
+end
+
+-- Create all prayer nodes
+for i = 1, 30 do
+	createPrayerNode(i)
+end
+
+-----------------------------------------------------------------------
+-- CONNECTION LINES (showing prerequisites)
+-----------------------------------------------------------------------
+local function drawConnectionLine(fromId, toId)
+	local fromPos = PRAYER_POSITIONS[fromId]
+	local toPos = PRAYER_POSITIONS[toId]
+	if not fromPos or not toPos then return end
+	
+	-- Calculate line properties
+	local startX = fromPos.x
+	local startY = fromPos.y
+	local endX = toPos.x
+	local endY = toPos.y
+	
+	local deltaX = endX - startX
+	local deltaY = endY - startY
+	local distance = math.sqrt(deltaX^2 + deltaY^2)
+	local angle = math.atan2(deltaY, deltaX)
+	
+	-- Create line
+	local line = Instance.new("Frame")
+	line.Size = UDim2.new(0, distance * 1000, 0, 2) -- Scale by screen size
+	line.Position = UDim2.new(startX, 0, startY, -1)
+	line.Rotation = math.deg(angle)
+	line.BackgroundColor3 = DARK_GOLD
+	line.BorderSizePixel = 0
+	line.ZIndex = 0
+	line.Parent = mainFrame
+	
+	connectionLines[fromId] = connectionLines[fromId] or {}
+	table.insert(connectionLines[fromId], line)
+end
+
+-- Draw prerequisite connections (this would be based on the prayer prereq data)
+-- For now, drawing some key connections manually
+drawConnectionLine(1, 4)  -- Thick Skin -> Rock Skin
+drawConnectionLine(2, 5)  -- Burst of Strength -> Clarity of Thought
+drawConnectionLine(3, 6)  -- Sharp Eye -> Mystic Will
+drawConnectionLine(4, 8)  -- Rock Skin -> Improved Reflexes
+drawConnectionLine(2, 7)  -- Burst of Strength -> Superhuman Strength
+drawConnectionLine(3, 9)  -- Sharp Eye -> Hawk Eye
+drawConnectionLine(8, 10) -- Improved Reflexes -> Steel Skin
+drawConnectionLine(7, 11) -- Superhuman Strength -> Ultimate Strength
+drawConnectionLine(9, 12) -- Hawk Eye -> Eagle Eye
+
+-----------------------------------------------------------------------
+-- PRAYER INTERACTION
+-----------------------------------------------------------------------
+local function onPrayerClick(prayerId)
+	if not prayerData.prayers or not prayerData.prayers[prayerId] then return end
+	
+	local prayer = prayerData.prayers[prayerId]
+	if not prayer.canUse then
+		print("[PrayerUI] Cannot use prayer:", prayer.name)
+		return
+	end
+	
+	-- Toggle the prayer
+	toggleEvent:FireServer(prayerId)
+end
+
+-----------------------------------------------------------------------
+-- UPDATE DISPLAY
+-----------------------------------------------------------------------
+local function updatePrayerDisplay()
+	if not prayerData.prayers then return end
+	
+	-- Update PP bar
+	local currentPP = prayerData.currentPP or 0
+	local maxPP = prayerData.maxPP or 1
+	local ppPercent = currentPP / maxPP
+	
+	ppBar.Size = UDim2.new(ppPercent, 0, 1, 0)
+	ppLabel.Text = "Prayer Points: " .. currentPP .. " / " .. maxPP
+	
+	-- Update drain rate
+	drainLabel.Text = "PP Drain: " .. (prayerData.ppDrainRate or 0) .. " / minute"
+	
+	-- Update each prayer node
+	for prayerId, prayer in pairs(prayerData.prayers) do
+		local node = prayerNodes[prayerId]
+		if node then
+			-- Set colors and text based on prayer state
+			if prayer.active then
+				-- Active prayer
+				node.frame.BackgroundColor3 = ACTIVE_COLOR
+				node.stroke.Color = ACTIVE_COLOR
+				node.icon.TextColor3 = WHITE
+				node.name.TextColor3 = WHITE
+				node.level.TextColor3 = WHITE
+				node.glow.Visible = true
+				
+				-- Animate glow
+				local tween = TweenService:Create(node.glow, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+					BackgroundTransparency = 0.3
+				})
+				tween:Play()
+			elseif prayer.canUse then
+				-- Available prayer
+				node.frame.BackgroundColor3 = AVAILABLE_COLOR
+				node.stroke.Color = AVAILABLE_COLOR
+				node.icon.TextColor3 = WHITE
+				node.name.TextColor3 = WHITE
+				node.level.TextColor3 = WHITE
+				node.glow.Visible = false
+			else
+				-- Locked prayer
+				node.frame.BackgroundColor3 = LOCKED_COLOR
+				node.stroke.Color = LOCKED_COLOR
+				node.icon.TextColor3 = LOCKED_COLOR
+				node.name.TextColor3 = LOCKED_COLOR
+				node.level.TextColor3 = LOCKED_COLOR
+				node.glow.Visible = false
+			end
+			
+			-- Set text
+			node.name.Text = prayer.name
+			node.level.Text = "Lv. " .. prayer.level
+			node.icon.Text = PRAYER_ICONS[prayerId] or (prayer.canUse and "✨" or "🔒")
+		end
+	end
+end
+
+-----------------------------------------------------------------------
+-- TOOLTIP SYSTEM
+-----------------------------------------------------------------------
+local tooltip = Instance.new("Frame")
+tooltip.Name = "Tooltip"
+tooltip.Size = UDim2.new(0, 200, 0, 120)
+tooltip.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
+tooltip.BackgroundTransparency = 0.1
+tooltip.Visible = false
+tooltip.ZIndex = 100
+tooltip.Parent = screenGui
+
+local tooltipCorner = Instance.new("UICorner")
+tooltipCorner.CornerRadius = UDim.new(0, 8)
+tooltipCorner.Parent = tooltip
+
+local tooltipStroke = Instance.new("UIStroke")
+tooltipStroke.Color = GOLD
+tooltipStroke.Thickness = 2
+tooltipStroke.Parent = tooltip
+
+local tooltipPadding = Instance.new("UIPadding")
+tooltipPadding.PaddingLeft = UDim.new(0, 8)
+tooltipPadding.PaddingRight = UDim.new(0, 8)
+tooltipPadding.PaddingTop = UDim.new(0, 6)
+tooltipPadding.PaddingBottom = UDim.new(0, 6)
+tooltipPadding.Parent = tooltip
+
+local tooltipName = Instance.new("TextLabel")
+tooltipName.Size = UDim2.new(1, 0, 0, 20)
+tooltipName.BackgroundTransparency = 1
+tooltipName.Text = "Prayer Name"
+tooltipName.TextSize = 14
+tooltipName.Font = Enum.Font.GothamBold
+tooltipName.TextColor3 = GOLD
+tooltipName.TextXAlignment = Enum.TextXAlignment.Left
+tooltipName.ZIndex = 101
+tooltipName.Parent = tooltip
+
+local tooltipLevel = Instance.new("TextLabel")
+tooltipLevel.Size = UDim2.new(1, 0, 0, 16)
+tooltipLevel.Position = UDim2.new(0, 0, 0, 22)
+tooltipLevel.BackgroundTransparency = 1
+tooltipLevel.Text = "Level: 1"
+tooltipLevel.TextSize = 12
+tooltipLevel.Font = Enum.Font.Gotham
+tooltipLevel.TextColor3 = WHITE
+tooltipLevel.TextXAlignment = Enum.TextXAlignment.Left
+tooltipLevel.ZIndex = 101
+tooltipLevel.Parent = tooltip
+
+local tooltipDesc = Instance.new("TextLabel")
+tooltipDesc.Size = UDim2.new(1, 0, 0, 40)
+tooltipDesc.Position = UDim2.new(0, 0, 0, 40)
+tooltipDesc.BackgroundTransparency = 1
+tooltipDesc.Text = "Effect description"
+tooltipDesc.TextSize = 11
+tooltipDesc.Font = Enum.Font.Gotham
+tooltipDesc.TextColor3 = Color3.fromRGB(200, 200, 200)
+tooltipDesc.TextXAlignment = Enum.TextXAlignment.Left
+tooltipDesc.TextWrapped = true
+tooltipDesc.ZIndex = 101
+tooltipDesc.Parent = tooltip
+
+local tooltipCost = Instance.new("TextLabel")
+tooltipCost.Size = UDim2.new(1, 0, 0, 16)
+tooltipCost.Position = UDim2.new(0, 0, 1, -18)
+tooltipCost.BackgroundTransparency = 1
+tooltipCost.Text = "PP Cost: 1 / min"
+tooltipCost.TextSize = 10
+tooltipCost.Font = Enum.Font.GothamBold
+tooltipCost.TextColor3 = Color3.fromRGB(255, 200, 100)
+tooltipCost.TextXAlignment = Enum.TextXAlignment.Left
+tooltipCost.ZIndex = 101
+tooltipCost.Parent = tooltip
+
+-- Tooltip handlers
+for prayerId, node in pairs(prayerNodes) do
+	node.button.MouseEnter:Connect(function()
+		if not prayerData.prayers or not prayerData.prayers[prayerId] then return end
+		
+		local prayer = prayerData.prayers[prayerId]
+		tooltipName.Text = prayer.name
+		tooltipLevel.Text = "Level: " .. prayer.level
+		tooltipDesc.Text = prayer.description
+		tooltipCost.Text = "PP Cost: " .. prayer.ppRate .. " / min"
+		
+		-- Position tooltip
+		local nodePos = node.frame.AbsolutePosition
+		tooltip.Position = UDim2.fromOffset(nodePos.X + 90, nodePos.Y - 60)
+		tooltip.Visible = true
+	end)
+	
+	node.button.MouseLeave:Connect(function()
+		tooltip.Visible = false
+	end)
+end
+
+-----------------------------------------------------------------------
+-- UI CONTROL
+-----------------------------------------------------------------------
+local function toggleUI()
+	isOpen = not isOpen
+	mainFrame.Visible = isOpen
+	
+	if isOpen then
+		-- Refresh data when opening
+		refreshPrayerData()
+	end
+end
+
+local function refreshPrayerData()
+	local success, data = pcall(function()
+		return getDataFunc:InvokeServer()
+	end)
+	
+	if success and data then
+		prayerData = data
+		updatePrayerDisplay()
+	else
+		warn("[PrayerUI] Failed to get prayer data")
+	end
+end
+
+-- Input handling
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	
+	if input.KeyCode == Enum.KeyCode.P then
+		toggleUI()
+	end
+end)
+
+-- Close button
+closeBtn.MouseButton1Click:Connect(function()
+	toggleUI()
+end)
+
+-- Listen for prayer updates
+updateEvent.OnClientEvent:Connect(function()
+	if isOpen then
+		refreshPrayerData()
+	end
+end)
+
+-----------------------------------------------------------------------
+-- INITIALIZATION
+-----------------------------------------------------------------------
+task.spawn(function()
+	task.wait(3) -- Wait for other systems to initialize
+	refreshPrayerData()
+	print("[PrayerUI] New visual skill tree ready! Press P to open.")
+end)

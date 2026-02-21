@@ -1,0 +1,30 @@
+{
+    "name": "Wilderness Fresh Start",
+    "tree": {
+        "$className": "DataModel",
+        "Workspace": {
+            "$className": "Workspace",
+            "$ignoreUnknownInstances": true
+        },
+        "Lighting": {
+            "$className": "Lighting",
+            "$ignoreUnknownInstances": true
+        },
+        "ReplicatedStorage": {
+            "$className": "ReplicatedStorage",
+            "$ignoreUnknownInstances": true
+        },
+        "ServerScriptService": {
+            "$className": "ServerScriptService",
+            "$path": "src/ServerScriptService"
+        },
+        "StarterPlayer": {
+            "$className": "StarterPlayer",
+            "$ignoreUnknownInstances": true,
+            "StarterPlayerScripts": {
+                "$className": "StarterPlayerScripts",
+                "$path": "src/StarterPlayerScripts"
+            }
+        }
+    }
+}

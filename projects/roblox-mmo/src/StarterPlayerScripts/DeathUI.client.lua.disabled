@@ -1,0 +1,322 @@
+-- DeathUI.client.lua
+-- Death screen interface
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+
+-- Wait for dependencies with timeouts
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+
+-- Load ErrorHandler
+local ErrorHandler
+local errorHandlerSuccess, errorHandlerResult = pcall(function()
+	return require(Modules:WaitForChild("ErrorHandler", 5))
+end)
+
+if errorHandlerSuccess then
+	ErrorHandler = errorHandlerResult
+else
+	-- Fallback ErrorHandler
+	ErrorHandler = {
+		LogWarning = function(self, msg) warn(tostring(msg)) end,
+		LogDebug = function(self, msg) warn(tostring(msg)) end
+	}
+end
+
+-- RemoteEvents
+local ShowDeathScreenEvent = Remotes and Remotes:WaitForChild("ShowDeathScreen", 5)
+local RespawnPlayerEvent = Remotes and Remotes:WaitForChild("RespawnPlayer", 5)
+
+-- Validate remotes
+if not ShowDeathScreenEvent or not RespawnPlayerEvent then
+	ErrorHandler:LogWarning("Death remotes not found")
+	return
+end
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DeathUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Dark Overlay
+local overlay = Instance.new("Frame")
+overlay.Name = "Overlay"
+overlay.Size = UDim2.new(1, 0, 1, 0)
+overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+overlay.BackgroundTransparency = 0.7
+overlay.BorderSizePixel = 0
+overlay.Visible = false
+overlay.Parent = screenGui
+
+-- Death Panel
+local deathPanel = Instance.new("Frame")
+deathPanel.Name = "DeathPanel"
+deathPanel.Size = UDim2.new(0, 400, 0, 350)
+deathPanel.Position = UDim2.new(0.5, -200, 0.5, -175)
+deathPanel.AnchorPoint = Vector2.new(0.5, 0.5)
+deathPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+deathPanel.BackgroundTransparency = 0.1
+deathPanel.BorderSizePixel = 0
+deathPanel.Visible = false
+deathPanel.Parent = screenGui
+
+-- Corner
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = deathPanel
+
+-- Stroke
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(218, 165, 32)
+stroke.Thickness = 3
+stroke.Parent = deathPanel
+
+-- Title
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, 0, 0, 50)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "YOU DIED"
+titleLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
+titleLabel.TextScaled = true
+titleLabel.Font = Enum.Font.GothamBlack
+titleLabel.TextStrokeTransparency = 0.5
+titleLabel.Parent = deathPanel
+
+-- Death Reason
+local reasonLabel = Instance.new("TextLabel")
+reasonLabel.Name = "Reason"
+reasonLabel.Size = UDim2.new(0.9, 0, 0, 30)
+reasonLabel.Position = UDim2.new(0.05, 0, 0.2, 0)
+reasonLabel.BackgroundTransparency = 1
+reasonLabel.Text = "Killed by: Unknown"
+reasonLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+reasonLabel.TextScaled = true
+reasonLabel.Font = Enum.Font.Gotham
+reasonLabel.Parent = deathPanel
+
+-- Items Lost Frame
+local itemsFrame = Instance.new("Frame")
+itemsFrame.Name = "ItemsFrame"
+itemsFrame.Size = UDim2.new(0.9, 0, 0, 100)
+itemsFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
+itemsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+itemsFrame.BorderSizePixel = 0
+itemsFrame.Parent = deathPanel
+
+local itemsCorner = Instance.new("UICorner")
+itemsCorner.CornerRadius = UDim.new(0, 4)
+itemsCorner.Parent = itemsFrame
+
+local itemsTitle = Instance.new("TextLabel")
+itemsTitle.Name = "ItemsTitle"
+itemsTitle.Size = UDim2.new(1, 0, 0, 20)
+itemsTitle.Position = UDim2.new(0, 0, 0, 0)
+itemsTitle.BackgroundTransparency = 1
+itemsTitle.Text = "ITEMS LOST"
+itemsTitle.TextColor3 = Color3.fromRGB(220, 60, 60)
+itemsTitle.TextScaled = true
+itemsTitle.Font = Enum.Font.GothamBold
+itemsTitle.Parent = itemsFrame
+
+local itemsText = Instance.new("TextLabel")
+itemsText.Name = "ItemsText"
+itemsText.Size = UDim2.new(1, -10, 1, -30)
+itemsText.Position = UDim2.new(0, 5, 0, 25)
+itemsText.BackgroundTransparency = 1
+itemsText.Text = "None"
+itemsText.TextColor3 = Color3.fromRGB(200, 200, 200)
+itemsText.TextScaled = true
+itemsText.TextWrapped = true
+itemsText.Font = Enum.Font.Gotham
+itemsText.TextXAlignment = Enum.TextXAlignment.Left
+itemsText.TextYAlignment = Enum.TextYAlignment.Top
+itemsText.Parent = itemsFrame
+
+-- Gold Lost
+local goldFrame = Instance.new("Frame")
+goldFrame.Name = "GoldFrame"
+goldFrame.Size = UDim2.new(0.9, 0, 0, 40)
+goldFrame.Position = UDim2.new(0.05, 0, 0.6, 0)
+goldFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+goldFrame.BorderSizePixel = 0
+goldFrame.Parent = deathPanel
+
+local goldCorner = Instance.new("UICorner")
+goldCorner.CornerRadius = UDim.new(0, 4)
+goldCorner.Parent = goldFrame
+
+local goldText = Instance.new("TextLabel")
+goldText.Name = "GoldText"
+goldText.Size = UDim2.new(1, 0, 1, 0)
+goldText.BackgroundTransparency = 1
+goldText.Text = "Gold Lost: 0"
+goldText.TextColor3 = Color3.fromRGB(218, 165, 32)
+goldText.TextScaled = true
+goldText.Font = Enum.Font.GothamBold
+goldText.Parent = goldFrame
+
+-- Respawn Timer
+local timerFrame = Instance.new("Frame")
+timerFrame.Name = "TimerFrame"
+timerFrame.Size = UDim2.new(0.9, 0, 0, 40)
+timerFrame.Position = UDim2.new(0.05, 0, 0.75, 0)
+timerFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+timerFrame.BorderSizePixel = 0
+timerFrame.Parent = deathPanel
+
+local timerCorner = Instance.new("UICorner")
+timerCorner.CornerRadius = UDim.new(0, 4)
+timerCorner.Parent = timerFrame
+
+local timerText = Instance.new("TextLabel")
+timerText.Name = "TimerText"
+timerText.Size = UDim2.new(1, 0, 1, 0)
+timerText.BackgroundTransparency = 1
+timerText.Text = "Respawning in 10 seconds..."
+timerText.TextColor3 = Color3.fromRGB(255, 255, 255)
+timerText.TextScaled = true
+timerText.Font = Enum.Font.Gotham
+timerText.Parent = timerFrame
+
+-- Respawn Button
+local respawnButton = Instance.new("TextButton")
+respawnButton.Name = "RespawnButton"
+respawnButton.Size = UDim2.new(0.9, 0, 0, 40)
+respawnButton.Position = UDim2.new(0.05, 0, 0.88, 0)
+respawnButton.BackgroundColor3 = Color3.fromRGB(65, 175, 65)
+respawnButton.Text = "RESPAWN AT HAVEN"
+respawnButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+respawnButton.TextScaled = true
+respawnButton.Font = Enum.Font.GothamBold
+respawnButton.Visible = false
+respawnButton.Parent = deathPanel
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 4)
+buttonCorner.Parent = respawnButton
+
+-- State
+local isDead = false
+local respawnTimer = 10
+local countdownConnection = nil
+
+-- Function to show death screen
+local function showDeathScreen(killerName, lostItems, lostGold)
+	if isDead then return end
+	
+	isDead = true
+	
+	-- Update UI
+	reasonLabel.Text = "Killed by: " .. tostring(killerName or "Unknown")
+	
+	if lostItems and #lostItems > 0 then
+		local itemsStr = ""
+		for i, item in ipairs(lostItems) do
+			if i > 1 then itemsStr = itemsStr .. ", " end
+			itemsStr = itemsStr .. tostring(item)
+		end
+		itemsText.Text = itemsStr
+	else
+		itemsText.Text = "None"
+	end
+	
+	goldText.Text = "Gold Lost: " .. (lostGold or 0)
+	timerText.Text = "Respawning in " .. respawnTimer .. " seconds..."
+	
+	-- Show UI
+	overlay.Visible = true
+	deathPanel.Visible = true
+	
+	-- Start countdown
+	respawnTimer = 10
+	respawnButton.Visible = false
+	
+	countdownConnection = game:GetService("RunService").Heartbeat:Connect(function(deltaTime)
+		respawnTimer = respawnTimer - deltaTime
+		
+		if respawnTimer <= 0 then
+			respawnTimer = 0
+			timerText.Text = "Ready to respawn!"
+			respawnButton.Visible = true
+			if countdownConnection then
+				countdownConnection:Disconnect()
+				countdownConnection = nil
+			end
+		else
+			timerText.Text = "Respawning in " .. math.ceil(respawnTimer) .. " seconds..."
+		end
+	end)
+	
+	-- Fade in animation
+	deathPanel.BackgroundTransparency = 1
+	overlay.BackgroundTransparency = 1
+	
+	local fadeIn = TweenService:Create(deathPanel, TweenInfo.new(0.5), {BackgroundTransparency = 0.1})
+	local overlayFade = TweenService:Create(overlay, TweenInfo.new(0.5), {BackgroundTransparency = 0.7})
+	
+	fadeIn:Play()
+	overlayFade:Play()
+end
+
+-- Function to hide death screen
+local function hideDeathScreen()
+	if not isDead then return end
+	
+	isDead = false
+	
+	if countdownConnection then
+		countdownConnection:Disconnect()
+		countdownConnection = nil
+	end
+	
+	-- Fade out animation
+	local fadeOut = TweenService:Create(deathPanel, TweenInfo.new(0.5), {BackgroundTransparency = 1})
+	local overlayFade = TweenService:Create(overlay, TweenInfo.new(0.5), {BackgroundTransparency = 1})
+	
+	fadeOut:Play()
+	overlayFade:Play()
+	
+	fadeOut.Completed:Connect(function()
+		overlay.Visible = false
+		deathPanel.Visible = false
+		deathPanel.BackgroundTransparency = 0.1
+		overlay.BackgroundTransparency = 0.7
+	end)
+end
+
+-- Function to respawn
+local function respawnPlayer()
+	if not isDead then return end
+	
+	RespawnPlayerEvent:FireServer()
+	hideDeathScreen()
+end
+
+-- Button click
+respawnButton.MouseButton1Click:Connect(respawnPlayer)
+
+-- Listen for death screen event
+ShowDeathScreenEvent.OnClientEvent:Connect(function(killerName, lostItems, lostGold)
+	showDeathScreen(killerName, lostItems, lostGold)
+end)
+
+-- Also listen for player death
+player.CharacterAdded:Connect(function(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	humanoid.Died:Connect(function()
+		-- Small delay to let server send death data
+		task.wait(0.5)
+		if not isDead then
+			showDeathScreen("Unknown", {}, 0)
+		end
+	end)
+end)
+
+print("[DeathUI] Ready!")

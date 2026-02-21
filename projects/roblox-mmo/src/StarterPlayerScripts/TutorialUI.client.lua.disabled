@@ -1,0 +1,356 @@
+-- TutorialUI.client.lua
+-- Client-side tutorial interface
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+
+-- Wait for dependencies with timeouts
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+
+-- Load ErrorHandler
+local ErrorHandler
+local errorHandlerSuccess, errorHandlerResult = pcall(function()
+	return require(Modules:WaitForChild("ErrorHandler", 5))
+end)
+
+if errorHandlerSuccess then
+	ErrorHandler = errorHandlerResult
+else
+	-- Fallback ErrorHandler
+	ErrorHandler = {
+		LogWarning = function(self, msg) warn("[TutorialUI] " .. msg) end,
+		LogDebug = function(self, msg) print("[DEBUG] " .. msg) end
+	}
+end
+
+-- RemoteEvents
+local TutorialStepEvent = Remotes and Remotes:WaitForChild("TutorialStep", 5)
+local TutorialCompleteEvent = Remotes and Remotes:WaitForChild("TutorialComplete", 5)
+local TutorialSkipEvent = Remotes and Remotes:WaitForChild("TutorialSkip", 5)
+
+-- Validate remotes
+if not TutorialStepEvent or not TutorialCompleteEvent or not TutorialSkipEvent then
+	ErrorHandler:LogWarning("Tutorial remotes not found")
+	return
+end
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TutorialUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Tutorial Panel
+local panelFrame = Instance.new("Frame")
+panelFrame.Name = "TutorialPanel"
+panelFrame.Size = UDim2.new(0, 400, 0, 200)
+panelFrame.Position = UDim2.new(0.5, -200, 0.1, 0)
+panelFrame.AnchorPoint = Vector2.new(0.5, 0)
+panelFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+panelFrame.BackgroundTransparency = 0.1
+panelFrame.BorderSizePixel = 0
+panelFrame.Visible = false
+panelFrame.Parent = screenGui
+
+local panelCorner = Instance.new("UICorner")
+panelCorner.CornerRadius = UDim.new(0, 8)
+panelCorner.Parent = panelFrame
+
+local panelStroke = Instance.new("UIStroke")
+panelStroke.Color = Color3.fromRGB(218, 165, 32)
+panelStroke.Thickness = 3
+panelStroke.Parent = panelFrame
+
+-- Progress Bar
+local progressFrame = Instance.new("Frame")
+progressFrame.Name = "ProgressFrame"
+progressFrame.Size = UDim2.new(1, 0, 0, 5)
+progressFrame.Position = UDim2.new(0, 0, 1, -5)
+progressFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+progressFrame.BorderSizePixel = 0
+progressFrame.Parent = panelFrame
+
+local progressFill = Instance.new("Frame")
+progressFill.Name = "ProgressFill"
+progressFill.Size = UDim2.new(0, 0, 1, 0)
+progressFill.BackgroundColor3 = Color3.fromRGB(65, 175, 65)
+progressFill.BorderSizePixel = 0
+progressFill.Parent = progressFrame
+
+-- Title
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, 0, 0, 30)
+titleLabel.Position = UDim2.new(0, 0, 0, 10)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "TUTORIAL"
+titleLabel.TextColor3 = Color3.fromRGB(218, 165, 32)
+titleLabel.TextScaled = true
+titleLabel.Font = Enum.Font.GothamBlack
+titleLabel.Parent = panelFrame
+
+-- Step Counter
+local stepLabel = Instance.new("TextLabel")
+stepLabel.Name = "Step"
+stepLabel.Size = UDim2.new(1, 0, 0, 20)
+stepLabel.Position = UDim2.new(0, 0, 0, 40)
+stepLabel.BackgroundTransparency = 1
+stepLabel.Text = "Step 1/8"
+stepLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+stepLabel.TextScaled = true
+stepLabel.Font = Enum.Font.Gotham
+stepLabel.Parent = panelFrame
+
+-- Description
+local descLabel = Instance.new("TextLabel")
+descLabel.Name = "Description"
+descLabel.Size = UDim2.new(1, -20, 0, 80)
+descLabel.Position = UDim2.new(0, 10, 0, 70)
+descLabel.BackgroundTransparency = 1
+descLabel.Text = "Welcome to the tutorial!"
+descLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+descLabel.TextScaled = true
+descLabel.TextWrapped = true
+descLabel.Font = Enum.Font.Gotham
+descLabel.TextXAlignment = Enum.TextXAlignment.Left
+descLabel.TextYAlignment = Enum.TextYAlignment.Top
+descLabel.Parent = panelFrame
+
+-- Action Text
+local actionLabel = Instance.new("TextLabel")
+actionLabel.Name = "Action"
+actionLabel.Size = UDim2.new(1, 0, 0, 20)
+actionLabel.Position = UDim2.new(0, 0, 0, 155)
+actionLabel.BackgroundTransparency = 1
+actionLabel.Text = ""
+actionLabel.TextColor3 = Color3.fromRGB(65, 175, 65)
+actionLabel.TextScaled = true
+actionLabel.Font = Enum.Font.GothamBold
+actionLabel.Parent = panelFrame
+
+-- Skip Button
+local skipButton = Instance.new("TextButton")
+skipButton.Name = "SkipButton"
+skipButton.Size = UDim2.new(0, 80, 0, 25)
+skipButton.Position = UDim2.new(1, -85, 1, -30)
+skipButton.BackgroundColor3 = Color3.fromRGB(175, 65, 65)
+skipButton.Text = "SKIP"
+skipButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+skipButton.TextScaled = true
+skipButton.Font = Enum.Font.GothamBold
+skipButton.Parent = panelFrame
+
+local skipCorner = Instance.new("UICorner")
+skipCorner.CornerRadius = UDim.new(0, 4)
+skipCorner.Parent = skipButton
+
+-- Arrow Indicator
+local arrowFrame = Instance.new("Frame")
+arrowFrame.Name = "ArrowIndicator"
+arrowFrame.Size = UDim2.new(0, 50, 0, 50)
+arrowFrame.BackgroundTransparency = 1
+arrowFrame.Visible = false
+arrowFrame.Parent = screenGui
+
+local arrowLabel = Instance.new("TextLabel")
+arrowLabel.Name = "Arrow"
+arrowLabel.Size = UDim2.new(1, 0, 1, 0)
+arrowLabel.BackgroundTransparency = 1
+arrowLabel.Text = "↓"
+arrowLabel.TextColor3 = Color3.fromRGB(218, 165, 32)
+arrowLabel.TextScaled = true
+arrowLabel.Font = Enum.Font.GothamBlack
+arrowLabel.Parent = arrowFrame
+
+-- State
+local currentStep = nil
+local stepData = nil
+local isTutorialActive = false
+
+-- Function to update progress bar
+local function updateProgressBar(step, totalSteps)
+	local progress = step / totalSteps
+	progressFill.Size = UDim2.new(progress, 0, 1, 0)
+	stepLabel.Text = "Step " .. tostring(step) .. "/" .. tostring(totalSteps)
+end
+
+-- Function to show tutorial step
+local function showTutorialStep(data)
+	currentStep = data.step
+	stepData = data
+	isTutorialActive = true
+	
+	-- Update UI
+	titleLabel.Text = data.title
+	descLabel.Text = data.description
+	updateProgressBar(data.step, data.totalSteps)
+	
+	-- Show action text based on step type
+	if data.action == "move_to" then
+		actionLabel.Text = "Move to the marked area"
+	elseif data.action == "open_ui" then
+		actionLabel.Text = "Press " .. tostring(data.key) .. " to open " .. data.uiElement
+	elseif data.action == "equip_item" then
+		actionLabel.Text = "Equip the " .. data.itemName
+	elseif data.action == "kill_monster" then
+		actionLabel.Text = "Defeat a " .. data.monsterType
+	elseif data.action == "pickup_item" then
+		actionLabel.Text = "Pick up " .. data.itemName
+	else
+		actionLabel.Text = ""
+	end
+	
+	-- Show panel with animation
+	panelFrame.Visible = true
+	panelFrame.Position = UDim2.new(0.5, -200, 0, -200)
+	
+	local slideIn = TweenService:Create(panelFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0.5, -200, 0.1, 0)
+	})
+	
+	slideIn:Play()
+	
+	-- Setup step-specific logic
+	setupStepLogic(data)
+end
+
+-- Function to setup step logic
+local function setupStepLogic(data)
+	-- Clear previous step logic
+	arrowFrame.Visible = false
+	
+	if data.action == "move_to" and data.targetPosition then
+		-- Show arrow pointing to target position
+		arrowFrame.Visible = true
+		
+		-- Update arrow position (this would need to be in a loop)
+		local connection
+		connection = RunService.Heartbeat:Connect(function()
+			if not arrowFrame.Visible then
+				connection:Disconnect()
+				return
+			end
+			
+			-- Convert world position to screen position
+			local screenPos, visible = workspace.CurrentCamera:WorldToScreenPoint(data.targetPosition)
+			
+			if visible then
+				arrowFrame.Position = UDim2.new(0, screenPos.X - 25, 0, screenPos.Y - 25)
+				
+				-- Check if player is close enough
+				local character = player.Character
+				if character then
+					local playerPos = character:GetPivot().Position
+					local distance = (playerPos - data.targetPosition).Magnitude
+					
+					if distance <= (data.radius or 10) then
+						-- Step completed
+						TutorialStepEvent:FireServer(data.step, true, {distance = distance})
+						connection:Disconnect()
+					end
+				end
+			end
+		end)
+		
+	elseif data.action == "open_ui" and data.key then
+		-- Listen for key press
+		local connection
+		connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+			if gameProcessed then return end
+			
+			if input.KeyCode == data.key then
+				-- Step completed
+				TutorialStepEvent:FireServer(data.step, true, {keyPressed = data.key})
+				connection:Disconnect()
+			end
+		end)
+		
+		-- Auto-complete after 30 seconds
+		task.delay(30, function()
+			if connection then
+				connection:Disconnect()
+				TutorialStepEvent:FireServer(data.step, true, {timeout = true})
+			end
+		end)
+		
+	elseif data.action == "kill_monster" then
+		-- This would need to hook into the combat system
+		-- For now, auto-complete after delay
+		task.delay(10, function()
+			TutorialStepEvent:FireServer(data.step, true, {autoComplete = true})
+		end)
+		
+	elseif data.duration and data.duration > 0 then
+		-- Duration-based step, auto-complete
+		task.delay(data.duration, function()
+			TutorialStepEvent:FireServer(data.step, true, {durationComplete = true})
+		end)
+	end
+end
+
+-- Function to complete tutorial
+local function completeTutorial(data)
+	isTutorialActive = false
+	
+	if data.skipped then
+		titleLabel.Text = "TUTORIAL SKIPPED"
+		descLabel.Text = "You have skipped the tutorial. Basic items have been added to your inventory."
+		actionLabel.Text = ""
+	else
+		titleLabel.Text = "TUTORIAL COMPLETE!"
+		descLabel.Text = "Great job! You've completed the tutorial. Now go explore the world!"
+		actionLabel.Text = "Rewards added to inventory"
+	end
+	
+	updateProgressBar(data.totalSteps, data.totalSteps)
+	
+	-- Hide after delay
+	task.delay(5, function()
+		if panelFrame.Visible then
+			local slideOut = TweenService:Create(panelFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				Position = UDim2.new(0.5, -200, 0, -200)
+			})
+			
+			slideOut:Play()
+			slideOut.Completed:Connect(function()
+				panelFrame.Visible = false
+			end)
+		end
+	end)
+	
+	arrowFrame.Visible = false
+end
+
+-- Listen for tutorial steps
+TutorialStepEvent.OnClientEvent:Connect(function(data)
+	showTutorialStep(data)
+end)
+
+-- Listen for tutorial completion
+TutorialCompleteEvent.OnClientEvent:Connect(function(data)
+	completeTutorial(data)
+end)
+
+-- Skip button
+skipButton.MouseButton1Click:Connect(function()
+	if isTutorialActive then
+		TutorialSkipEvent:FireServer()
+	end
+end)
+
+-- Also allow skipping with Escape key
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	
+	if input.KeyCode == Enum.KeyCode.Escape and isTutorialActive then
+		TutorialSkipEvent:FireServer()
+	end
+end)
+
+print("[TutorialUI] Ready!")

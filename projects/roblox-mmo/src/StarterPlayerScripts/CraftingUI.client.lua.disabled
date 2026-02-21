@@ -1,0 +1,480 @@
+--[[
+	CraftingUI.client.lua
+	Crafting menu UI for Smithing & Cooking stations.
+	Dark theme with gold accents. Shows recipes, ingredients, progress bar.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+local CraftRequest  = Remotes:WaitForChild("CraftRequest", 15)
+if not CraftRequest then warn("[CraftingUI] CraftRequest remote not found!") return end
+local CraftComplete = Remotes:WaitForChild("CraftComplete", 10)
+local CraftUpdate   = Remotes:WaitForChild("CraftUpdate", 10)
+
+----------------------------------------------------------------------
+-- Theme
+----------------------------------------------------------------------
+local THEME = {
+	bg        = Color3.fromHex("#1a1a2e"),
+	bgLight   = Color3.fromHex("#22223a"),
+	bgDark    = Color3.fromHex("#131320"),
+	gold      = Color3.fromHex("#f0c040"),
+	goldDim   = Color3.fromHex("#a8872e"),
+	text      = Color3.fromHex("#e8e8e8"),
+	textDim   = Color3.fromHex("#888898"),
+	green     = Color3.fromHex("#40d060"),
+	red       = Color3.fromHex("#e04040"),
+	barBg     = Color3.fromHex("#2a2a40"),
+}
+
+local CRAFT_TIME = 1.5 -- seconds per craft
+
+----------------------------------------------------------------------
+-- State
+----------------------------------------------------------------------
+local currentStation: string? = nil
+local currentRecipes: { any } = {}
+local selectedRecipe: any = nil
+local isCrafting = false
+
+----------------------------------------------------------------------
+-- UI Construction
+----------------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CraftingUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Enabled = false
+screenGui.Parent = playerGui
+
+-- Main frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.fromOffset(520, 440)
+mainFrame.Position = UDim2.fromScale(0.5, 0.5)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundColor3 = THEME.bg
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = mainFrame
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = THEME.gold
+stroke.Thickness = 2
+stroke.Parent = mainFrame
+
+-- Title bar
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = THEME.bgDark
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 10)
+
+-- Patch bottom corners of title bar
+local titlePatch = Instance.new("Frame")
+titlePatch.Size = UDim2.new(1, 0, 0, 12)
+titlePatch.Position = UDim2.new(0, 0, 1, -12)
+titlePatch.BackgroundColor3 = THEME.bgDark
+titlePatch.BorderSizePixel = 0
+titlePatch.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, -50, 1, 0)
+titleLabel.Position = UDim2.fromOffset(14, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Crafting"
+titleLabel.TextColor3 = THEME.gold
+titleLabel.TextSize = 20
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = titleBar
+
+-- Close button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Name = "Close"
+closeBtn.Size = UDim2.fromOffset(32, 32)
+closeBtn.Position = UDim2.new(1, -36, 0, 4)
+closeBtn.BackgroundColor3 = THEME.red
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = THEME.text
+closeBtn.TextSize = 16
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = titleBar
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+
+-- Recipe list (left panel)
+local listFrame = Instance.new("ScrollingFrame")
+listFrame.Name = "RecipeList"
+listFrame.Size = UDim2.new(0, 210, 1, -50)
+listFrame.Position = UDim2.fromOffset(6, 46)
+listFrame.BackgroundColor3 = THEME.bgDark
+listFrame.BorderSizePixel = 0
+listFrame.ScrollBarThickness = 4
+listFrame.ScrollBarImageColor3 = THEME.goldDim
+listFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+listFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+listFrame.Parent = mainFrame
+Instance.new("UICorner", listFrame).CornerRadius = UDim.new(0, 8)
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 4)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent = listFrame
+local lp = Instance.new("UIPadding")
+lp.PaddingTop = UDim.new(0, 4)
+lp.PaddingBottom = UDim.new(0, 4)
+lp.PaddingLeft = UDim.new(0, 4)
+lp.PaddingRight = UDim.new(0, 4)
+lp.Parent = listFrame
+
+-- Detail panel (right)
+local detailFrame = Instance.new("Frame")
+detailFrame.Name = "Detail"
+detailFrame.Size = UDim2.new(1, -226, 1, -50)
+detailFrame.Position = UDim2.fromOffset(222, 46)
+detailFrame.BackgroundColor3 = THEME.bgDark
+detailFrame.BorderSizePixel = 0
+detailFrame.Parent = mainFrame
+Instance.new("UICorner", detailFrame).CornerRadius = UDim.new(0, 8)
+
+-- Detail content
+local detailPadding = Instance.new("UIPadding")
+detailPadding.PaddingTop = UDim.new(0, 12)
+detailPadding.PaddingLeft = UDim.new(0, 14)
+detailPadding.PaddingRight = UDim.new(0, 14)
+detailPadding.Parent = detailFrame
+
+local productLabel = Instance.new("TextLabel")
+productLabel.Name = "ProductName"
+productLabel.Size = UDim2.new(1, 0, 0, 28)
+productLabel.BackgroundTransparency = 1
+productLabel.Text = "Select a recipe"
+productLabel.TextColor3 = THEME.gold
+productLabel.TextSize = 18
+productLabel.Font = Enum.Font.GothamBold
+productLabel.TextXAlignment = Enum.TextXAlignment.Left
+productLabel.Parent = detailFrame
+
+local skillLabel = Instance.new("TextLabel")
+skillLabel.Name = "SkillReq"
+skillLabel.Size = UDim2.new(1, 0, 0, 20)
+skillLabel.Position = UDim2.fromOffset(0, 30)
+skillLabel.BackgroundTransparency = 1
+skillLabel.Text = ""
+skillLabel.TextColor3 = THEME.textDim
+skillLabel.TextSize = 14
+skillLabel.Font = Enum.Font.Gotham
+skillLabel.TextXAlignment = Enum.TextXAlignment.Left
+skillLabel.Parent = detailFrame
+
+local xpLabel = Instance.new("TextLabel")
+xpLabel.Name = "XP"
+xpLabel.Size = UDim2.new(1, 0, 0, 20)
+xpLabel.Position = UDim2.fromOffset(0, 50)
+xpLabel.BackgroundTransparency = 1
+xpLabel.Text = ""
+xpLabel.TextColor3 = THEME.gold
+xpLabel.TextSize = 14
+xpLabel.Font = Enum.Font.Gotham
+xpLabel.TextXAlignment = Enum.TextXAlignment.Left
+xpLabel.Parent = detailFrame
+
+-- Ingredients list
+local ingredientsLabel = Instance.new("TextLabel")
+ingredientsLabel.Name = "IngredientsHeader"
+ingredientsLabel.Size = UDim2.new(1, 0, 0, 22)
+ingredientsLabel.Position = UDim2.fromOffset(0, 80)
+ingredientsLabel.BackgroundTransparency = 1
+ingredientsLabel.Text = "Ingredients:"
+ingredientsLabel.TextColor3 = THEME.text
+ingredientsLabel.TextSize = 14
+ingredientsLabel.Font = Enum.Font.GothamBold
+ingredientsLabel.TextXAlignment = Enum.TextXAlignment.Left
+ingredientsLabel.Parent = detailFrame
+
+local ingredientsFrame = Instance.new("Frame")
+ingredientsFrame.Name = "Ingredients"
+ingredientsFrame.Size = UDim2.new(1, 0, 0, 80)
+ingredientsFrame.Position = UDim2.fromOffset(0, 104)
+ingredientsFrame.BackgroundTransparency = 1
+ingredientsFrame.Parent = detailFrame
+
+local ingredLayout = Instance.new("UIListLayout")
+ingredLayout.Padding = UDim.new(0, 2)
+ingredLayout.Parent = ingredientsFrame
+
+-- Progress bar
+local progressBg = Instance.new("Frame")
+progressBg.Name = "ProgressBg"
+progressBg.Size = UDim2.new(1, 0, 0, 18)
+progressBg.Position = UDim2.new(0, 0, 1, -100)
+progressBg.BackgroundColor3 = THEME.barBg
+progressBg.BorderSizePixel = 0
+progressBg.Visible = false
+progressBg.Parent = detailFrame
+Instance.new("UICorner", progressBg).CornerRadius = UDim.new(0, 6)
+
+local progressFill = Instance.new("Frame")
+progressFill.Name = "Fill"
+progressFill.Size = UDim2.new(0, 0, 1, 0)
+progressFill.BackgroundColor3 = THEME.gold
+progressFill.BorderSizePixel = 0
+progressFill.Parent = progressBg
+Instance.new("UICorner", progressFill).CornerRadius = UDim.new(0, 6)
+
+local progressText = Instance.new("TextLabel")
+progressText.Size = UDim2.fromScale(1, 1)
+progressText.BackgroundTransparency = 1
+progressText.Text = ""
+progressText.TextColor3 = THEME.bgDark
+progressText.TextSize = 12
+progressText.Font = Enum.Font.GothamBold
+progressText.ZIndex = 2
+progressText.Parent = progressBg
+
+-- Buttons
+local function makeButton(name: string, text: string, posY: number): TextButton
+	local btn = Instance.new("TextButton")
+	btn.Name = name
+	btn.Size = UDim2.new(0.48, 0, 0, 36)
+	btn.Position = UDim2.new(0, 0, 1, posY)
+	btn.BackgroundColor3 = THEME.gold
+	btn.TextColor3 = THEME.bgDark
+	btn.Text = text
+	btn.TextSize = 15
+	btn.Font = Enum.Font.GothamBold
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = true
+	btn.Parent = detailFrame
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+	return btn
+end
+
+local craftBtn    = makeButton("CraftBtn", "Craft", -60)
+local craftAllBtn = makeButton("CraftAllBtn", "Craft All", -60)
+craftAllBtn.Position = UDim2.new(0.52, 0, 1, -60)
+
+----------------------------------------------------------------------
+-- UI Logic
+----------------------------------------------------------------------
+
+local function clearList()
+	for _, child in listFrame:GetChildren() do
+		if child:IsA("TextButton") then child:Destroy() end
+	end
+end
+
+local function clearIngredients()
+	for _, child in ingredientsFrame:GetChildren() do
+		if child:IsA("TextLabel") then child:Destroy() end
+	end
+end
+
+local function selectRecipe(recipe: any)
+	selectedRecipe = recipe
+	productLabel.Text = recipe.product
+	skillLabel.Text = string.format("Requires: %s Lv. %d", recipe.skill, recipe.level)
+	xpLabel.Text = string.format("+%d %s XP", recipe.xp, recipe.skill)
+
+	if not recipe.canCraft then
+		skillLabel.TextColor3 = THEME.red
+	else
+		skillLabel.TextColor3 = THEME.textDim
+	end
+
+	-- Ingredients
+	clearIngredients()
+	for _, ing in recipe.ingredients do
+		local lbl = Instance.new("TextLabel")
+		lbl.Size = UDim2.new(1, 0, 0, 18)
+		lbl.BackgroundTransparency = 1
+		lbl.TextSize = 13
+		lbl.Font = Enum.Font.Gotham
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.Text = string.format("  %s  %d / %d", ing.name, ing.have, ing.required)
+		lbl.TextColor3 = if ing.have >= ing.required then THEME.green else THEME.red
+		lbl.Parent = ingredientsFrame
+	end
+
+	-- Button state
+	local canDo = recipe.canCraft and recipe.maxCraft > 0
+	craftBtn.BackgroundColor3 = if canDo then THEME.gold else THEME.textDim
+	craftAllBtn.BackgroundColor3 = if canDo then THEME.gold else THEME.textDim
+end
+
+local function populateList(recipes: { any })
+	clearList()
+	currentRecipes = recipes
+
+	for i, recipe in recipes do
+		local btn = Instance.new("TextButton")
+		btn.Name = recipe.id
+		btn.Size = UDim2.new(1, 0, 0, 34)
+		btn.LayoutOrder = i
+		btn.BackgroundColor3 = if recipe.canCraft then THEME.bgLight else THEME.bgDark
+		btn.TextColor3 = if recipe.canCraft then THEME.text else THEME.textDim
+		btn.Text = recipe.product
+		btn.TextSize = 14
+		btn.Font = Enum.Font.GothamBold
+		btn.BorderSizePixel = 0
+		btn.AutoButtonColor = true
+		btn.Parent = listFrame
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+		-- Max craft count badge
+		if recipe.maxCraft > 0 then
+			local badge = Instance.new("TextLabel")
+			badge.Size = UDim2.fromOffset(28, 18)
+			badge.Position = UDim2.new(1, -32, 0.5, -9)
+			badge.BackgroundColor3 = THEME.gold
+			badge.TextColor3 = THEME.bgDark
+			badge.Text = tostring(recipe.maxCraft)
+			badge.TextSize = 11
+			badge.Font = Enum.Font.GothamBold
+			badge.Parent = btn
+			Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 4)
+		end
+
+		btn.MouseButton1Click:Connect(function()
+			selectRecipe(recipe)
+		end)
+	end
+
+	-- Auto-select first
+	if #recipes > 0 then
+		selectRecipe(recipes[1])
+	end
+end
+
+local function openUI(station: string, recipes: { any })
+	currentStation = station
+
+	-- Set title based on station
+	local stationTitles = {
+		Anvil = "⚒️  Anvil — Smithing",
+		Forge = "🔥  Forge — Smelting",
+		CookingRange = "🍳  Cooking Range",
+	}
+	titleLabel.Text = stationTitles[station] or "Crafting"
+
+	populateList(recipes)
+	progressBg.Visible = false
+	isCrafting = false
+	screenGui.Enabled = true
+end
+
+local function closeUI()
+	screenGui.Enabled = false
+	currentStation = nil
+	selectedRecipe = nil
+	isCrafting = false
+end
+
+----------------------------------------------------------------------
+-- Craft Actions
+----------------------------------------------------------------------
+
+local function doCraft(quantity: number)
+	if not selectedRecipe or isCrafting then return end
+	if not selectedRecipe.canCraft or selectedRecipe.maxCraft <= 0 then return end
+
+	isCrafting = true
+	local qty = math.min(quantity, selectedRecipe.maxCraft)
+
+	-- Show progress bar
+	progressBg.Visible = true
+	progressFill.Size = UDim2.new(0, 0, 1, 0)
+	progressText.Text = string.format("0 / %d", qty)
+
+	CraftRequest:FireServer(selectedRecipe.id, qty)
+end
+
+craftBtn.MouseButton1Click:Connect(function()
+	doCraft(1)
+end)
+
+craftAllBtn.MouseButton1Click:Connect(function()
+	if selectedRecipe then
+		doCraft(selectedRecipe.maxCraft)
+	end
+end)
+
+closeBtn.MouseButton1Click:Connect(closeUI)
+
+----------------------------------------------------------------------
+-- Server Events
+----------------------------------------------------------------------
+
+CraftUpdate.OnClientEvent:Connect(function(data)
+	if data.action == "open" then
+		-- Server tells us to open crafting UI
+		openUI(data.station, data.recipes)
+		return
+	end
+
+	-- Progress update during crafting
+	if data.current and data.total then
+		local pct = data.current / data.total
+		TweenService:Create(progressFill, TweenInfo.new(CRAFT_TIME, Enum.EasingStyle.Linear), {
+			Size = UDim2.new(pct, 0, 1, 0),
+		}):Play()
+		progressText.Text = string.format("%d / %d", data.current, data.total)
+	end
+end)
+
+CraftComplete.OnClientEvent:Connect(function(data)
+	isCrafting = false
+	progressBg.Visible = false
+
+	if data.success then
+		-- Flash gold on product label
+		productLabel.TextColor3 = THEME.green
+		productLabel.Text = data.message
+		task.delay(1.5, function()
+			productLabel.TextColor3 = THEME.gold
+			if selectedRecipe then
+				productLabel.Text = selectedRecipe.product
+			end
+		end)
+
+		-- Re-request recipe list to refresh counts
+		-- (Server will re-send via CraftUpdate with action=open if station is still valid)
+		-- For now just close if station gone
+	else
+		productLabel.TextColor3 = THEME.red
+		productLabel.Text = data.message or "Crafting failed."
+		task.delay(2, function()
+			productLabel.TextColor3 = THEME.gold
+			if selectedRecipe then
+				productLabel.Text = selectedRecipe.product
+			end
+		end)
+	end
+end)
+
+----------------------------------------------------------------------
+-- Close on Escape
+----------------------------------------------------------------------
+local UserInputService = game:GetService("UserInputService")
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.Escape and screenGui.Enabled then
+		closeUI()
+	end
+end)
+
+----------------------------------------------------------------------
+print("[CraftingUI] Loaded!")

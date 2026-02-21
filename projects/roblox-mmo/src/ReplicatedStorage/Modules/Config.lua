@@ -10,8 +10,18 @@ Config.Skills = {
 	Fishing = { maxLevel = 99, baseXP = 40 },
 	Smithing = { maxLevel = 99, baseXP = 60 },
 	Cooking = { maxLevel = 99, baseXP = 55 },
-	Combat = { maxLevel = 99, baseXP = 70 },
+	Strength = { maxLevel = 99, baseXP = 70 },
+	Defense = { maxLevel = 99, baseXP = 65 },
+	Ranged = { maxLevel = 99, baseXP = 65 },
+	Fletching = { maxLevel = 99, baseXP = 55 },
+	Prayer = { maxLevel = 99, baseXP = 60 },
 }
+
+-- === COMBAT SKILLS (used for Combat Level calculation) ===
+Config.CombatSkills = {"Strength", "Defense", "Ranged", "Prayer"}
+
+-- === XP MULTIPLIER ===
+Config.XPMultiplier = 10 -- Global XP multiplier (10x)
 
 -- XP formula: XP needed for level N = floor(N^2 * 100)
 function Config.GetXPForLevel(level)

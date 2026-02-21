@@ -1,0 +1,405 @@
+-- PvPUI.client.lua
+-- Client-side PvP interface for wilderness warnings, notifications, and skull timer
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+-- Wait for remotes
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+local PvPDeathRemote = Remotes:WaitForChild("PvPDeath", 5)
+local SkullUpdateRemote = Remotes:WaitForChild("SkullUpdate", 5)
+local WildernessWarningRemote = Remotes:WaitForChild("WildernessWarning", 5)
+
+-- UI Variables
+local wildernessGui = nil
+local notificationGui = nil
+local skullGui = nil
+local currentSkullTimer = 0
+local isInWilderness = false
+
+-- Create main PvP GUI
+local function createPvPGUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "PvPInterface"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = playerGui
+    return screenGui
+end
+
+-- Create wilderness warning overlay
+local function createWildernessWarning(parent)
+    local warningFrame = Instance.new("Frame")
+    warningFrame.Name = "WildernessWarning"
+    warningFrame.Size = UDim2.new(1, 0, 0.15, 0)
+    warningFrame.Position = UDim2.new(0, 0, 0.1, 0)
+    warningFrame.BackgroundColor3 = Color3.new(0.8, 0, 0)
+    warningFrame.BackgroundTransparency = 0.3
+    warningFrame.BorderSizePixel = 0
+    warningFrame.Visible = false
+    warningFrame.Parent = parent
+    
+    local warningText = Instance.new("TextLabel")
+    warningText.Name = "WarningText"
+    warningText.Size = UDim2.new(1, 0, 0.6, 0)
+    warningText.Position = UDim2.new(0, 0, 0.2, 0)
+    warningText.BackgroundTransparency = 1
+    warningText.Text = "⚠️ ENTERING WILDERNESS ⚠️"
+    warningText.TextColor3 = Color3.new(1, 1, 1)
+    warningText.TextScaled = true
+    warningText.TextStrokeTransparency = 0
+    warningText.TextStrokeColor3 = Color3.new(0, 0, 0)
+    warningText.Font = Enum.Font.SourceSansBold
+    warningText.Parent = warningFrame
+    
+    local subText = Instance.new("TextLabel")
+    subText.Name = "SubText"
+    subText.Size = UDim2.new(1, 0, 0.3, 0)
+    subText.Position = UDim2.new(0, 0, 0.7, 0)
+    subText.BackgroundTransparency = 1
+    subText.Text = "Players can attack you here!"
+    subText.TextColor3 = Color3.new(1, 0.8, 0.8)
+    subText.TextScaled = true
+    subText.TextStrokeTransparency = 0
+    subText.TextStrokeColor3 = Color3.new(0, 0, 0)
+    subText.Font = Enum.Font.SourceSans
+    subText.Parent = warningFrame
+    
+    return warningFrame
+end
+
+-- Create notification system
+local function createNotificationSystem(parent)
+    local notificationFrame = Instance.new("Frame")
+    notificationFrame.Name = "Notifications"
+    notificationFrame.Size = UDim2.new(0.4, 0, 0.2, 0)
+    notificationFrame.Position = UDim2.new(0.3, 0, 0.4, 0)
+    notificationFrame.BackgroundTransparency = 1
+    notificationFrame.Parent = parent
+    
+    local notificationText = Instance.new("TextLabel")
+    notificationText.Name = "NotificationText"
+    notificationText.Size = UDim2.new(1, 0, 1, 0)
+    notificationText.BackgroundColor3 = Color3.new(0, 0, 0)
+    notificationText.BackgroundTransparency = 0.7
+    notificationText.BorderSizePixel = 0
+    notificationText.Text = ""
+    notificationText.TextColor3 = Color3.new(1, 1, 1)
+    notificationText.TextScaled = true
+    notificationText.TextWrapped = true
+    notificationText.Font = Enum.Font.SourceSansBold
+    notificationText.Visible = false
+    notificationText.Parent = notificationFrame
+    
+    return notificationFrame
+end
+
+-- Create skull timer display
+local function createSkullTimer(parent)
+    local skullFrame = Instance.new("Frame")
+    skullFrame.Name = "SkullTimer"
+    skullFrame.Size = UDim2.new(0.2, 0, 0.08, 0)
+    skullFrame.Position = UDim2.new(0.4, 0, 0.02, 0)
+    skullFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+    skullFrame.BackgroundTransparency = 0.3
+    skullFrame.BorderSizePixel = 2
+    skullFrame.BorderColor3 = Color3.new(1, 0, 0)
+    skullFrame.Visible = false
+    skullFrame.Parent = parent
+    
+    local skullIcon = Instance.new("TextLabel")
+    skullIcon.Name = "SkullIcon"
+    skullIcon.Size = UDim2.new(0.3, 0, 1, 0)
+    skullIcon.Position = UDim2.new(0, 0, 0, 0)
+    skullIcon.BackgroundTransparency = 1
+    skullIcon.Text = "☠️"
+    skullIcon.TextColor3 = Color3.new(1, 0, 0)
+    skullIcon.TextScaled = true
+    skullIcon.Font = Enum.Font.SourceSansBold
+    skullIcon.Parent = skullFrame
+    
+    local timerText = Instance.new("TextLabel")
+    timerText.Name = "TimerText"
+    timerText.Size = UDim2.new(0.7, 0, 1, 0)
+    timerText.Position = UDim2.new(0.3, 0, 0, 0)
+    timerText.BackgroundTransparency = 1
+    timerText.Text = "5:00"
+    timerText.TextColor3 = Color3.new(1, 1, 1)
+    timerText.TextScaled = true
+    timerText.Font = Enum.Font.SourceSans
+    timerText.Parent = skullFrame
+    
+    return skullFrame
+end
+
+-- Create wilderness level indicator
+local function createWildernessLevel(parent)
+    local levelFrame = Instance.new("Frame")
+    levelFrame.Name = "WildernessLevel"
+    levelFrame.Size = UDim2.new(0.15, 0, 0.05, 0)
+    levelFrame.Position = UDim2.new(0.85, 0, 0.15, 0)
+    levelFrame.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    levelFrame.BackgroundTransparency = 0.3
+    levelFrame.BorderSizePixel = 1
+    levelFrame.BorderColor3 = Color3.new(1, 0, 0)
+    levelFrame.Visible = false
+    levelFrame.Parent = parent
+    
+    local levelText = Instance.new("TextLabel")
+    levelText.Name = "LevelText"
+    levelText.Size = UDim2.new(1, 0, 1, 0)
+    levelText.BackgroundTransparency = 1
+    levelText.Text = "Level: 1"
+    levelText.TextColor3 = Color3.new(1, 1, 1)
+    levelText.TextScaled = true
+    levelText.Font = Enum.Font.SourceSansBold
+    levelText.Parent = levelFrame
+    
+    return levelFrame
+end
+
+-- Utility functions
+local function formatTime(seconds)
+    local minutes = math.floor(seconds / 60)
+    local secs = seconds % 60
+    return string.format("%d:%02d", minutes, secs)
+end
+
+local function showNotification(text, color, duration)
+    duration = duration or 3
+    color = color or Color3.new(1, 1, 1)
+    
+    local notification = notificationGui:FindFirstChild("NotificationText")
+    if notification then
+        notification.Text = text
+        notification.TextColor3 = color
+        notification.Visible = true
+        
+        -- Fade in
+        notification.BackgroundTransparency = 1
+        notification.TextTransparency = 1
+        local fadeIn = TweenService:Create(notification, 
+            TweenInfo.new(0.3, Enum.EasingStyle.Quart), 
+            {BackgroundTransparency = 0.3, TextTransparency = 0}
+        )
+        fadeIn:Play()
+        
+        -- Wait then fade out
+        task.wait(duration)
+        local fadeOut = TweenService:Create(notification, 
+            TweenInfo.new(0.5, Enum.EasingStyle.Quart), 
+            {BackgroundTransparency = 1, TextTransparency = 1}
+        )
+        fadeOut:Play()
+        
+        fadeOut.Completed:Connect(function()
+            notification.Visible = false
+        end)
+    end
+end
+
+local function showWildernessWarning(isEntering, level)
+    local warning = wildernessGui
+    if not warning then return end
+    
+    if isEntering then
+        warning.Visible = true
+        
+        -- Update level text if needed
+        local subText = warning:FindFirstChild("SubText")
+        if level and level > 1 and subText then
+            subText.Text = "Players can attack you here! Wilderness Level: " .. level
+        end
+        
+        -- Animate entrance
+        warning.BackgroundTransparency = 1
+        warning.WarningText.TextTransparency = 1
+        warning.SubText.TextTransparency = 1
+        
+        local fadeIn = TweenService:Create(warning, 
+            TweenInfo.new(0.5, Enum.EasingStyle.Quart), 
+            {BackgroundTransparency = 0.3}
+        )
+        local textFadeIn = TweenService:Create(warning.WarningText, 
+            TweenInfo.new(0.5, Enum.EasingStyle.Quart), 
+            {TextTransparency = 0}
+        )
+        local subTextFadeIn = TweenService:Create(warning.SubText, 
+            TweenInfo.new(0.5, Enum.EasingStyle.Quart), 
+            {TextTransparency = 0}
+        )
+        
+        fadeIn:Play()
+        textFadeIn:Play()
+        subTextFadeIn:Play()
+        
+        -- Auto hide after 3 seconds
+        task.wait(3)
+        local fadeOut = TweenService:Create(warning, 
+            TweenInfo.new(0.5, Enum.EasingStyle.Quart), 
+            {BackgroundTransparency = 1}
+        )
+        local textFadeOut = TweenService:Create(warning.WarningText, 
+            TweenInfo.new(0.5, Enum.EasingStyle.Quart), 
+            {TextTransparency = 1}
+        )
+        local subTextFadeOut = TweenService:Create(warning.SubText, 
+            TweenInfo.new(0.5, Enum.EasingStyle.Quart), 
+            {TextTransparency = 1}
+        )
+        
+        fadeOut:Play()
+        textFadeOut:Play()
+        subTextFadeOut:Play()
+        
+        fadeOut.Completed:Connect(function()
+            warning.Visible = false
+        end)
+    end
+end
+
+local function updateSkullTimer()
+    local skullTimer = skullGui
+    if not skullTimer or not skullTimer.Visible then return end
+    
+    local timerText = skullTimer:FindFirstChild("TimerText")
+    if timerText and currentSkullTimer > 0 then
+        timerText.Text = formatTime(currentSkullTimer)
+    end
+end
+
+local function updateWildernessLevel()
+    local pvpGui = playerGui:FindFirstChild("PvPInterface")
+    if not pvpGui then return end
+    if not isInWilderness then
+        local levelIndicator = pvpGui:FindFirstChild("WildernessLevel")
+        if levelIndicator then
+            levelIndicator.Visible = false
+        end
+        return
+    end
+    
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local position = character.HumanoidRootPart.Position
+    local level = math.floor(math.abs(position.Z + 100) / 20) + 1
+    
+    local levelIndicator = pvpGui:FindFirstChild("WildernessLevel")
+    if levelIndicator then
+        levelIndicator.Visible = true
+        local levelText = levelIndicator:FindFirstChild("LevelText")
+        if levelText then
+            levelText.Text = "Level: " .. level
+            -- Color based on danger level
+            if level <= 5 then
+                levelText.TextColor3 = Color3.new(1, 1, 0)  -- Yellow
+            elseif level <= 10 then
+                levelText.TextColor3 = Color3.new(1, 0.5, 0)  -- Orange
+            else
+                levelText.TextColor3 = Color3.new(1, 0, 0)  -- Red
+            end
+        end
+    end
+end
+
+-- Initialize UI
+local function initializePvPUI()
+    local mainGui = createPvPGUI()
+    
+    wildernessGui = createWildernessWarning(mainGui)
+    notificationGui = createNotificationSystem(mainGui)
+    skullGui = createSkullTimer(mainGui)
+    createWildernessLevel(mainGui)
+end
+
+-- Event handlers
+WildernessWarningRemote.OnClientEvent:Connect(function(entering, level)
+    isInWilderness = entering
+    if entering then
+        task.spawn(function()
+            showWildernessWarning(true, level)
+        end)
+    end
+end)
+
+PvPDeathRemote.OnClientEvent:Connect(function(isKiller, playerName, itemCount, message)
+    if isKiller == true then
+        -- Player killed someone
+        task.spawn(function()
+            showNotification("You have defeated " .. playerName .. "!", Color3.new(0, 1, 0), 4)
+        end)
+    elseif isKiller == false then
+        -- Player was killed
+        task.spawn(function()
+            showNotification("You were killed by " .. playerName .. ". You lost " .. itemCount .. " items.", Color3.new(1, 0, 0), 5)
+        end)
+    elseif message then
+        -- Nearby notification
+        task.spawn(function()
+            showNotification(message, Color3.new(1, 1, 0), 3)
+        end)
+    end
+end)
+
+SkullUpdateRemote.OnClientEvent:Connect(function(hasSkull, duration, targetPlayer)
+    if not targetPlayer then
+        -- This is for the local player
+        if hasSkull then
+            currentSkullTimer = duration
+            skullGui.Visible = true
+            
+            -- Start countdown timer
+            task.spawn(function()
+                while currentSkullTimer > 0 and skullGui.Visible do
+                    updateSkullTimer()
+                    task.wait(1)
+                    if isInWilderness then
+                        currentSkullTimer = currentSkullTimer - 1
+                    end
+                end
+            end)
+            
+            task.spawn(function()
+                showNotification("You are now skulled! You will lose all items on death.", Color3.new(1, 0, 0), 4)
+            end)
+        else
+            skullGui.Visible = false
+            currentSkullTimer = 0
+            
+            task.spawn(function()
+                showNotification("Your skull has disappeared.", Color3.new(0, 1, 0), 3)
+            end)
+        end
+    end
+end)
+
+-- Update wilderness level continuously (throttled for performance)
+local lastUpdate = 0
+RunService.Heartbeat:Connect(function()
+    local now = tick()
+    if now - lastUpdate >= 0.25 then -- Only update every 0.25 seconds instead of every frame
+        lastUpdate = now
+        updateWildernessLevel()
+    end
+end)
+
+-- Initialize when player spawns
+local function onCharacterAdded(character)
+    task.wait(2)  -- Wait for character to fully load
+    if not playerGui:FindFirstChild("PvPInterface") then
+        initializePvPUI()
+    end
+end
+
+if player.Character then
+    onCharacterAdded(player.Character)
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
+
+print("PvPUI loaded successfully!")

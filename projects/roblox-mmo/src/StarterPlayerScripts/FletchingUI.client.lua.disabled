@@ -1,0 +1,491 @@
+-- FletchingUI.client.lua
+-- Client-side UI for fletching bench interaction
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+
+-- Wait for dependencies
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+local ItemDatabase = require(Modules:WaitForChild("ItemDatabase", 5))
+
+-- RemoteEvents
+local StartFletchingEvent = Remotes:WaitForChild("StartFletching", 5)
+local FletchingProgressEvent = Remotes:WaitForChild("FletchingProgress", 5)
+local FletchingCompleteEvent = Remotes:WaitForChild("FletchingComplete", 5)
+
+-- Forward declarations (must be before any callbacks that reference them)
+local toggleUI
+local loadRecipes
+
+-- UI State
+local isUIOpen = false
+local currentRecipes = {}
+local selectedRecipe = nil
+local isCrafting = false
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FletchingUI"
+screenGui.Parent = player:WaitForChild("PlayerGui", 5)
+
+-- Main frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 500, 0, 600)
+mainFrame.Position = UDim2.new(0.5, -250, 0.5, -300)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+mainFrame.BorderColor3 = Color3.fromRGB(60, 60, 70)
+mainFrame.BorderSizePixel = 2
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Name = "Title"
+title.Size = UDim2.new(1, 0, 0, 50)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+title.BorderColor3 = Color3.fromRGB(80, 80, 90)
+title.Text = "FLETCHING BENCH"
+title.TextColor3 = Color3.fromRGB(220, 180, 100)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 24
+title.Parent = mainFrame
+
+-- Close button
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 40, 0, 40)
+closeButton.Position = UDim2.new(1, -45, 0, 5)
+closeButton.BackgroundColor3 = Color3.fromRGB(60, 30, 30)
+closeButton.BorderColor3 = Color3.fromRGB(100, 50, 50)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 20
+closeButton.Parent = mainFrame
+
+closeButton.MouseButton1Click:Connect(function()
+	toggleUI(false)
+end)
+
+-- Recipe list frame
+local recipeFrame = Instance.new("ScrollingFrame")
+recipeFrame.Name = "RecipeFrame"
+recipeFrame.Size = UDim2.new(0.45, -10, 0.8, -60)
+recipeFrame.Position = UDim2.new(0, 10, 0, 60)
+recipeFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+recipeFrame.BorderColor3 = Color3.fromRGB(50, 50, 60)
+recipeFrame.ScrollBarThickness = 8
+recipeFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+recipeFrame.Parent = mainFrame
+
+-- Recipe details frame
+local detailsFrame = Instance.new("Frame")
+detailsFrame.Name = "DetailsFrame"
+detailsFrame.Size = UDim2.new(0.55, -10, 0.8, -60)
+detailsFrame.Position = UDim2.new(0.45, 0, 0, 60)
+detailsFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+detailsFrame.BorderColor3 = Color3.fromRGB(50, 50, 60)
+detailsFrame.Parent = mainFrame
+
+-- Selected recipe title
+local selectedTitle = Instance.new("TextLabel")
+selectedTitle.Name = "SelectedTitle"
+selectedTitle.Size = UDim2.new(1, -20, 0, 40)
+selectedTitle.Position = UDim2.new(0, 10, 0, 10)
+selectedTitle.BackgroundTransparency = 1
+selectedTitle.Text = "Select a Recipe"
+selectedTitle.TextColor3 = Color3.fromRGB(220, 180, 100)
+selectedTitle.Font = Enum.Font.GothamBold
+selectedTitle.TextSize = 20
+selectedTitle.TextXAlignment = Enum.TextXAlignment.Left
+selectedTitle.Parent = detailsFrame
+
+-- Materials list
+local materialsLabel = Instance.new("TextLabel")
+materialsLabel.Name = "MaterialsLabel"
+materialsLabel.Size = UDim2.new(1, -20, 0, 30)
+materialsLabel.Position = UDim2.new(0, 10, 0, 60)
+materialsLabel.BackgroundTransparency = 1
+materialsLabel.Text = "Required Materials:"
+materialsLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
+materialsLabel.Font = Enum.Font.Gotham
+materialsLabel.TextSize = 18
+materialsLabel.TextXAlignment = Enum.TextXAlignment.Left
+materialsLabel.Parent = detailsFrame
+
+local materialsList = Instance.new("ScrollingFrame")
+materialsList.Name = "MaterialsList"
+materialsList.Size = UDim2.new(1, -20, 0, 200)
+materialsList.Position = UDim2.new(0, 10, 0, 95)
+materialsList.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+materialsList.BorderColor3 = Color3.fromRGB(40, 40, 50)
+materialsList.ScrollBarThickness = 6
+materialsList.CanvasSize = UDim2.new(0, 0, 0, 0)
+materialsList.Parent = detailsFrame
+
+-- Craft button
+local craftButton = Instance.new("TextButton")
+craftButton.Name = "CraftButton"
+craftButton.Size = UDim2.new(1, -20, 0, 50)
+craftButton.Position = UDim2.new(0, 10, 1, -70)
+craftButton.BackgroundColor3 = Color3.fromRGB(40, 80, 40)
+craftButton.BorderColor3 = Color3.fromRGB(80, 120, 80)
+craftButton.Text = "CRAFT"
+craftButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+craftButton.Font = Enum.Font.GothamBold
+craftButton.TextSize = 22
+craftButton.Parent = detailsFrame
+
+craftButton.MouseButton1Click:Connect(function()
+	if selectedRecipe and not isCrafting then
+		startCrafting()
+	end
+end)
+
+-- Progress bar
+local progressFrame = Instance.new("Frame")
+progressFrame.Name = "ProgressFrame"
+progressFrame.Size = UDim2.new(1, -20, 0, 30)
+progressFrame.Position = UDim2.new(0, 10, 1, -130)
+progressFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+progressFrame.BorderColor3 = Color3.fromRGB(60, 60, 70)
+progressFrame.Visible = false
+progressFrame.Parent = detailsFrame
+
+local progressBar = Instance.new("Frame")
+progressBar.Name = "ProgressBar"
+progressBar.Size = UDim2.new(0, 0, 1, 0)
+progressBar.Position = UDim2.new(0, 0, 0, 0)
+progressBar.BackgroundColor3 = Color3.fromRGB(80, 160, 80)
+progressBar.BorderSizePixel = 0
+progressBar.Parent = progressFrame
+
+local progressText = Instance.new("TextLabel")
+progressText.Name = "ProgressText"
+progressText.Size = UDim2.new(1, 0, 1, 0)
+progressText.Position = UDim2.new(0, 0, 0, 0)
+progressText.BackgroundTransparency = 1
+progressText.Text = "0%"
+progressText.TextColor3 = Color3.fromRGB(255, 255, 255)
+progressText.Font = Enum.Font.GothamBold
+progressText.TextSize = 18
+progressText.Parent = progressFrame
+
+-- Helper: Toggle UI visibility
+function toggleUI(visible)
+	isUIOpen = visible
+	mainFrame.Visible = visible
+	
+	if visible then
+		-- Load recipes when UI opens
+		loadRecipes()
+	end
+end
+
+-- Helper: Load available recipes
+function loadRecipes()
+	-- Clear existing recipes
+	for _, child in pairs(recipeFrame:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	
+	-- Get player's fletching level (would come from server)
+	local fletchingLevel = 1 -- Placeholder
+	
+	-- Define recipes (would come from server/FletchingManager)
+	local recipes = {
+		{
+			id = "arrow_shaft",
+			name = "Arrow Shaft",
+			level = 1,
+			materials = { {id = "log", count = 1} },
+			output = {id = "arrow_shaft", count = 15}
+		},
+		{
+			id = "bronze_arrow",
+			name = "Bronze Arrows",
+			level = 5,
+			materials = { 
+				{id = "arrow_shaft", count = 1},
+				{id = "bronze_bar", count = 1}
+			},
+			output = {id = "bronze_arrow", count = 15}
+		},
+		{
+			id = "iron_arrow",
+			name = "Iron Arrows",
+			level = 20,
+			materials = { 
+				{id = "arrow_shaft", count = 1},
+				{id = "iron_bar", count = 1}
+			},
+			output = {id = "iron_arrow", count = 15}
+		},
+		{
+			id = "steel_arrow",
+			name = "Steel Arrows",
+			level = 30,
+			materials = { 
+				{id = "arrow_shaft", count = 1},
+				{id = "steel_bar", count = 1}
+			},
+			output = {id = "steel_arrow", count = 15}
+		},
+		{
+			id = "oak_shortbow",
+			name = "Oak Shortbow",
+			level = 5,
+			materials = { {id = "oak_log", count = 2} },
+			output = {id = "oak_shortbow", count = 1}
+		},
+		{
+			id = "crossbow",
+			name = "Crossbow",
+			level = 40,
+			materials = { 
+				{id = "oak_log", count = 3},
+				{id = "steel_bar", count = 2}
+			},
+			output = {id = "crossbow", count = 1}
+		}
+	}
+	
+	currentRecipes = {}
+	local yOffset = 0
+	
+	for i, recipe in pairs(recipes) do
+		-- Check if player has required level
+		if fletchingLevel >= recipe.level then
+			-- Create recipe button
+			local recipeButton = Instance.new("TextButton")
+			recipeButton.Name = "Recipe_" .. recipe.id
+			recipeButton.Size = UDim2.new(1, -10, 0, 60)
+			recipeButton.Position = UDim2.new(0, 5, 0, yOffset)
+			recipeButton.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+			recipeButton.BorderColor3 = Color3.fromRGB(70, 70, 80)
+			recipeButton.Text = ""
+			recipeButton.Parent = recipeFrame
+			
+			-- Recipe name
+			local nameLabel = Instance.new("TextLabel")
+			nameLabel.Name = "Name"
+			nameLabel.Size = UDim2.new(0.7, 0, 0.5, 0)
+			nameLabel.Position = UDim2.new(0, 10, 0, 5)
+			nameLabel.BackgroundTransparency = 1
+			nameLabel.Text = recipe.name
+			nameLabel.TextColor3 = Color3.fromRGB(220, 200, 150)
+			nameLabel.Font = Enum.Font.Gotham
+			nameLabel.TextSize = 18
+			nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+			nameLabel.Parent = recipeButton
+			
+			-- Level requirement
+			local levelLabel = Instance.new("TextLabel")
+			levelLabel.Name = "Level"
+			levelLabel.Size = UDim2.new(0.3, -10, 0.5, 0)
+			levelLabel.Position = UDim2.new(0.7, 0, 0, 5)
+			levelLabel.BackgroundTransparency = 1
+			levelLabel.Text = "Lvl " .. recipe.level
+			levelLabel.TextColor3 = Color3.fromRGB(150, 200, 255)
+			levelLabel.Font = Enum.Font.Gotham
+			levelLabel.TextSize = 16
+			levelLabel.TextXAlignment = Enum.TextXAlignment.Right
+			levelLabel.Parent = recipeButton
+			
+			-- Output info
+			local outputLabel = Instance.new("TextLabel")
+			outputLabel.Name = "Output"
+			outputLabel.Size = UDim2.new(1, -20, 0.5, 0)
+			outputLabel.Position = UDim2.new(0, 10, 0.5, 0)
+			outputLabel.BackgroundTransparency = 1
+			outputLabel.Text = "Creates: " .. recipe.output.count .. "x"
+			outputLabel.TextColor3 = Color3.fromRGB(180, 220, 180)
+			outputLabel.Font = Enum.Font.Gotham
+			outputLabel.TextSize = 14
+			outputLabel.TextXAlignment = Enum.TextXAlignment.Left
+			outputLabel.Parent = recipeButton
+			
+			-- Store recipe data
+			currentRecipes[recipe.id] = recipe
+			
+			-- Click handler
+			recipeButton.MouseButton1Click:Connect(function()
+				selectRecipe(recipe.id)
+			end)
+			
+			yOffset = yOffset + 65
+		end
+	end
+	
+	-- Update canvas size
+	recipeFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+	
+	-- Select first recipe if available
+	for id, _ in pairs(currentRecipes) do
+		selectRecipe(id)
+		break
+	end
+end
+
+-- Helper: Select a recipe
+local function selectRecipe(recipeId)
+	local recipe = currentRecipes[recipeId]
+	if not recipe then return end
+	
+	selectedRecipe = recipe
+	
+	-- Update selected title
+	selectedTitle.Text = recipe.name
+	
+	-- Clear materials list
+	for _, child in pairs(materialsList:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	
+	-- Add materials
+	local yOffset = 0
+	for i, material in pairs(recipe.materials) do
+		local materialFrame = Instance.new("Frame")
+		materialFrame.Name = "Material_" .. material.id
+		materialFrame.Size = UDim2.new(1, 0, 0, 40)
+		materialFrame.Position = UDim2.new(0, 0, 0, yOffset)
+		materialFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+		materialFrame.BorderColor3 = Color3.fromRGB(50, 50, 60)
+		materialFrame.Parent = materialsList
+		
+		-- Material name
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Name = "Name"
+		nameLabel.Size = UDim2.new(0.6, 0, 1, 0)
+		nameLabel.Position = UDim2.new(0, 10, 0, 0)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text = material.id:gsub("_", " "):gsub("^%l", string.upper)
+		nameLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+		nameLabel.Font = Enum.Font.Gotham
+		nameLabel.TextSize = 16
+		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		nameLabel.Parent = materialFrame
+		
+		-- Material count
+		local countLabel = Instance.new("TextLabel")
+		countLabel.Name = "Count"
+		countLabel.Size = UDim2.new(0.4, -10, 1, 0)
+		countLabel.Position = UDim2.new(0.6, 0, 0, 0)
+		countLabel.BackgroundTransparency = 1
+		countLabel.Text = material.count .. "x"
+		countLabel.TextColor3 = Color3.fromRGB(180, 220, 180)
+		countLabel.Font = Enum.Font.GothamBold
+		countLabel.TextSize = 16
+		countLabel.TextXAlignment = Enum.TextXAlignment.Right
+		countLabel.Parent = materialFrame
+		
+		yOffset = yOffset + 45
+	end
+	
+	-- Update canvas size
+	materialsList.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+	
+	-- Update craft button
+	craftButton.Text = "CRAFT"
+	craftButton.BackgroundColor3 = Color3.fromRGB(40, 80, 40)
+	craftButton.BorderColor3 = Color3.fromRGB(80, 120, 80)
+end
+
+-- Helper: Start crafting
+local function startCrafting()
+	if not selectedRecipe or isCrafting then return end
+	
+	-- Send crafting request to server
+	StartFletchingEvent:FireServer(selectedRecipe.id)
+	
+	-- Update UI state
+	isCrafting = true
+	craftButton.Text = "CRAFTING..."
+	craftButton.BackgroundColor3 = Color3.fromRGB(80, 80, 40)
+	craftButton.BorderColor3 = Color3.fromRGB(120, 120, 80)
+	
+	-- Show progress bar
+	progressFrame.Visible = true
+	progressBar.Size = UDim2.new(0, 0, 1, 0)
+	progressText.Text = "0%"
+end
+
+-- Helper: Update crafting progress
+local function updateProgress(progress)
+	if not isCrafting then return end
+	
+	-- Update progress bar
+	local width = progress * (progressFrame.AbsoluteSize.X - 4)
+	progressBar:TweenSize(UDim2.new(progress, 0, 1, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
+	progressText.Text = string.format("%d%%", math.floor(progress * 100))
+end
+
+-- Helper: Complete crafting
+local function completeCrafting(success)
+	isCrafting = false
+	
+	if success then
+		craftButton.Text = "SUCCESS!"
+		craftButton.BackgroundColor3 = Color3.fromRGB(40, 100, 40)
+		craftButton.BorderColor3 = Color3.fromRGB(80, 160, 80)
+		
+		-- Flash progress bar green
+		progressBar.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+		task.wait(0.5)
+		progressBar.BackgroundColor3 = Color3.fromRGB(80, 160, 80)
+	else
+		craftButton.Text = "FAILED - TRY AGAIN"
+		craftButton.BackgroundColor3 = Color3.fromRGB(100, 40, 40)
+		craftButton.BorderColor3 = Color3.fromRGB(160, 80, 80)
+		
+		-- Flash progress bar red
+		progressBar.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+	end
+	
+	-- Hide progress bar after delay
+	task.wait(1.5)
+	progressFrame.Visible = false
+	craftButton.Text = "CRAFT"
+	craftButton.BackgroundColor3 = Color3.fromRGB(40, 80, 40)
+	craftButton.BorderColor3 = Color3.fromRGB(80, 120, 80)
+end
+
+-- Remote event handlers
+FletchingProgressEvent.OnClientEvent:Connect(function(recipeId, progress)
+	if selectedRecipe and selectedRecipe.id == recipeId then
+		updateProgress(progress)
+	end
+end)
+
+FletchingCompleteEvent.OnClientEvent:Connect(function(recipeId, success)
+	if selectedRecipe and selectedRecipe.id == recipeId then
+		completeCrafting(success)
+	end
+end)
+
+-- NPC interaction handler (would be triggered by existing NPC system)
+local function onFletchingBenchInteract()
+	toggleUI(true)
+end
+
+-- Functions available for other systems to call (stored in _G for global access if needed)
+_G.FletchingUI = {
+	OpenUI = function()
+		toggleUI(true)
+	end,
+	CloseUI = function()
+		toggleUI(false)
+	end
+}
+
+print("[FletchingUI] Loaded!")

@@ -1,0 +1,1339 @@
+--[[
+	StatsPanel.client.lua
+	RuneScape-style Stats / Inventory / Equipment panel
+	Toggle: B key or on-screen button
+	REWRITTEN: Simple, no CanvasGroup, no fancy helpers — just works.
+]]
+
+print("[StatsPanel] SCRIPT LOADING...")
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+print("[StatsPanel] Services loaded")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+print("[StatsPanel] Starting...")
+
+-- Remotes
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+if not Remotes then warn("[StatsPanel] No Remotes folder!") return end
+
+local GetStatsPanel = Remotes:WaitForChild("GetStatsPanel", 10)
+if not GetStatsPanel then warn("[StatsPanel] No GetStatsPanel remote!") return end
+
+print("[StatsPanel] Remotes found")
+
+-- Load modules early so refreshData can use them
+local Modules = ReplicatedStorage:WaitForChild("Modules", 10)
+local ItemDatabase = require(Modules:WaitForChild("ItemDatabase", 5))
+local ItemVisuals = require(Modules:WaitForChild("ItemVisuals", 5))
+
+-- Colors
+local BG = Color3.fromRGB(26, 26, 46)
+local GOLD = Color3.fromRGB(240, 192, 64)
+local DARK = Color3.fromRGB(17, 17, 34)
+local BORDER = Color3.fromRGB(139, 117, 54)
+local TEXT = Color3.fromRGB(220, 220, 210)
+local TAB_ON = Color3.fromRGB(42, 42, 78)
+local TAB_OFF = Color3.fromRGB(18, 18, 31)
+
+local RARITY = {
+	common = Color3.fromRGB(157, 157, 157),
+	uncommon = Color3.fromRGB(30, 255, 0),
+	rare = Color3.fromRGB(0, 112, 221),
+	epic = Color3.fromRGB(163, 53, 238),
+	legendary = Color3.fromRGB(255, 128, 0),
+}
+
+local SKILL_LIST = {
+	{name = "Mining", icon = "Pick", color = Color3.fromRGB(139, 115, 85)},
+	{name = "Woodcutting", icon = "Axe", color = Color3.fromRGB(34, 139, 34)},
+	{name = "Fishing", icon = "Fish", color = Color3.fromRGB(70, 130, 180)},
+	{name = "Smithing", icon = "Ham", color = Color3.fromRGB(176, 176, 176)},
+	{name = "Cooking", icon = "Cook", color = Color3.fromRGB(255, 140, 0)},
+	{name = "Strength", icon = "Str", color = Color3.fromRGB(220, 20, 60)},
+	{name = "Defense", icon = "Def", color = Color3.fromRGB(100, 149, 237)},
+	{name = "Ranged", icon = "Bow", color = Color3.fromRGB(0, 180, 0)},
+	{name = "Fletching", icon = "Flt", color = Color3.fromRGB(180, 140, 60)},
+	{name = "Prayer", icon = "Pry", color = Color3.fromRGB(220, 220, 255)},
+}
+
+local PANEL_W = 230
+local PANEL_H = 440
+
+-----------------------------------------------------------------------
+-- SCREEN GUI
+-----------------------------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "StatsPanelGui"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = playerGui
+
+-- Debug: Monitor if GUI gets destroyed
+gui.AncestryChanged:Connect(function()
+	if not gui.Parent then
+		print("[StatsPanel] ERROR: ScreenGui was destroyed!")
+	end
+end)
+
+-----------------------------------------------------------------------
+-- TOGGLE BUTTON — left side to avoid minimap conflict
+-----------------------------------------------------------------------
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Name = "StatsToggle"
+toggleBtn.Size = UDim2.new(0, 44, 0, 44)
+toggleBtn.Position = UDim2.new(0, 10, 0.5, -22)
+toggleBtn.BackgroundColor3 = BG
+toggleBtn.Text = "B"
+toggleBtn.TextSize = 18
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextColor3 = GOLD
+toggleBtn.Parent = gui
+local tc = Instance.new("UICorner")
+tc.CornerRadius = UDim.new(0, 8)
+tc.Parent = toggleBtn
+local ts = Instance.new("UIStroke")
+ts.Color = GOLD
+ts.Thickness = 2
+ts.Parent = toggleBtn
+
+-----------------------------------------------------------------------
+-- MAIN PANEL
+-----------------------------------------------------------------------
+local panel = Instance.new("Frame")
+panel.Name = "StatsPanel"
+panel.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
+panel.Position = UDim2.new(0, 60, 0.5, -(PANEL_H / 2))
+panel.BackgroundColor3 = BG
+panel.BackgroundTransparency = 0.05
+panel.Visible = false
+panel.Parent = gui
+local pc = Instance.new("UICorner")
+pc.CornerRadius = UDim.new(0, 8)
+pc.Parent = panel
+local ps = Instance.new("UIStroke")
+ps.Color = GOLD
+ps.Thickness = 3
+ps.Parent = panel
+
+-----------------------------------------------------------------------
+-- TAB BUTTONS
+-----------------------------------------------------------------------
+local TAB_NAMES = {"Skills", "Inventory", "Loadout"}
+local tabBtns = {}
+local tabFrames = {}
+local currentTab = 1
+
+local tabBar = Instance.new("Frame")
+tabBar.Name = "TabBar"
+tabBar.Size = UDim2.new(1, -10, 0, 30)
+tabBar.Position = UDim2.new(0, 5, 0, 5)
+tabBar.BackgroundTransparency = 1
+tabBar.Parent = panel
+
+for i, name in ipairs(TAB_NAMES) do
+	local btn = Instance.new("TextButton")
+	btn.Name = "Tab_" .. name
+	btn.Size = UDim2.new(1/3, -3, 1, 0)
+	btn.Position = UDim2.new((i-1)/3, 1, 0, 0)
+	btn.BackgroundColor3 = i == 1 and TAB_ON or TAB_OFF
+	btn.Text = name
+	btn.TextSize = 12
+	btn.Font = Enum.Font.GothamBold
+	btn.TextColor3 = i == 1 and GOLD or TEXT
+	btn.Parent = tabBar
+	local bc = Instance.new("UICorner")
+	bc.CornerRadius = UDim.new(0, 4)
+	bc.Parent = btn
+	tabBtns[i] = btn
+end
+
+-- Content area
+local content = Instance.new("Frame")
+content.Name = "Content"
+content.Size = UDim2.new(1, -10, 1, -42)
+content.Position = UDim2.new(0, 5, 0, 38)
+content.BackgroundTransparency = 1
+content.ClipsDescendants = true
+content.Parent = panel
+
+-----------------------------------------------------------------------
+-- SKILLS TAB
+-----------------------------------------------------------------------
+local skillsFrame = Instance.new("Frame")
+skillsFrame.Name = "Skills"
+skillsFrame.Size = UDim2.new(1, 0, 1, 0)
+skillsFrame.BackgroundTransparency = 1
+skillsFrame.Parent = content
+
+local skillLevelLabels = {}
+local COLS = 3
+local cellW = math.floor((PANEL_W - 14) / COLS)
+local cellH = 48
+
+for i, sk in ipairs(SKILL_LIST) do
+	local row = math.floor((i-1) / COLS)
+	local col = (i-1) % COLS
+
+	local cell = Instance.new("Frame")
+	cell.Name = "Cell_" .. sk.name
+	cell.Size = UDim2.new(0, cellW - 4, 0, cellH - 4)
+	cell.Position = UDim2.new(0, col * cellW + 2, 0, row * cellH + 2)
+	cell.BackgroundColor3 = DARK
+	cell.Parent = skillsFrame
+	local cc = Instance.new("UICorner")
+	cc.CornerRadius = UDim.new(0, 4)
+	cc.Parent = cell
+
+	-- Color bar on left
+	local bar = Instance.new("Frame")
+	bar.Size = UDim2.new(0, 4, 1, -4)
+	bar.Position = UDim2.new(0, 2, 0, 2)
+	bar.BackgroundColor3 = sk.color
+	bar.BorderSizePixel = 0
+	bar.Parent = cell
+
+	-- Icon text
+	local iconLbl = Instance.new("TextLabel")
+	iconLbl.Size = UDim2.new(0, 30, 0, 18)
+	iconLbl.Position = UDim2.new(0, 8, 0, 2)
+	iconLbl.BackgroundTransparency = 1
+	iconLbl.Text = sk.icon
+	iconLbl.TextSize = 10
+	iconLbl.Font = Enum.Font.GothamBold
+	iconLbl.TextColor3 = sk.color
+	iconLbl.Parent = cell
+
+	-- Level number (big)
+	local lvl = Instance.new("TextLabel")
+	lvl.Name = "Level"
+	lvl.Size = UDim2.new(1, -10, 0, 22)
+	lvl.Position = UDim2.new(0, 8, 0, 14)
+	lvl.BackgroundTransparency = 1
+	lvl.Text = "1"
+	lvl.TextSize = 18
+	lvl.Font = Enum.Font.GothamBold
+	lvl.TextColor3 = GOLD
+	lvl.TextXAlignment = Enum.TextXAlignment.Right
+	lvl.Parent = cell
+
+	-- Skill name
+	local nm = Instance.new("TextLabel")
+	nm.Size = UDim2.new(1, -4, 0, 12)
+	nm.Position = UDim2.new(0, 2, 1, -13)
+	nm.BackgroundTransparency = 1
+	nm.Text = sk.name
+	nm.TextSize = 9
+	nm.Font = Enum.Font.Gotham
+	nm.TextColor3 = Color3.fromRGB(140, 140, 140)
+	nm.Parent = cell
+
+	skillLevelLabels[sk.name] = lvl
+end
+
+-- Total level
+local totalRows = math.ceil(#SKILL_LIST / COLS)
+local totalLbl = Instance.new("TextLabel")
+totalLbl.Name = "TotalLevel"
+totalLbl.Size = UDim2.new(1, 0, 0, 26)
+totalLbl.Position = UDim2.new(0, 0, 0, totalRows * cellH + 8)
+totalLbl.BackgroundColor3 = DARK
+totalLbl.Text = "Total Level: 6"
+totalLbl.TextSize = 14
+totalLbl.Font = Enum.Font.GothamBold
+totalLbl.TextColor3 = GOLD
+totalLbl.Parent = skillsFrame
+local tlc = Instance.new("UICorner")
+tlc.CornerRadius = UDim.new(0, 4)
+tlc.Parent = totalLbl
+
+-- Gold display
+local goldLbl = Instance.new("TextLabel")
+goldLbl.Name = "GoldDisplay"
+goldLbl.Size = UDim2.new(1, 0, 0, 22)
+goldLbl.Position = UDim2.new(0, 0, 0, totalRows * cellH + 38)
+goldLbl.BackgroundColor3 = DARK
+goldLbl.Text = "Gold: 0"
+goldLbl.TextSize = 13
+goldLbl.Font = Enum.Font.GothamBold
+goldLbl.TextColor3 = Color3.fromRGB(255, 215, 0)
+goldLbl.Parent = skillsFrame
+local gc = Instance.new("UICorner")
+gc.CornerRadius = UDim.new(0, 4)
+gc.Parent = goldLbl
+
+-----------------------------------------------------------------------
+-- INVENTORY TAB
+-----------------------------------------------------------------------
+local invFrame = Instance.new("Frame")
+invFrame.Name = "Inventory"
+invFrame.Size = UDim2.new(1, 0, 1, 0)
+invFrame.BackgroundTransparency = 1
+invFrame.Visible = false
+invFrame.Parent = content
+
+local invSlots = {}
+local INV_COLS = 4
+local INV_TOTAL = 28
+local slotSize = math.floor((PANEL_W - 14) / INV_COLS)
+
+for i = 1, INV_TOTAL do
+	local row = math.floor((i-1) / INV_COLS)
+	local col = (i-1) % INV_COLS
+
+	local cell = Instance.new("Frame")
+	cell.Name = "Slot" .. i
+	cell.Size = UDim2.new(0, slotSize - 3, 0, slotSize - 3)
+	cell.Position = UDim2.new(0, col * slotSize + 1, 0, row * slotSize + 1)
+	cell.BackgroundColor3 = DARK
+	cell.Parent = invFrame
+	local sc = Instance.new("UICorner")
+	sc.CornerRadius = UDim.new(0, 3)
+	sc.Parent = cell
+
+	-- Rarity border stroke on the cell itself
+	local itemStroke = Instance.new("UIStroke")
+	itemStroke.Name = "RarityStroke"
+	itemStroke.Color = Color3.fromRGB(60, 60, 70)
+	itemStroke.Thickness = 1.5
+	itemStroke.Transparency = 0.5
+	itemStroke.Parent = cell
+
+	-- Icon background that fills the slot with rarity color
+	local itemColor = Instance.new("Frame")
+	itemColor.Name = "Color"
+	itemColor.Size = UDim2.new(1, -4, 0, 28)
+	itemColor.Position = UDim2.new(0, 2, 0, 2)
+	itemColor.BackgroundTransparency = 1
+	itemColor.Parent = cell
+	local icc = Instance.new("UICorner")
+	icc.CornerRadius = UDim.new(0, 4)
+	icc.Parent = itemColor
+
+	-- Item icon (emoji)
+	local itemIcon = Instance.new("TextLabel")
+	itemIcon.Name = "Icon"
+	itemIcon.Size = UDim2.new(1, 0, 0, 24)
+	itemIcon.Position = UDim2.new(0, 0, 0, 3)
+	itemIcon.BackgroundTransparency = 1
+	itemIcon.Text = ""
+	itemIcon.TextSize = 20
+	itemIcon.Font = Enum.Font.GothamBold
+	itemIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+	itemIcon.Parent = cell
+
+	local itemName = Instance.new("TextLabel")
+	itemName.Name = "ItemName"
+	itemName.Size = UDim2.new(1, -2, 0, 10)
+	itemName.Position = UDim2.new(0, 1, 0, 28)
+	itemName.BackgroundTransparency = 1
+	itemName.Text = ""
+	itemName.TextSize = 7
+	itemName.Font = Enum.Font.Gotham
+	itemName.TextColor3 = TEXT
+	itemName.TextTruncate = Enum.TextTruncate.AtEnd
+	itemName.Parent = cell
+
+	local countLbl = Instance.new("TextLabel")
+	countLbl.Name = "Count"
+	countLbl.Size = UDim2.new(1, 0, 0, 10)
+	countLbl.Position = UDim2.new(0, 0, 1, -11)
+	countLbl.BackgroundTransparency = 1
+	countLbl.Text = ""
+	countLbl.TextSize = 9
+	countLbl.Font = Enum.Font.GothamBold
+	countLbl.TextColor3 = GOLD
+	countLbl.Parent = cell
+
+	-- Click button overlay for equip/use
+	local clickBtn = Instance.new("TextButton")
+	clickBtn.Name = "Click"
+	clickBtn.Size = UDim2.new(1, 0, 1, 0)
+	clickBtn.BackgroundTransparency = 1
+	clickBtn.Text = ""
+	clickBtn.Parent = cell
+
+	invSlots[i] = {cell = cell, color = itemColor, name = itemName, count = countLbl, btn = clickBtn, itemData = nil, stroke = itemStroke, icon = itemIcon}
+end
+
+-- Set up the global clear function now that invSlots exist
+_G.ClearInventorySelection = function()
+	for j = 1, INV_TOTAL do
+		local item = invSlots[j].itemData
+		if item and item.name then
+			local rarity = item.rarity or "common"
+			invSlots[j].stroke.Color = RARITY[rarity] or RARITY.common
+			invSlots[j].stroke.Thickness = 2
+		else
+			invSlots[j].stroke.Color = Color3.fromRGB(60, 60, 70)
+			invSlots[j].stroke.Thickness = 1.5
+		end
+	end
+end
+
+-----------------------------------------------------------------------
+-- LOADOUT TAB
+-----------------------------------------------------------------------
+local loadFrame = Instance.new("Frame")
+loadFrame.Name = "Loadout"
+loadFrame.Size = UDim2.new(1, 0, 1, 0)
+loadFrame.BackgroundTransparency = 1
+loadFrame.Visible = false
+loadFrame.Parent = content
+
+-- Combat level
+local combatLbl = Instance.new("TextLabel")
+combatLbl.Size = UDim2.new(1, 0, 0, 30)
+combatLbl.Position = UDim2.new(0, 0, 0, 0)
+combatLbl.BackgroundColor3 = DARK
+combatLbl.Text = "Combat Level: 1"
+combatLbl.TextSize = 16
+combatLbl.Font = Enum.Font.GothamBold
+combatLbl.TextColor3 = GOLD
+combatLbl.Parent = loadFrame
+local clc = Instance.new("UICorner")
+clc.CornerRadius = UDim.new(0, 4)
+clc.Parent = combatLbl
+
+-- Equipment slots
+local SLOT_LAYOUT = {
+	{name = "Head",   label = "Head",   x = 0.5, y = 45},
+	{name = "Weapon", label = "Weapon", x = 0.15, y = 110},
+	{name = "Body",   label = "Body",   x = 0.5, y = 110},
+	{name = "Shield", label = "Shield", x = 0.85, y = 110},
+	{name = "Legs",   label = "Legs",   x = 0.5, y = 175},
+	{name = "Tool",   label = "Tool",   x = 0.15, y = 175},
+}
+
+local equipLabels = {}
+for _, info in ipairs(SLOT_LAYOUT) do
+	local slot = Instance.new("Frame")
+	slot.Name = "Equip_" .. info.name
+	slot.Size = UDim2.new(0, 60, 0, 55)
+	slot.Position = UDim2.new(info.x, -30, 0, info.y)
+	slot.BackgroundColor3 = DARK
+	slot.Parent = loadFrame
+	local slc = Instance.new("UICorner")
+	slc.CornerRadius = UDim.new(0, 4)
+	slc.Parent = slot
+	local sls = Instance.new("UIStroke")
+	sls.Color = BORDER
+	sls.Thickness = 1
+	sls.Parent = slot
+
+	local slotTitle = Instance.new("TextLabel")
+	slotTitle.Size = UDim2.new(1, 0, 0, 14)
+	slotTitle.Position = UDim2.new(0, 0, 0, 2)
+	slotTitle.BackgroundTransparency = 1
+	slotTitle.Text = info.label
+	slotTitle.TextSize = 10
+	slotTitle.Font = Enum.Font.GothamBold
+	slotTitle.TextColor3 = BORDER
+	slotTitle.Parent = slot
+
+	local itemLbl = Instance.new("TextLabel")
+	itemLbl.Name = "ItemName"
+	itemLbl.Size = UDim2.new(1, -4, 0, 30)
+	itemLbl.Position = UDim2.new(0, 2, 0, 18)
+	itemLbl.BackgroundTransparency = 1
+	itemLbl.Text = "Empty"
+	itemLbl.TextSize = 9
+	itemLbl.Font = Enum.Font.Gotham
+	itemLbl.TextColor3 = Color3.fromRGB(100, 100, 100)
+	itemLbl.TextWrapped = true
+	itemLbl.Parent = slot
+
+	equipLabels[info.name] = itemLbl
+end
+
+-----------------------------------------------------------------------
+-- TAB FRAMES
+-----------------------------------------------------------------------
+tabFrames = {skillsFrame, invFrame, loadFrame}
+
+-----------------------------------------------------------------------
+-- TAB SWITCHING
+-----------------------------------------------------------------------
+local function switchTab(idx)
+	currentTab = idx
+	for i, btn in ipairs(tabBtns) do
+		btn.BackgroundColor3 = i == idx and TAB_ON or TAB_OFF
+		btn.TextColor3 = i == idx and GOLD or TEXT
+	end
+	for i, f in ipairs(tabFrames) do
+		f.Visible = (i == idx)
+	end
+end
+
+for i, btn in ipairs(tabBtns) do
+	btn.MouseButton1Click:Connect(function()
+		switchTab(i)
+	end)
+end
+
+-----------------------------------------------------------------------
+-- REFRESH DATA
+-----------------------------------------------------------------------
+local function refreshData()
+	local ok, data = pcall(function()
+		return GetStatsPanel:InvokeServer()
+	end)
+	if not ok or not data then
+		warn("[StatsPanel] Failed to get data:", data)
+		return
+	end
+	print("[StatsPanel] Got data, updating UI...")
+
+	-- Skills tab
+	if data.skills then
+		local total = 0
+		for _, sk in ipairs(SKILL_LIST) do
+			local lvl = data.skills[sk.name]
+			if type(lvl) == "number" then
+				total = total + lvl
+				if skillLevelLabels[sk.name] then
+					skillLevelLabels[sk.name].Text = tostring(lvl)
+				end
+			else
+				total = total + 1
+			end
+		end
+		totalLbl.Text = "Total Level: " .. total
+	end
+
+	-- Gold
+	if data.gold then
+		goldLbl.Text = "Gold: " .. tostring(data.gold)
+	end
+
+	-- Now using ItemVisuals module for consistent item display
+
+	-- Inventory tab
+	if data.inventory then
+		for i = 1, INV_TOTAL do
+			local item = data.inventory[i]
+			local s = invSlots[i]
+			if item and item.name then
+				local rarity = item.rarity or "common"
+				local rarityColor = RARITY[rarity] or RARITY.common
+				
+				-- Get item visuals from ItemVisuals module
+				local visual = ItemVisuals.GetVisual(item.name)
+				local itemColor = visual.color
+				
+				-- Background tinted to item's unique color at low opacity
+				s.color.BackgroundTransparency = 0.15
+				s.color.BackgroundColor3 = itemColor
+				
+				-- Border uses rarity color
+				s.stroke.Color = rarityColor
+				s.stroke.Transparency = 0
+				s.stroke.Thickness = 2
+				
+				-- Use emoji icon from ItemVisuals
+				s.icon.Text = visual.emoji
+				s.icon.TextColor3 = itemColor
+				
+				s.name.Text = item.name
+				s.count.Text = (item.count and item.count > 1) and ("x" .. item.count) or ""
+				s.itemData = item
+			else
+				s.color.BackgroundTransparency = 1
+				s.stroke.Color = Color3.fromRGB(60, 60, 70)
+				s.stroke.Transparency = 0.5
+				s.stroke.Thickness = 1.5
+				s.icon.Text = ""
+				s.name.Text = ""
+				s.count.Text = ""
+				s.itemData = nil
+			end
+		end
+	end
+
+	-- Equipment tab
+	if data.equipment then
+		for _, info in ipairs(SLOT_LAYOUT) do
+			local equipped = data.equipment[info.name]
+			local lbl = equipLabels[info.name]
+			if lbl then
+				if equipped and equipped ~= "" then
+					lbl.Text = equipped
+					lbl.TextColor3 = GOLD
+				else
+					lbl.Text = "Empty"
+					lbl.TextColor3 = Color3.fromRGB(100, 100, 100)
+				end
+			end
+		end
+	end
+
+	-- Combat level
+	if data.combatLevel then
+		combatLbl.Text = "Combat Level: " .. tostring(data.combatLevel)
+	end
+end
+
+-----------------------------------------------------------------------
+-- TOGGLE
+-----------------------------------------------------------------------
+local panelOpen = false
+
+local function togglePanel()
+	panelOpen = not panelOpen
+	panel.Visible = panelOpen
+	if panelOpen then
+		print("[StatsPanel] Panel opened")
+		refreshData()
+	else
+		print("[StatsPanel] Panel closed")
+	end
+end
+
+toggleBtn.MouseButton1Click:Connect(togglePanel)
+
+UIS.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.B then
+		togglePanel()
+	end
+end)
+
+-----------------------------------------------------------------------
+-- REAL-TIME UPDATES
+-----------------------------------------------------------------------
+local xpRemote = Remotes:FindFirstChild("XPUpdate")
+if xpRemote then
+	xpRemote.OnClientEvent:Connect(function()
+		if panelOpen then refreshData() end
+	end)
+end
+
+local invRemote = Remotes:FindFirstChild("InventoryUpdate")
+if invRemote then
+	invRemote.OnClientEvent:Connect(function()
+		if panelOpen then refreshData() end
+	end)
+end
+
+local lvlRemote = Remotes:FindFirstChild("LevelUp")
+if lvlRemote then
+	lvlRemote.OnClientEvent:Connect(function()
+		if panelOpen then refreshData() end
+	end)
+end
+
+local equipRemote = Remotes:FindFirstChild("EquipmentUpdate")
+if equipRemote then
+	equipRemote.OnClientEvent:Connect(function()
+		if panelOpen then refreshData() end
+	end)
+end
+
+-----------------------------------------------------------------------
+-- INVENTORY HOVER TOOLTIPS
+-----------------------------------------------------------------------
+local tooltipFrame = Instance.new("Frame")
+tooltipFrame.Name = "Tooltip"
+tooltipFrame.Size = UDim2.new(0, 160, 0, 100)
+tooltipFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
+tooltipFrame.BackgroundTransparency = 0.05
+tooltipFrame.Visible = false
+tooltipFrame.ZIndex = 50
+tooltipFrame.Parent = gui
+
+local ttCorner = Instance.new("UICorner")
+ttCorner.CornerRadius = UDim.new(0, 6)
+ttCorner.Parent = tooltipFrame
+
+local ttStroke = Instance.new("UIStroke")
+ttStroke.Color = GOLD
+ttStroke.Thickness = 2
+ttStroke.Parent = tooltipFrame
+
+local ttPad = Instance.new("UIPadding")
+ttPad.PaddingLeft = UDim.new(0, 6)
+ttPad.PaddingRight = UDim.new(0, 6)
+ttPad.PaddingTop = UDim.new(0, 4)
+ttPad.PaddingBottom = UDim.new(0, 4)
+ttPad.Parent = tooltipFrame
+
+local ttName = Instance.new("TextLabel")
+ttName.Name = "TTName"
+ttName.Size = UDim2.new(1, 0, 0, 16)
+ttName.Position = UDim2.new(0, 0, 0, 0)
+ttName.BackgroundTransparency = 1
+ttName.Text = "Item Name"
+ttName.TextSize = 13
+ttName.Font = Enum.Font.GothamBold
+ttName.TextColor3 = GOLD
+ttName.TextXAlignment = Enum.TextXAlignment.Left
+ttName.ZIndex = 51
+ttName.Parent = tooltipFrame
+
+local ttRarity = Instance.new("TextLabel")
+ttRarity.Name = "TTRarity"
+ttRarity.Size = UDim2.new(1, 0, 0, 12)
+ttRarity.Position = UDim2.new(0, 0, 0, 17)
+ttRarity.BackgroundTransparency = 1
+ttRarity.Text = "Common"
+ttRarity.TextSize = 10
+ttRarity.Font = Enum.Font.GothamBold
+ttRarity.TextColor3 = Color3.fromRGB(157, 157, 157)
+ttRarity.TextXAlignment = Enum.TextXAlignment.Left
+ttRarity.ZIndex = 51
+ttRarity.Parent = tooltipFrame
+
+local ttDesc = Instance.new("TextLabel")
+ttDesc.Name = "TTDesc"
+ttDesc.Size = UDim2.new(1, 0, 0, 36)
+ttDesc.Position = UDim2.new(0, 0, 0, 32)
+ttDesc.BackgroundTransparency = 1
+ttDesc.Text = ""
+ttDesc.TextSize = 10
+ttDesc.Font = Enum.Font.Gotham
+ttDesc.TextColor3 = TEXT
+ttDesc.TextXAlignment = Enum.TextXAlignment.Left
+ttDesc.TextWrapped = true
+ttDesc.ZIndex = 51
+ttDesc.Parent = tooltipFrame
+
+local ttValue = Instance.new("TextLabel")
+ttValue.Name = "TTValue"
+ttValue.Size = UDim2.new(1, 0, 0, 14)
+ttValue.Position = UDim2.new(0, 0, 1, -16)
+ttValue.BackgroundTransparency = 1
+ttValue.Text = "Value: 0 gold"
+ttValue.TextSize = 10
+ttValue.Font = Enum.Font.GothamBold
+ttValue.TextColor3 = Color3.fromRGB(255, 215, 0)
+ttValue.TextXAlignment = Enum.TextXAlignment.Left
+ttValue.ZIndex = 51
+ttValue.Parent = tooltipFrame
+
+-- Hook hover events on inventory slots
+for i = 1, INV_TOTAL do
+	local s = invSlots[i]
+
+	s.btn.MouseEnter:Connect(function()
+		if not s.itemData or not s.itemData.name then
+			tooltipFrame.Visible = false
+			return
+		end
+
+		local itemName = s.itemData.name
+		local itemDef = nil
+		pcall(function()
+			itemDef = ItemDatabase.GetItem(itemName)
+		end)
+
+		ttName.Text = itemName
+		local rarity = (s.itemData.rarity or (itemDef and itemDef.rarity) or "common")
+		ttRarity.Text = rarity:sub(1, 1):upper() .. rarity:sub(2)
+		ttRarity.TextColor3 = RARITY[rarity] or RARITY.common
+		ttStroke.Color = RARITY[rarity] or GOLD
+
+		local desc = (itemDef and itemDef.description) or ""
+		ttDesc.Text = desc
+
+		local value = (itemDef and itemDef.value) or 0
+		ttValue.Text = "Value: " .. tostring(value) .. " gold"
+
+		-- Position tooltip to the right of the panel
+		local absPos = s.cell.AbsolutePosition
+		tooltipFrame.Position = UDim2.fromOffset(
+			panel.AbsolutePosition.X + PANEL_W + 5,
+			absPos.Y
+		)
+		tooltipFrame.Visible = true
+	end)
+
+	s.btn.MouseLeave:Connect(function()
+		tooltipFrame.Visible = false
+	end)
+end
+
+-----------------------------------------------------------------------
+-- EQUIP/USE FROM INVENTORY
+-----------------------------------------------------------------------
+local EquipItemRemote = Remotes:WaitForChild("EquipItem", 10)
+local UnequipItemRemote = Remotes:WaitForChild("UnequipItem", 10)
+local EatFoodRemote = Remotes:WaitForChild("EatFood", 10)
+local BuryBonesRemote = Remotes:WaitForChild("BuryBones", 10)
+local DropItemRemote = Remotes:WaitForChild("DropItem", 10)
+local UseItemRemote = Remotes:WaitForChild("UseItem", 10)
+
+-----------------------------------------------------------------------
+-- CONTEXT MENU
+-----------------------------------------------------------------------
+local contextMenu = Instance.new("Frame")
+contextMenu.Name = "ContextMenu"
+contextMenu.Size = UDim2.new(0, 120, 0, 200)
+contextMenu.BackgroundColor3 = Color3.fromRGB(26, 26, 46)
+contextMenu.BorderSizePixel = 0
+contextMenu.Visible = false
+contextMenu.ZIndex = 100
+contextMenu.Parent = gui
+
+local contextStroke = Instance.new("UIStroke")
+contextStroke.Color = Color3.fromRGB(240, 192, 64)
+contextStroke.Thickness = 2
+contextStroke.Parent = contextMenu
+
+local contextCorner = Instance.new("UICorner")
+contextCorner.CornerRadius = UDim.new(0, 4)
+contextCorner.Parent = contextMenu
+
+local contextList = Instance.new("UIListLayout")
+contextList.FillDirection = Enum.FillDirection.Vertical
+contextList.SortOrder = Enum.SortOrder.LayoutOrder
+contextList.Padding = UDim.new(0, 1)
+contextList.Parent = contextMenu
+
+local contextPadding = Instance.new("UIPadding")
+contextPadding.PaddingTop = UDim.new(0, 3)
+contextPadding.PaddingBottom = UDim.new(0, 3)
+contextPadding.PaddingLeft = UDim.new(0, 3)
+contextPadding.PaddingRight = UDim.new(0, 3)
+contextPadding.Parent = contextMenu
+
+local contextMenuButtons = {}
+local currentContextItem = nil
+
+local function createContextButton(text, layoutOrder)
+	local btn = Instance.new("TextButton")
+	btn.Name = "Context_" .. text
+	btn.Size = UDim2.new(1, 0, 0, 22)
+	btn.BackgroundColor3 = Color3.fromRGB(26, 26, 46)
+	btn.BorderSizePixel = 0
+	btn.Text = text
+	btn.TextSize = 11
+	btn.Font = Enum.Font.Gotham
+	btn.TextColor3 = Color3.fromRGB(220, 220, 210)
+	btn.TextXAlignment = Enum.TextXAlignment.Left
+	btn.LayoutOrder = layoutOrder
+	btn.Parent = contextMenu
+	
+	local btnPadding = Instance.new("UIPadding")
+	btnPadding.PaddingLeft = UDim.new(0, 8)
+	btnPadding.Parent = btn
+	
+	-- Hover effects
+	btn.MouseEnter:Connect(function()
+		btn.BackgroundColor3 = Color3.fromRGB(42, 42, 78)
+		btn.TextColor3 = Color3.fromRGB(240, 192, 64)
+	end)
+	
+	btn.MouseLeave:Connect(function()
+		btn.BackgroundColor3 = Color3.fromRGB(26, 26, 46)
+		btn.TextColor3 = Color3.fromRGB(220, 220, 210)
+	end)
+	
+	contextMenuButtons[text] = btn
+	return btn
+end
+
+-- Create context menu buttons
+createContextButton("Use", 1)
+createContextButton("Equip", 2)
+createContextButton("Drop", 3)
+createContextButton("Drop All", 4)
+createContextButton("Examine", 5)
+createContextButton("Add to Hotbar", 6)
+
+local function hideContextMenu()
+	contextMenu.Visible = false
+	currentContextItem = nil
+end
+
+local function showContextMenu(itemData, slotIndex, mousePos)
+	if not itemData or not itemData.name then return end
+	
+	currentContextItem = {
+		data = itemData,
+		slot = slotIndex
+	}
+	
+	local itemDef = nil
+	pcall(function()
+		itemDef = ItemDatabase.GetItem(itemData.name)
+	end)
+	
+	-- Hide all buttons first
+	for _, btn in pairs(contextMenuButtons) do
+		btn.Visible = false
+	end
+	
+	local visibleButtons = 0
+	
+	-- Show relevant buttons based on item type
+	if itemDef then
+		-- Use button for food/potions
+		if itemDef.type == "food" or itemDef.type == "potion" then
+			contextMenuButtons["Use"].Visible = true
+			visibleButtons = visibleButtons + 1
+		end
+		
+		-- Equip button for equipment
+		if itemDef.equipSlot then
+			contextMenuButtons["Equip"].Visible = true
+			visibleButtons = visibleButtons + 1
+		end
+	end
+	
+	-- Always show these options
+	contextMenuButtons["Drop"].Visible = true
+	contextMenuButtons["Drop All"].Visible = true
+	contextMenuButtons["Examine"].Visible = true
+	contextMenuButtons["Add to Hotbar"].Visible = true
+	visibleButtons = visibleButtons + 4
+	
+	-- Resize menu to fit visible buttons
+	contextMenu.Size = UDim2.new(0, 120, 0, visibleButtons * 23 + 6)
+	
+	-- Position menu at mouse location
+	contextMenu.Position = UDim2.fromOffset(mousePos.X, mousePos.Y)
+	contextMenu.Visible = true
+end
+
+-- Context menu button actions
+contextMenuButtons["Use"].MouseButton1Click:Connect(function()
+	if not currentContextItem then return end
+	
+	local itemName = currentContextItem.data.name
+	local itemDef = ItemDatabase.GetItem(itemName)
+	
+	if itemDef and itemDef.type == "food" and EatFoodRemote then
+		print("[StatsPanel] Using (eating) " .. itemName)
+		EatFoodRemote:FireServer(itemName)
+	elseif UseItemRemote then
+		print("[StatsPanel] Using " .. itemName)
+		UseItemRemote:FireServer(itemName)
+	end
+	
+	hideContextMenu()
+	task.wait(0.2)
+	refreshData()
+end)
+
+contextMenuButtons["Equip"].MouseButton1Click:Connect(function()
+	if not currentContextItem then return end
+	
+	local itemName = currentContextItem.data.name
+	local itemDef = ItemDatabase.GetItem(itemName)
+	
+	if itemDef and itemDef.equipSlot and EquipItemRemote then
+		print("[StatsPanel] Equipping " .. itemName .. " to " .. itemDef.equipSlot)
+		EquipItemRemote:FireServer(itemDef.equipSlot, itemName)
+	end
+	
+	hideContextMenu()
+	task.wait(0.2)
+	refreshData()
+end)
+
+contextMenuButtons["Drop"].MouseButton1Click:Connect(function()
+	if not currentContextItem then return end
+	
+	local itemName = currentContextItem.data.name
+	
+	if DropItemRemote then
+		print("[StatsPanel] Dropping 1 " .. itemName)
+		DropItemRemote:FireServer(itemName, 1)
+	end
+	
+	hideContextMenu()
+	task.wait(0.2)
+	refreshData()
+end)
+
+contextMenuButtons["Drop All"].MouseButton1Click:Connect(function()
+	if not currentContextItem then return end
+	
+	local itemName = currentContextItem.data.name
+	local quantity = currentContextItem.data.count or 1
+	
+	if DropItemRemote then
+		print("[StatsPanel] Dropping all (" .. quantity .. ") " .. itemName)
+		DropItemRemote:FireServer(itemName, quantity)
+	end
+	
+	hideContextMenu()
+	task.wait(0.2)
+	refreshData()
+end)
+
+contextMenuButtons["Examine"].MouseButton1Click:Connect(function()
+	if not currentContextItem then return end
+	
+	local itemName = currentContextItem.data.name
+	local itemDef = ItemDatabase.GetItem(itemName)
+	local description = (itemDef and itemDef.description) or "No description available."
+	
+	-- Show examination popup
+	local examinePopup = Instance.new("Frame")
+	examinePopup.Name = "ExaminePopup"
+	examinePopup.Size = UDim2.new(0, 200, 0, 100)
+	examinePopup.Position = UDim2.new(0.5, -100, 0.5, -50)
+	examinePopup.BackgroundColor3 = Color3.fromRGB(26, 26, 46)
+	examinePopup.ZIndex = 150
+	examinePopup.Parent = gui
+	
+	local examStroke = Instance.new("UIStroke")
+	examStroke.Color = Color3.fromRGB(240, 192, 64)
+	examStroke.Thickness = 2
+	examStroke.Parent = examinePopup
+	
+	local examCorner = Instance.new("UICorner")
+	examCorner.CornerRadius = UDim.new(0, 6)
+	examCorner.Parent = examinePopup
+	
+	local examTitle = Instance.new("TextLabel")
+	examTitle.Size = UDim2.new(1, -10, 0, 20)
+	examTitle.Position = UDim2.new(0, 5, 0, 5)
+	examTitle.BackgroundTransparency = 1
+	examTitle.Text = itemName
+	examTitle.TextSize = 14
+	examTitle.Font = Enum.Font.GothamBold
+	examTitle.TextColor3 = Color3.fromRGB(240, 192, 64)
+	examTitle.TextXAlignment = Enum.TextXAlignment.Left
+	examTitle.Parent = examinePopup
+	
+	local examDesc = Instance.new("TextLabel")
+	examDesc.Size = UDim2.new(1, -10, 0, 50)
+	examDesc.Position = UDim2.new(0, 5, 0, 25)
+	examDesc.BackgroundTransparency = 1
+	examDesc.Text = description
+	examDesc.TextSize = 10
+	examDesc.Font = Enum.Font.Gotham
+	examDesc.TextColor3 = Color3.fromRGB(220, 220, 210)
+	examDesc.TextXAlignment = Enum.TextXAlignment.Left
+	examDesc.TextWrapped = true
+	examDesc.Parent = examinePopup
+	
+	local examClose = Instance.new("TextButton")
+	examClose.Size = UDim2.new(0, 60, 0, 20)
+	examClose.Position = UDim2.new(0.5, -30, 1, -25)
+	examClose.BackgroundColor3 = Color3.fromRGB(42, 42, 78)
+	examClose.Text = "Close"
+	examClose.TextSize = 10
+	examClose.Font = Enum.Font.Gotham
+	examClose.TextColor3 = Color3.fromRGB(220, 220, 210)
+	examClose.Parent = examinePopup
+	
+	local closeCorner = Instance.new("UICorner")
+	closeCorner.CornerRadius = UDim.new(0, 4)
+	closeCorner.Parent = examClose
+	
+	examClose.MouseButton1Click:Connect(function()
+		examinePopup:Destroy()
+	end)
+	
+	-- Auto-close after 5 seconds
+	game:GetService("Debris"):AddItem(examinePopup, 5)
+	
+	hideContextMenu()
+end)
+
+contextMenuButtons["Add to Hotbar"].MouseButton1Click:Connect(function()
+	if not currentContextItem then return end
+	
+	local itemName = currentContextItem.data.name
+	local quantity = currentContextItem.data.count or 1
+	
+	_G.PendingHotbarItem = { name = itemName, quantity = quantity }
+	print("[StatsPanel] Item ready for hotbar: " .. itemName .. " (click a hotbar slot)")
+	
+	-- Highlight the inventory slot
+	local slotIndex = currentContextItem.slot
+	for j = 1, INV_TOTAL do
+		if j == slotIndex then
+			invSlots[j].stroke.Thickness = 4
+			invSlots[j].stroke.Color = Color3.fromRGB(0, 255, 128)
+		else
+			local item = invSlots[j].itemData
+			if item and item.name then
+				local rarity = item.rarity or "common"
+				invSlots[j].stroke.Color = RARITY[rarity] or RARITY.common
+				invSlots[j].stroke.Thickness = 2
+			end
+		end
+	end
+	
+	hideContextMenu()
+end)
+
+-- Click elsewhere to close context menu (use InputBegan on the gui background)
+UIS.InputBegan:Connect(function(input, processed)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 and contextMenu.Visible then
+		local mouse = UIS:GetMouseLocation()
+		local ap = contextMenu.AbsolutePosition
+		local as = contextMenu.AbsoluteSize
+		if mouse.X < ap.X or mouse.X > ap.X + as.X or mouse.Y < ap.Y or mouse.Y > ap.Y + as.Y then
+			hideContextMenu()
+		end
+	end
+end)
+
+-- ESC key to close context menu
+UIS.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.Escape then
+		hideContextMenu()
+	end
+end)
+
+-- ItemDatabase and ItemVisuals already loaded at top
+
+-- Global function to clear inventory selection highlight (called by Hotbar)
+_G.ClearInventorySelection = function()
+	-- Will be set up after invSlots are created
+end
+
+-- Hotbar assignment state
+local selectedInventoryItem = nil
+local dragConsumed = false -- set true after a drag-drop to suppress the next click
+
+-- Click inventory slot → select for hotbar assignment or use directly
+for i = 1, INV_TOTAL do
+	local s = invSlots[i]
+	s.btn.MouseButton1Click:Connect(function()
+		if dragConsumed then dragConsumed = false return end
+		if not s.itemData or not s.itemData.name then return end
+		local itemName = s.itemData.name
+		local itemDef = ItemDatabase.GetItem(itemName)
+		if not itemDef then return end
+		
+		-- Shift+click = DROP item on ground
+		if UIS:IsKeyDown(Enum.KeyCode.LeftShift) or UIS:IsKeyDown(Enum.KeyCode.RightShift) then
+			if DropItemRemote then
+				print("[StatsPanel] Shift+drop " .. itemName)
+				DropItemRemote:FireServer(itemName, 1)
+				task.wait(0.2)
+				refreshData()
+			else
+				warn("[StatsPanel] No DropItem remote found")
+			end
+			return
+		end
+		
+		-- Ctrl+click = select for hotbar assignment
+		if UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.RightControl) then
+			selectedInventoryItem = {
+				name = itemName,
+				quantity = s.itemData.count,
+				slot = i
+			}
+			print("[StatsPanel] Selected " .. itemName .. " for hotbar (press 1-9)")
+			for j = 1, INV_TOTAL do
+				if j == i then
+					invSlots[j].stroke.Thickness = 4
+					invSlots[j].stroke.Color = Color3.fromRGB(255, 255, 0)
+				else
+					local item = invSlots[j].itemData
+					if item and item.name then
+						local rarity = item.rarity or "common"
+						invSlots[j].stroke.Color = RARITY[rarity] or RARITY.common
+						invSlots[j].stroke.Thickness = 2
+					end
+				end
+			end
+			return
+		end
+
+		-- Normal click behavior - use/equip item directly
+		if itemDef.equipSlot and EquipItemRemote then
+			print("[StatsPanel] Equipping " .. itemName .. " to " .. itemDef.equipSlot)
+			EquipItemRemote:FireServer(itemDef.equipSlot, itemName)
+			task.wait(0.2)
+			refreshData()
+		elseif itemDef.type == "food" and EatFoodRemote then
+			print("[StatsPanel] Eating " .. itemName)
+			EatFoodRemote:FireServer(itemName)
+			task.wait(0.2)
+			refreshData()
+		elseif (itemName == "Bones" or itemName == "Big Bones" or itemName == "Dragon Bones") and BuryBonesRemote then
+			print("[StatsPanel] Burying " .. itemName)
+			BuryBonesRemote:FireServer(itemName)
+			task.wait(0.2)
+			refreshData()
+		end
+	end)
+	
+	-- Right-click for context menu
+	s.btn.MouseButton2Click:Connect(function()
+		if not s.itemData or not s.itemData.name then return end
+		local mousePos = UIS:GetMouseLocation()
+		showContextMenu(s.itemData, i, mousePos)
+	end)
+end
+
+-- Hotbar assignment handling - listen for number key presses while item is selected
+UIS.InputBegan:Connect(function(input, processed)
+	if processed or not selectedInventoryItem then return end
+	
+	local hotbarSlot = nil
+	if input.KeyCode == Enum.KeyCode.One then hotbarSlot = 1
+	elseif input.KeyCode == Enum.KeyCode.Two then hotbarSlot = 2
+	elseif input.KeyCode == Enum.KeyCode.Three then hotbarSlot = 3
+	elseif input.KeyCode == Enum.KeyCode.Four then hotbarSlot = 4
+	elseif input.KeyCode == Enum.KeyCode.Five then hotbarSlot = 5
+	elseif input.KeyCode == Enum.KeyCode.Six then hotbarSlot = 6
+	elseif input.KeyCode == Enum.KeyCode.Seven then hotbarSlot = 7
+	elseif input.KeyCode == Enum.KeyCode.Eight then hotbarSlot = 8
+	elseif input.KeyCode == Enum.KeyCode.Nine then hotbarSlot = 9
+	end
+	
+	if hotbarSlot and _G.HotbarAssignItem then
+		_G.HotbarAssignItem(hotbarSlot, selectedInventoryItem.name, selectedInventoryItem.quantity)
+		print("[StatsPanel] Assigned " .. selectedInventoryItem.name .. " to hotbar slot " .. hotbarSlot)
+		
+		-- Clear selection and reset visual feedback
+		selectedInventoryItem = nil
+		for j = 1, INV_TOTAL do
+			local item = invSlots[j].itemData
+			if item and item.name then
+				local rarity = item.rarity or "common"
+				invSlots[j].stroke.Color = RARITY[rarity] or RARITY.common
+				invSlots[j].stroke.Thickness = 2
+			end
+		end
+	end
+end)
+
+-- Click equipment slot → unequip
+for _, info in ipairs(SLOT_LAYOUT) do
+	local lbl = equipLabels[info.name]
+	if lbl and UnequipItemRemote then
+		-- Make the parent frame clickable
+		local slotFrame = lbl.Parent
+		local unequipBtn = Instance.new("TextButton")
+		unequipBtn.Name = "Unequip"
+		unequipBtn.Size = UDim2.new(1, 0, 1, 0)
+		unequipBtn.BackgroundTransparency = 1
+		unequipBtn.Text = ""
+		unequipBtn.Parent = slotFrame
+		unequipBtn.MouseButton1Click:Connect(function()
+			print("[StatsPanel] Unequipping " .. info.name)
+			UnequipItemRemote:FireServer(info.name)
+			task.wait(0.2)
+			refreshData()
+		end)
+	end
+end
+
+-----------------------------------------------------------------------
+-- DRAG AND DROP TO HOTBAR
+-----------------------------------------------------------------------
+local dragGhost = Instance.new("TextLabel")
+dragGhost.Name = "DragGhost"
+dragGhost.Size = UDim2.new(0, 40, 0, 40)
+dragGhost.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
+dragGhost.BackgroundTransparency = 0.3
+dragGhost.Text = ""
+dragGhost.TextSize = 24
+dragGhost.Font = Enum.Font.GothamBold
+dragGhost.TextColor3 = Color3.fromRGB(255, 255, 255)
+dragGhost.Visible = false
+dragGhost.ZIndex = 200
+dragGhost.Parent = gui
+
+local dgCorner = Instance.new("UICorner")
+dgCorner.CornerRadius = UDim.new(0, 6)
+dgCorner.Parent = dragGhost
+
+local dgStroke = Instance.new("UIStroke")
+dgStroke.Color = GOLD
+dgStroke.Thickness = 2
+dgStroke.Parent = dragGhost
+
+local isDragging = false
+local dragItem = nil
+local dragStartPos = nil
+local dragMoveConn = nil
+local dragEndConn = nil
+local DRAG_THRESHOLD = 5
+
+local function stopDrag(mousePos)
+	isDragging = false
+	dragGhost.Visible = false
+
+	if dragItem and mousePos then
+		local hotbarFrames = _G.HotbarSlotFrames
+		if hotbarFrames then
+			for slotIdx, frame in pairs(hotbarFrames) do
+				local ap = frame.AbsolutePosition
+				local as = frame.AbsoluteSize
+				if mousePos.X >= ap.X and mousePos.X <= ap.X + as.X
+					and mousePos.Y >= ap.Y and mousePos.Y <= ap.Y + as.Y then
+					if _G.HotbarAssignItem then
+						_G.HotbarAssignItem(slotIdx, dragItem.name, dragItem.quantity)
+						print("[StatsPanel] Drag-assigned " .. dragItem.name .. " to hotbar slot " .. slotIdx)
+					end
+					break
+				end
+			end
+		end
+	end
+
+	dragItem = nil
+	dragStartPos = nil
+	dragConsumed = true
+	if dragMoveConn then dragMoveConn:Disconnect() dragMoveConn = nil end
+	if dragEndConn then dragEndConn:Disconnect() dragEndConn = nil end
+end
+
+for i = 1, INV_TOTAL do
+	local s = invSlots[i]
+	s.btn.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+		if not s.itemData or not s.itemData.name then return end
+		if UIS:IsKeyDown(Enum.KeyCode.LeftShift) or UIS:IsKeyDown(Enum.KeyCode.RightShift) then return end
+		if UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.RightControl) then return end
+
+		dragStartPos = UIS:GetMouseLocation()
+		local pendingItem = { name = s.itemData.name, quantity = s.itemData.count or 1 }
+		local visual = ItemVisuals.GetVisual(s.itemData.name)
+
+		if dragMoveConn then dragMoveConn:Disconnect() end
+		if dragEndConn then dragEndConn:Disconnect() end
+
+		dragMoveConn = UIS.InputChanged:Connect(function(moveInput)
+			if moveInput.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+			local mousePos = UIS:GetMouseLocation()
+			if not isDragging then
+				if dragStartPos and (mousePos - dragStartPos).Magnitude >= DRAG_THRESHOLD then
+					isDragging = true
+					dragItem = pendingItem
+					dragGhost.Text = visual.emoji
+					dragGhost.TextColor3 = visual.color
+					dragGhost.Visible = true
+				end
+			end
+			if isDragging then
+				dragGhost.Position = UDim2.fromOffset(mousePos.X - 20, mousePos.Y - 20)
+			end
+		end)
+
+		dragEndConn = UIS.InputEnded:Connect(function(endInput)
+			if endInput.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+			if isDragging then
+				stopDrag(UIS:GetMouseLocation())
+			else
+				dragStartPos = nil
+				dragConsumed = false
+				if dragMoveConn then dragMoveConn:Disconnect() dragMoveConn = nil end
+				if dragEndConn then dragEndConn:Disconnect() dragEndConn = nil end
+			end
+		end)
+	end)
+end
+
+-----------------------------------------------------------------------
+-- INIT
+-----------------------------------------------------------------------
+task.spawn(refreshData)
+print("[StatsPanel] Ready! Press B to toggle. Drag items to hotbar!")

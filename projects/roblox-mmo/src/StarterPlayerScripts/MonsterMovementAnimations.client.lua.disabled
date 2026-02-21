@@ -1,0 +1,216 @@
+-- MonsterMovementAnimations.client.lua
+-- Client-side animation system for monsters
+-- Uses RELATIVE offsets from body CFrame so animations work when server moves monsters
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+-- Animation config
+local WALKING_BOB_HEIGHT = 0.4
+local WALKING_BOB_SPEED = 8
+local LEG_SWING = 0.15 -- studs forward/back
+local ARM_SWING = 0.1
+local TAIL_SWAY = 0.15
+local WING_FLAP = 0.3
+local HEAD_BOB = 0.1
+local IDLE_BOB = 0.05
+local IDLE_SPEED = 1.5
+local MOVE_THRESHOLD = 0.1
+
+local monsterData = {}
+local animTime = 0
+
+-- Find all monster models (have Humanoid + PrimaryPart, not a player)
+local function findMonsters()
+	local results = {}
+	local function scan(parent)
+		for _, child in pairs(parent:GetChildren()) do
+			if child:IsA("Model") then
+				local hasHumanoid = child:FindFirstChild("Humanoid")
+				local hasPrimary = child:FindFirstChild("Body") or child:FindFirstChild("HumanoidRootPart")
+				if hasHumanoid and child.PrimaryPart and not Players:GetPlayerFromCharacter(child) then
+					table.insert(results, child)
+				end
+			elseif child:IsA("Folder") then
+				scan(child)
+			end
+		end
+	end
+	scan(workspace)
+	return results
+end
+
+-- Get size scale for animation intensity
+local function getSizeScale(model)
+	local s = model.PrimaryPart.Size
+	return math.clamp((s.X + s.Y + s.Z) / 12, 0.5, 2.0)
+end
+
+-- Store each part's CFrame RELATIVE to the body (PrimaryPart)
+local function initMonster(monster)
+	if monsterData[monster] then return end
+
+	local body = monster.PrimaryPart
+	local bodyCF = body.CFrame
+
+	local partOffsets = {} -- partName -> CFrame offset from body
+	local animParts = {
+		"LegFL", "LegFR", "LegBL", "LegBR",
+		"LegL", "LegR",
+		"ArmL", "ArmR", "ArmUpL", "ArmUpR",
+		"GauntletL", "GauntletR",
+		"Tail",
+		"WingL", "WingR",
+		"Head",
+	}
+
+	for _, name in ipairs(animParts) do
+		local part = monster:FindFirstChild(name)
+		if part and part:IsA("BasePart") then
+			-- Store relative CFrame: bodyInverse * partCFrame
+			partOffsets[name] = bodyCF:Inverse() * part.CFrame
+		end
+	end
+
+	monsterData[monster] = {
+		lastPos = body.Position,
+		isMoving = false,
+		partOffsets = partOffsets,
+		scale = getSizeScale(monster),
+		idleTimer = math.random(3, 8),
+		idleElapsed = 0,
+	}
+end
+
+-- Clean dead monsters
+local function cleanup()
+	for m, _ in pairs(monsterData) do
+		if not m.Parent then monsterData[m] = nil end
+	end
+end
+
+-- Apply a small offset to a part relative to its stored offset from body
+-- This way animations ADD to the current body position, not fight the server
+local function animatePart(monster, data, partName, offsetVec)
+	local part = monster:FindFirstChild(partName)
+	if not part or not part:IsA("BasePart") then return end
+	local rel = data.partOffsets[partName]
+	if not rel then return end
+
+	local bodyCF = monster.PrimaryPart.CFrame
+	-- Apply original relative offset + animation offset (in body-local space)
+	part.CFrame = bodyCF * rel * CFrame.new(offsetVec)
+end
+
+-- Reset a part to its original relative position
+local function resetPart(monster, data, partName)
+	animatePart(monster, data, partName, Vector3.new(0, 0, 0))
+end
+
+-- Walking animation
+local function walkAnim(monster, data, dt)
+	local t = animTime * WALKING_BOB_SPEED * data.scale
+	local bob = math.sin(t) * WALKING_BOB_HEIGHT * data.scale
+
+	-- Body bob (just Y offset)
+	local body = monster.PrimaryPart
+	local bodyCF = body.CFrame
+	body.CFrame = CFrame.new(bodyCF.Position.X, bodyCF.Position.Y + bob * dt * 5, bodyCF.Position.Z) * (bodyCF - bodyCF.Position)
+
+	local legT = t * 2
+	local legOff = math.sin(legT) * LEG_SWING * data.scale
+	local legOffOpposite = math.sin(legT + math.pi) * LEG_SWING * data.scale
+
+	-- Quadruped legs
+	animatePart(monster, data, "LegFL", Vector3.new(0, 0, legOff))
+	animatePart(monster, data, "LegFR", Vector3.new(0, 0, legOffOpposite))
+	animatePart(monster, data, "LegBL", Vector3.new(0, 0, legOffOpposite))
+	animatePart(monster, data, "LegBR", Vector3.new(0, 0, legOff))
+
+	-- Biped legs
+	animatePart(monster, data, "LegL", Vector3.new(0, 0, legOff))
+	animatePart(monster, data, "LegR", Vector3.new(0, 0, legOffOpposite))
+
+	-- Arms swing opposite to legs
+	local armOff = math.sin(legT + math.pi) * ARM_SWING * data.scale
+	animatePart(monster, data, "ArmL", Vector3.new(0, 0, armOff))
+	animatePart(monster, data, "ArmR", Vector3.new(0, 0, -armOff))
+	animatePart(monster, data, "ArmUpL", Vector3.new(0, 0, armOff))
+	animatePart(monster, data, "ArmUpR", Vector3.new(0, 0, -armOff))
+	animatePart(monster, data, "GauntletL", Vector3.new(0, 0, armOff))
+	animatePart(monster, data, "GauntletR", Vector3.new(0, 0, -armOff))
+
+	-- Tail sway (side to side in local X)
+	local tailOff = math.sin(t * 0.7) * TAIL_SWAY * data.scale
+	animatePart(monster, data, "Tail", Vector3.new(tailOff, 0, 0))
+
+	-- Wings flap (local Y)
+	local wingOff = math.sin(t * 1.5) * WING_FLAP * data.scale
+	animatePart(monster, data, "WingL", Vector3.new(0, wingOff, 0))
+	animatePart(monster, data, "WingR", Vector3.new(0, wingOff, 0))
+
+	-- Head bob (forward/back in local Z)
+	local headOff = math.sin(t * 1.2) * HEAD_BOB * data.scale
+	animatePart(monster, data, "Head", Vector3.new(0, 0, headOff))
+end
+
+-- Idle animation
+local function idleAnim(monster, data, dt)
+	local t = animTime * IDLE_SPEED * data.scale
+	local breathe = math.sin(t) * IDLE_BOB * data.scale
+
+	-- Subtle body breathing
+	local body = monster.PrimaryPart
+	local bodyCF = body.CFrame
+	body.CFrame = CFrame.new(bodyCF.Position.X, bodyCF.Position.Y + breathe * dt * 2, bodyCF.Position.Z) * (bodyCF - bodyCF.Position)
+
+	-- Reset walking parts to resting position
+	for _, name in ipairs({"LegFL","LegFR","LegBL","LegBR","LegL","LegR","ArmL","ArmR","ArmUpL","ArmUpR","GauntletL","GauntletR","Tail","WingL","WingR"}) do
+		resetPart(monster, data, name)
+	end
+
+	-- Occasional head look-around
+	data.idleElapsed = data.idleElapsed + dt
+	if data.idleElapsed >= data.idleTimer then
+		data.idleTimer = math.random(3, 8)
+		data.idleElapsed = 0
+		local lookOff = Vector3.new((math.random() - 0.5) * 0.2 * data.scale, 0, (math.random() - 0.5) * 0.2 * data.scale)
+		animatePart(monster, data, "Head", lookOff)
+	else
+		resetPart(monster, data, "Head")
+	end
+end
+
+-- Main loop (optimized for performance)
+local lastScan = 0
+RunService.RenderStepped:Connect(function(dt)
+	animTime = animTime + dt
+	local now = tick()
+
+	-- Only scan for new monsters every 0.5 seconds, not every frame
+	if now - lastScan >= 0.5 then
+		lastScan = now
+		for _, m in ipairs(findMonsters()) do
+			initMonster(m)
+		end
+		cleanup()
+	end
+
+	-- Animate existing monsters every frame (needed for smooth animation)
+	for monster, data in pairs(monsterData) do
+		if monster.Parent and monster.PrimaryPart then
+			local pos = monster.PrimaryPart.Position
+			local moved = (pos - data.lastPos).Magnitude
+			data.isMoving = moved > MOVE_THRESHOLD
+			data.lastPos = pos
+
+			if data.isMoving then
+				walkAnim(monster, data, dt)
+			else
+				idleAnim(monster, data, dt)
+			end
+		end
+	end
+end)
+
+print("[MonsterMovementAnimations] Loaded - using relative CFrame offsets")

@@ -1,0 +1,162 @@
+--[[
+	XPPopup.client.lua
+	Shows floating "+XP!" text at monster death locations
+	and damage numbers above monsters when hit.
+]]
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+
+--------------------------------------------------------------------------------
+-- XP POPUP (on monster kill)
+--------------------------------------------------------------------------------
+local XPRemotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+local XPPopupEvent = XPRemotes and XPRemotes:WaitForChild("XPPopup", 10)
+
+if XPPopupEvent then
+	XPPopupEvent.OnClientEvent:Connect(function(worldPos, xpAmount, monsterName)
+		if not worldPos then return end
+
+		-- Create a temporary part to attach billboard to
+		local anchor = Instance.new("Part")
+		anchor.Name = "XPAnchor"
+		anchor.Size = Vector3.new(0.1, 0.1, 0.1)
+		anchor.Position = worldPos + Vector3.new(0, 3, 0)
+		anchor.Anchored = true
+		anchor.CanCollide = false
+		anchor.Transparency = 1
+		anchor.Parent = workspace
+
+		local bbg = Instance.new("BillboardGui")
+		bbg.Size = UDim2.new(6, 0, 2, 0)
+		bbg.StudsOffset = Vector3.new(0, 0, 0)
+		bbg.AlwaysOnTop = true
+		bbg.Adornee = anchor
+		bbg.Parent = anchor
+
+		-- XP text
+		local xpLabel = Instance.new("TextLabel")
+		xpLabel.Size = UDim2.new(1, 0, 0.6, 0)
+		xpLabel.Position = UDim2.new(0, 0, 0, 0)
+		xpLabel.BackgroundTransparency = 1
+		xpLabel.Text = "+" .. xpAmount .. " XP!"
+		xpLabel.TextColor3 = Color3.fromRGB(50, 255, 100)
+		xpLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		xpLabel.TextStrokeTransparency = 0
+		xpLabel.TextScaled = true
+		xpLabel.Font = Enum.Font.GothamBold
+		xpLabel.Parent = bbg
+
+		-- Monster name below (smaller)
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size = UDim2.new(1, 0, 0.35, 0)
+		nameLabel.Position = UDim2.new(0, 0, 0.6, 0)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text = monsterName .. " defeated!"
+		nameLabel.TextColor3 = Color3.fromRGB(255, 220, 100)
+		nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		nameLabel.TextStrokeTransparency = 0.3
+		nameLabel.TextScaled = true
+		nameLabel.Font = Enum.Font.GothamBold
+		nameLabel.Parent = bbg
+
+		-- Animate: float up and fade
+		local startPos = anchor.Position
+		local endPos = startPos + Vector3.new(0, 6, 0)
+
+		TweenService:Create(anchor, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = endPos,
+		}):Play()
+
+		-- Fade out after 1.5s
+		task.delay(1.2, function()
+			if xpLabel and xpLabel.Parent then
+				TweenService:Create(xpLabel, TweenInfo.new(0.8), {
+					TextTransparency = 1,
+					TextStrokeTransparency = 1,
+				}):Play()
+			end
+			if nameLabel and nameLabel.Parent then
+				TweenService:Create(nameLabel, TweenInfo.new(0.8), {
+					TextTransparency = 1,
+					TextStrokeTransparency = 1,
+				}):Play()
+			end
+		end)
+
+		-- Cleanup
+		task.delay(2.5, function()
+			if anchor and anchor.Parent then anchor:Destroy() end
+		end)
+	end)
+end
+
+--------------------------------------------------------------------------------
+-- DAMAGE NUMBERS (on monster hit)
+--------------------------------------------------------------------------------
+local MonsterDamageEvent = XPRemotes and XPRemotes:WaitForChild("MonsterDamage", 10)
+
+if MonsterDamageEvent then
+	MonsterDamageEvent.OnClientEvent:Connect(function(model, damage, currentHP, maxHP)
+		if not model or not model.Parent then return end
+		local body = model:FindFirstChild("Body") or model.PrimaryPart
+		if not body then return end
+
+		-- Create floating damage number
+		local anchor = Instance.new("Part")
+		anchor.Name = "DmgAnchor"
+		anchor.Size = Vector3.new(0.1, 0.1, 0.1)
+		anchor.Position = body.Position + Vector3.new(math.random(-2, 2), 2 + math.random(), math.random(-2, 2))
+		anchor.Anchored = true
+		anchor.CanCollide = false
+		anchor.Transparency = 1
+		anchor.Parent = workspace
+
+		local bbg = Instance.new("BillboardGui")
+		bbg.Size = UDim2.new(3, 0, 1, 0)
+		bbg.AlwaysOnTop = true
+		bbg.Adornee = anchor
+		bbg.Parent = anchor
+
+		local isBigHit = damage >= (maxHP * 0.15)
+
+		local dmgLabel = Instance.new("TextLabel")
+		dmgLabel.Size = UDim2.new(1, 0, 1, 0)
+		dmgLabel.BackgroundTransparency = 1
+		dmgLabel.Text = tostring(damage)
+		dmgLabel.TextColor3 = isBigHit and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(255, 255, 255)
+		dmgLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		dmgLabel.TextStrokeTransparency = 0
+		dmgLabel.TextScaled = true
+		dmgLabel.Font = Enum.Font.GothamBold
+		dmgLabel.Parent = bbg
+
+		-- Scale pop on big hits
+		if isBigHit then
+			bbg.Size = UDim2.new(4, 0, 1.5, 0)
+		end
+
+		-- Float up and fade
+		TweenService:Create(anchor, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = anchor.Position + Vector3.new(0, 3, 0),
+		}):Play()
+
+		task.delay(0.5, function()
+			if dmgLabel and dmgLabel.Parent then
+				TweenService:Create(dmgLabel, TweenInfo.new(0.5), {
+					TextTransparency = 1,
+					TextStrokeTransparency = 1,
+				}):Play()
+			end
+		end)
+
+		task.delay(1.2, function()
+			if anchor and anchor.Parent then anchor:Destroy() end
+		end)
+	end)
+end
+
+print("[XPPopup] Loaded — XP popups + damage numbers!")

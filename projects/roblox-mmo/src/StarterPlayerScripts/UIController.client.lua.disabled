@@ -1,0 +1,269 @@
+-- UIController.client.lua
+-- Handles: zone indicator, damage numbers, level ups, zone warnings, attack input, gather feedback
+-- Skills/Inventory/Equipment panels are handled by StatsPanel.client.lua
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+
+-- === MAIN SCREEN GUI ===
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "WildernessUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- === ZONE INDICATOR (top center) ===
+local zoneFrame = Instance.new("Frame")
+zoneFrame.Name = "ZoneIndicator"
+zoneFrame.Size = UDim2.new(0, 300, 0, 50)
+zoneFrame.Position = UDim2.new(0.5, -150, 0, 10)
+zoneFrame.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+zoneFrame.BackgroundTransparency = 0.3
+zoneFrame.BorderSizePixel = 0
+zoneFrame.Parent = screenGui
+
+local zoneCorner = Instance.new("UICorner")
+zoneCorner.CornerRadius = UDim.new(0, 8)
+zoneCorner.Parent = zoneFrame
+
+local zoneLabel = Instance.new("TextLabel")
+zoneLabel.Name = "ZoneText"
+zoneLabel.Size = UDim2.new(1, 0, 1, 0)
+zoneLabel.BackgroundTransparency = 1
+zoneLabel.Text = "🛡️ SAFE ZONE"
+zoneLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+zoneLabel.TextScaled = true
+zoneLabel.Font = Enum.Font.GothamBold
+zoneLabel.Parent = zoneFrame
+
+-- === DAMAGE NUMBERS ===
+local function showDamageNumber(text, color)
+	local dmgLabel = Instance.new("TextLabel")
+	dmgLabel.Size = UDim2.new(0, 200, 0, 40)
+	dmgLabel.Position = UDim2.new(0.5, -100, 0.4, 0)
+	dmgLabel.BackgroundTransparency = 1
+	dmgLabel.Text = text
+	dmgLabel.TextColor3 = color
+	dmgLabel.TextScaled = true
+	dmgLabel.Font = Enum.Font.GothamBold
+	dmgLabel.TextStrokeTransparency = 0.5
+	dmgLabel.Parent = screenGui
+
+	local tween = TweenService:Create(dmgLabel, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0.5, -100, 0.3, 0),
+		TextTransparency = 1,
+		TextStrokeTransparency = 1,
+	})
+	tween:Play()
+	tween.Completed:Connect(function()
+		dmgLabel:Destroy()
+	end)
+end
+
+-- === LEVEL UP NOTIFICATION ===
+local function showLevelUp(skillName, newLevel)
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(0, 350, 0, 60)
+	frame.Position = UDim2.new(0.5, -175, 0.3, 0)
+	frame.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+	frame.BackgroundTransparency = 0.1
+	frame.BorderSizePixel = 0
+	frame.Parent = screenGui
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 10)
+	corner.Parent = frame
+
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.new(1, 0, 1, 0)
+	text.BackgroundTransparency = 1
+	text.Text = "🎉 " .. skillName .. " LEVEL UP! Level " .. newLevel .. " 🎉"
+	text.TextColor3 = Color3.fromRGB(20, 20, 20)
+	text.TextScaled = true
+	text.Font = Enum.Font.GothamBold
+	text.Parent = frame
+
+	task.delay(2, function()
+		local tween = TweenService:Create(frame, TweenInfo.new(1), { BackgroundTransparency = 1 })
+		local textTween = TweenService:Create(text, TweenInfo.new(1), { TextTransparency = 1 })
+		tween:Play()
+		textTween:Play()
+		textTween.Completed:Connect(function()
+			frame:Destroy()
+		end)
+	end)
+end
+
+-- === WILDERNESS WARNING ===
+local function showZoneWarning()
+	local warning = Instance.new("Frame")
+	warning.Size = UDim2.new(1, 0, 0, 80)
+	warning.Position = UDim2.new(0, 0, 0.15, 0)
+	warning.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+	warning.BackgroundTransparency = 0.3
+	warning.BorderSizePixel = 0
+	warning.Parent = screenGui
+
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.new(1, 0, 1, 0)
+	text.BackgroundTransparency = 1
+	text.Text = "☠️ WARNING: You are entering the WILDERNESS!\nPvP is ENABLED — You will LOSE ALL ITEMS on death! ☠️"
+	text.TextColor3 = Color3.fromRGB(255, 255, 255)
+	text.TextScaled = true
+	text.Font = Enum.Font.GothamBold
+	text.Parent = warning
+
+	task.delay(4, function()
+		local tween = TweenService:Create(warning, TweenInfo.new(1), { BackgroundTransparency = 1 })
+		local textTween = TweenService:Create(text, TweenInfo.new(1), { TextTransparency = 1 })
+		tween:Play()
+		textTween:Play()
+		textTween.Completed:Connect(function()
+			warning:Destroy()
+		end)
+	end)
+end
+
+-- === CONNECT REMOTES ===
+
+-- Level Up
+Remotes:WaitForChild("LevelUp", 5).OnClientEvent:Connect(function(skillName, newLevel)
+	showLevelUp(skillName, newLevel)
+end)
+
+-- Zone Changed
+Remotes:WaitForChild("ZoneChanged", 5).OnClientEvent:Connect(function(zone)
+	if zone == "Wilderness" then
+		zoneFrame.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+		zoneLabel.Text = "☠️ WILDERNESS — PVP ENABLED"
+		showZoneWarning()
+	else
+		zoneFrame.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+		zoneLabel.Text = "🛡️ SAFE ZONE"
+	end
+end)
+
+-- Damage
+Remotes:WaitForChild("DamageDealt", 5).OnClientEvent:Connect(function(direction, damage, otherName)
+	if direction == "dealt" then
+		showDamageNumber("💥 " .. damage .. " → " .. otherName, Color3.fromRGB(255, 100, 100))
+	else
+		showDamageNumber("💔 -" .. damage .. " from " .. otherName, Color3.fromRGB(255, 50, 50))
+	end
+end)
+
+-- === ATTACK INPUT ===
+-- Attack animations and input are now handled by AttackAnimations.client.lua
+-- UIController only handles damage number display from DamageDealt remote
+
+-- === GATHER FEEDBACK ===
+local gatherRemote = Remotes:FindFirstChild("GatherFeedback")
+if gatherRemote then
+	-- Gather progress bar
+	local gatherBarFrame = Instance.new("Frame")
+	gatherBarFrame.Name = "GatherBar"
+	gatherBarFrame.Size = UDim2.new(0, 200, 0, 24)
+	gatherBarFrame.Position = UDim2.new(0.5, -100, 0.65, 0)
+	gatherBarFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+	gatherBarFrame.BorderSizePixel = 0
+	gatherBarFrame.Visible = false
+	gatherBarFrame.Parent = screenGui
+
+	local gatherBarBorder = Instance.new("UIStroke")
+	gatherBarBorder.Color = Color3.fromRGB(240, 192, 64)
+	gatherBarBorder.Thickness = 2
+	gatherBarBorder.Parent = gatherBarFrame
+
+	local gatherBarCorner = Instance.new("UICorner")
+	gatherBarCorner.CornerRadius = UDim.new(0, 6)
+	gatherBarCorner.Parent = gatherBarFrame
+
+	local gatherBarFill = Instance.new("Frame")
+	gatherBarFill.Name = "Fill"
+	gatherBarFill.Size = UDim2.new(0, 0, 1, 0)
+	gatherBarFill.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+	gatherBarFill.BorderSizePixel = 0
+	gatherBarFill.Parent = gatherBarFrame
+
+	local gatherFillCorner = Instance.new("UICorner")
+	gatherFillCorner.CornerRadius = UDim.new(0, 6)
+	gatherFillCorner.Parent = gatherBarFill
+
+	local gatherBarLabel = Instance.new("TextLabel")
+	gatherBarLabel.Size = UDim2.new(1, 0, 1, 0)
+	gatherBarLabel.BackgroundTransparency = 1
+	gatherBarLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	gatherBarLabel.Font = Enum.Font.GothamBold
+	gatherBarLabel.TextSize = 14
+	gatherBarLabel.Text = ""
+	gatherBarLabel.ZIndex = 2
+	gatherBarLabel.Parent = gatherBarFrame
+
+	local gatherTween = nil
+
+	gatherRemote.OnClientEvent:Connect(function(action, itemName, xpOrLevel)
+		if action == "start" then
+			-- xpOrLevel is the gather duration in seconds
+			local duration = xpOrLevel
+			gatherBarLabel.Text = "Gathering " .. itemName .. "..."
+			gatherBarFill.Size = UDim2.new(0, 0, 1, 0)
+			gatherBarFrame.Visible = true
+			-- Tween the fill bar
+			local TweenService = game:GetService("TweenService")
+			gatherTween = TweenService:Create(gatherBarFill, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
+				Size = UDim2.new(1, 0, 1, 0)
+			})
+			gatherTween:Play()
+		elseif action == "gather" then
+			gatherBarFrame.Visible = false
+			if gatherTween then gatherTween:Cancel() end
+			showDamageNumber("+" .. itemName .. " (+" .. xpOrLevel .. " XP)", Color3.fromRGB(100, 255, 100))
+		elseif action == "cancel" then
+			gatherBarFrame.Visible = false
+			if gatherTween then gatherTween:Cancel() end
+			showDamageNumber("Cancelled!", Color3.fromRGB(200, 200, 200))
+		elseif action == "full" then
+			gatherBarFrame.Visible = false
+			if gatherTween then gatherTween:Cancel() end
+			showDamageNumber("Inventory Full!", Color3.fromRGB(255, 100, 100))
+		elseif action == "level" then
+			showDamageNumber("Need Level " .. xpOrLevel .. "!", Color3.fromRGB(255, 200, 50))
+		elseif action == "notool" then
+			showDamageNumber("You need a " .. itemName .. "!", Color3.fromRGB(255, 150, 50))
+		end
+	end)
+end
+
+-- === CLIENT-SIDE ZONE CHECK (backup) ===
+local WILDERNESS_Z = -100
+task.spawn(function()
+	local lastZone = "safe"
+	while true do
+		task.wait(0.3)
+		local character = player.Character
+		if character then
+			local root = character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local currentZone = root.Position.Z < WILDERNESS_Z and "wild" or "safe"
+				if currentZone ~= lastZone then
+					lastZone = currentZone
+					if currentZone == "wild" then
+						zoneFrame.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+						zoneLabel.Text = "☠️ WILDERNESS — PVP ENABLED"
+						showZoneWarning()
+					else
+						zoneFrame.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+						zoneLabel.Text = "🛡️ SAFE ZONE"
+					end
+				end
+			end
+		end
+	end
+end)
+
+print("[UIController] Client UI loaded!")

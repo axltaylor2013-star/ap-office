@@ -1,0 +1,26 @@
+# OpenClaw workspace gitignore
+
+# Sensitive credentials
+gmail_credentials.json
+*.json.secret
+*.key
+*.pem
+
+# Local development
+.env
+.env.local
+
+# Logs
+*.log
+
+# Cache
+.cache/
+temp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.tmp
+*.temp

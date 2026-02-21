@@ -1,0 +1,40 @@
+-- Simple debug UI to test if UI system works
+print("[DebugUI] Creating test UI...")
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+-- Create a simple test UI
+local testGui = Instance.new("ScreenGui")
+testGui.Name = "DebugTestUI"
+testGui.ResetOnSpawn = false
+testGui.Parent = playerGui
+
+local testFrame = Instance.new("Frame")
+testFrame.Size = UDim2.new(0, 200, 0, 100)
+testFrame.Position = UDim2.new(0.5, -100, 0.1, 0)
+testFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+testFrame.BorderSizePixel = 2
+testFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+testFrame.Parent = testGui
+
+local testLabel = Instance.new("TextLabel")
+testLabel.Size = UDim2.new(1, 0, 1, 0)
+testLabel.BackgroundTransparency = 1
+testLabel.Text = "UI SYSTEM WORKING\nPress X to close"
+testLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+testLabel.TextScaled = true
+testLabel.Font = Enum.Font.GothamBold
+testLabel.Parent = testFrame
+
+-- Close on X key
+local UserInputService = game:GetService("UserInputService")
+UserInputService.InputBegan:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.X then
+		testGui:Destroy()
+		print("[DebugUI] Test UI closed")
+	end
+end)
+
+print("[DebugUI] Test UI created - should see red box on screen")

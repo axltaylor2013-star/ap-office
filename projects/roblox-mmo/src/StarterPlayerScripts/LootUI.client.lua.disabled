@@ -1,0 +1,297 @@
+--[[
+	LootUI.client.lua
+	Client-side loot bag interface for the full-loot PvP system.
+	Opens a dark-themed window when clicking a loot bag, showing items
+	with Take/Take All buttons. Auto-closes on distance.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+-- Remotes
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+local LootBagOpen = Remotes:WaitForChild("LootBagOpen", 10)
+local LootBagTake = Remotes:WaitForChild("LootBagTake", 10)
+local LootBagUpdate = Remotes:WaitForChild("LootBagUpdate", 10)
+
+-- Theme
+local Theme = {
+	Background = Color3.fromRGB(26, 26, 46),    -- #1a1a2e
+	Panel = Color3.fromRGB(36, 36, 66),
+	Gold = Color3.fromRGB(240, 192, 64),         -- #f0c040
+	Text = Color3.fromRGB(230, 230, 230),
+	ButtonHover = Color3.fromRGB(60, 60, 100),
+	Red = Color3.fromRGB(200, 60, 60),
+	Corner = UDim.new(0, 6),
+}
+
+local MAX_LOOT_DISTANCE = 15
+
+-- State
+local currentBagId: string? = nil
+local currentBagPosition: Vector3? = nil
+local distanceConn: RBXScriptConnection? = nil
+
+--------------------------------------------------------------------------------
+-- UI Construction
+--------------------------------------------------------------------------------
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "LootUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = playerGui
+
+-- Main frame
+local frame = Instance.new("Frame")
+frame.Name = "LootFrame"
+frame.Size = UDim2.new(0, 320, 0, 400)
+frame.Position = UDim2.new(0.5, -160, 0.5, -200)
+frame.BackgroundColor3 = Theme.Background
+frame.BorderSizePixel = 0
+frame.Visible = false
+frame.Parent = screenGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 8)
+frameCorner.Parent = frame
+
+local frameStroke = Instance.new("UIStroke")
+frameStroke.Color = Theme.Gold
+frameStroke.Thickness = 2
+frameStroke.Parent = frame
+
+-- Header
+local header = Instance.new("Frame")
+header.Name = "Header"
+header.Size = UDim2.new(1, 0, 0, 40)
+header.BackgroundColor3 = Theme.Panel
+header.BorderSizePixel = 0
+header.Parent = frame
+
+local headerCorner = Instance.new("UICorner")
+headerCorner.CornerRadius = UDim.new(0, 8)
+headerCorner.Parent = header
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, -40, 1, 0)
+titleLabel.Position = UDim2.new(0, 10, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "💀 Loot Bag"
+titleLabel.TextColor3 = Theme.Gold
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 18
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = header
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Name = "Close"
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 5)
+closeBtn.BackgroundColor3 = Theme.Red
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 14
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = header
+
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 4)
+
+-- Scroll area for items
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Name = "ItemList"
+scrollFrame.Size = UDim2.new(1, -20, 1, -100)
+scrollFrame.Position = UDim2.new(0, 10, 0, 50)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.BorderSizePixel = 0
+scrollFrame.ScrollBarThickness = 4
+scrollFrame.ScrollBarImageColor3 = Theme.Gold
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scrollFrame.Parent = frame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding = UDim.new(0, 4)
+listLayout.Parent = scrollFrame
+
+-- Take All button
+local takeAllBtn = Instance.new("TextButton")
+takeAllBtn.Name = "TakeAll"
+takeAllBtn.Size = UDim2.new(1, -20, 0, 36)
+takeAllBtn.Position = UDim2.new(0, 10, 1, -46)
+takeAllBtn.BackgroundColor3 = Theme.Gold
+takeAllBtn.Text = "Take All"
+takeAllBtn.TextColor3 = Theme.Background
+takeAllBtn.Font = Enum.Font.GothamBold
+takeAllBtn.TextSize = 16
+takeAllBtn.BorderSizePixel = 0
+takeAllBtn.Parent = frame
+
+Instance.new("UICorner", takeAllBtn).CornerRadius = UDim.new(0, 6)
+
+--------------------------------------------------------------------------------
+-- Item Row Builder
+--------------------------------------------------------------------------------
+
+local function createItemRow(item: { itemId: string, name: string, quantity: number }, index: number): Frame
+	local row = Instance.new("Frame")
+	row.Name = "Item_" .. index
+	row.Size = UDim2.new(1, 0, 0, 36)
+	row.BackgroundColor3 = Theme.Panel
+	row.BorderSizePixel = 0
+	row.LayoutOrder = index
+
+	Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
+
+	-- Item name + quantity
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, -80, 1, 0)
+	label.Position = UDim2.new(0, 10, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Text = string.format("%s x%d", item.name or item.itemId, item.quantity or 1)
+	label.TextColor3 = Theme.Text
+	label.Font = Enum.Font.Gotham
+	label.TextSize = 14
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = row
+
+	-- Take button
+	local takeBtn = Instance.new("TextButton")
+	takeBtn.Name = "Take"
+	takeBtn.Size = UDim2.new(0, 60, 0, 26)
+	takeBtn.Position = UDim2.new(1, -70, 0, 5)
+	takeBtn.BackgroundColor3 = Theme.Gold
+	takeBtn.Text = "Take"
+	takeBtn.TextColor3 = Theme.Background
+	takeBtn.Font = Enum.Font.GothamBold
+	takeBtn.TextSize = 12
+	takeBtn.BorderSizePixel = 0
+	takeBtn.Parent = row
+
+	Instance.new("UICorner", takeBtn).CornerRadius = UDim.new(0, 4)
+
+	takeBtn.MouseButton1Click:Connect(function()
+		if currentBagId then
+			LootBagTake:FireServer(currentBagId, index)
+		end
+	end)
+
+	return row
+end
+
+--------------------------------------------------------------------------------
+-- UI Logic
+--------------------------------------------------------------------------------
+
+local function closeLootWindow()
+	frame.Visible = false
+	currentBagId = nil
+	currentBagPosition = nil
+
+	if distanceConn then
+		distanceConn:Disconnect()
+		distanceConn = nil
+	end
+
+	-- Clear item list
+	for _, child in scrollFrame:GetChildren() do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+end
+
+local function populateItems(contents: { { itemId: string, name: string, quantity: number } })
+	-- Clear existing
+	for _, child in scrollFrame:GetChildren() do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+
+	for i, item in contents do
+		local row = createItemRow(item, i)
+		row.Parent = scrollFrame
+	end
+end
+
+local function openLootWindow(bagId: string, contents: { any }, ownerName: string)
+	currentBagId = bagId
+
+	-- Find the bag model in workspace to track position
+	local bagModel = workspace:FindFirstChild("LootBag_" .. bagId)
+	if bagModel and bagModel.PrimaryPart then
+		currentBagPosition = bagModel.PrimaryPart.Position
+	end
+
+	titleLabel.Text = string.format("💀 %s's Loot", ownerName)
+	populateItems(contents)
+	frame.Visible = true
+
+	-- Distance check loop
+	if distanceConn then distanceConn:Disconnect() end
+	distanceConn = RunService.Heartbeat:Connect(function()
+		if not currentBagPosition then
+			closeLootWindow()
+			return
+		end
+
+		local character = player.Character
+		if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+		local dist = (character.HumanoidRootPart.Position - currentBagPosition).Magnitude
+		if dist > MAX_LOOT_DISTANCE then
+			closeLootWindow()
+		end
+	end)
+end
+
+--------------------------------------------------------------------------------
+-- Event Connections
+--------------------------------------------------------------------------------
+
+-- Server tells us to open a bag
+LootBagOpen.OnClientEvent:Connect(function(bagId: string, contents, ownerName: string)
+	openLootWindow(bagId, contents, ownerName)
+end)
+
+-- Server sends bag content updates (or nil = bag gone)
+LootBagUpdate.OnClientEvent:Connect(function(bagId: string, contents)
+	if bagId ~= currentBagId then return end
+
+	if contents == nil then
+		closeLootWindow()
+	else
+		populateItems(contents)
+	end
+end)
+
+-- Close button
+closeBtn.MouseButton1Click:Connect(closeLootWindow)
+
+-- Take All: fire take for index 1 repeatedly (server removes from front)
+takeAllBtn.MouseButton1Click:Connect(function()
+	if not currentBagId then return end
+
+	-- Count current items and take from index 1 each time
+	local itemCount = 0
+	for _, child in scrollFrame:GetChildren() do
+		if child:IsA("Frame") then
+			itemCount += 1
+		end
+	end
+
+	for _ = 1, itemCount do
+		LootBagTake:FireServer(currentBagId, 1)
+		task.wait(0.05) -- slight throttle to avoid race conditions
+	end
+end)
+
+print("[LootUI] Loaded!")

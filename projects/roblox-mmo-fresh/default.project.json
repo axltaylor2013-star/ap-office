@@ -1,0 +1,42 @@
+{
+    "name": "Roscape Runeblocks - Fresh Start",
+    "tree": {
+        "$className": "DataModel",
+        "Workspace": {
+            "$className": "Workspace",
+            "$ignoreUnknownInstances": true
+        },
+        "Lighting": {
+            "$className": "Lighting",
+            "$ignoreUnknownInstances": true
+        },
+        "ReplicatedStorage": {
+            "$className": "ReplicatedStorage",
+            "$ignoreUnknownInstances": true,
+            "Modules": {
+                "$className": "Folder",
+                "$path": "src/ReplicatedStorage/Modules"
+            },
+            "Remotes": {
+                "$className": "Folder",
+                "RespawnPlayer": { "$className": "RemoteEvent" }
+            }
+        },
+        "ServerScriptService": {
+            "$className": "ServerScriptService",
+            "$path": "src/ServerScriptService"
+        },
+        "StarterPlayer": {
+            "$className": "StarterPlayer",
+            "$ignoreUnknownInstances": true,
+            "StarterPlayerScripts": {
+                "$className": "StarterPlayerScripts",
+                "$path": "src/StarterPlayerScripts"
+            }
+        },
+        "StarterGui": {
+            "$className": "StarterGui",
+            "$ignoreUnknownInstances": true
+        }
+    }
+}

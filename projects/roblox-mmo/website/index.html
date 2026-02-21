@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WILDERNESS — A RuneScape-Inspired Roblox MMO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=MedievalSharp&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1a1a2e;--bg2:#16213e;--bg3:#0f3460;--gold:#f0c040;--gold2:#d4a020;--text:#e0e0e0;--text2:#a0a0b0;--common:#9e9e9e;--uncommon:#4caf50;--rare:#2196f3;--epic:#9c27b0;--legendary:#ff9800;--danger:#e74c3c;--safe:#2ecc71;--radius:12px;--shadow:0 8px 32px rgba(0,0,0,.4)}
+html{scroll-behavior:smooth}
+body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+h1,h2,h3,h4{font-family:'Cinzel',serif;color:var(--gold)}
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--gold2);border-radius:4px}
+
+/* NAV */
+.nav{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(26,26,46,.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(240,192,64,.15);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:64px}
+.nav-logo{font-family:'MedievalSharp',cursive;font-size:1.6rem;color:var(--gold);text-decoration:none;text-shadow:0 0 20px rgba(240,192,64,.3)}
+.nav-links{display:flex;gap:1.5rem;list-style:none}
+.nav-links a{color:var(--text2);text-decoration:none;font-size:.85rem;font-weight:500;text-transform:uppercase;letter-spacing:1px;transition:.3s;position:relative}
+.nav-links a:hover{color:var(--gold)}
+.nav-links a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--gold);transition:.3s}
+.nav-links a:hover::after{width:100%}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;background:none;border:none;padding:4px}
+.hamburger span{width:24px;height:2px;background:var(--gold);transition:.3s}
+.hamburger.active span:nth-child(1){transform:rotate(45deg) translate(5px,5px)}
+.hamburger.active span:nth-child(2){opacity:0}
+.hamburger.active span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px)}
+
+/* HERO */
+.hero{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;padding:2rem}
+#particles{position:absolute;inset:0;z-index:0}
+.hero-content{position:relative;z-index:1}
+.hero h1{font-family:'MedievalSharp',cursive;font-size:clamp(3rem,8vw,7rem);color:var(--gold);text-shadow:0 0 60px rgba(240,192,64,.4),0 0 120px rgba(240,192,64,.1);margin-bottom:.5rem;animation:fadeInUp 1s ease}
+.hero p{font-size:clamp(1rem,2.5vw,1.5rem);color:var(--text2);margin-bottom:2rem;animation:fadeInUp 1s .2s ease both}
+.cta-btn{display:inline-block;padding:1rem 3rem;background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--bg);font-family:'Cinzel',serif;font-weight:700;font-size:1.1rem;text-decoration:none;border-radius:50px;text-transform:uppercase;letter-spacing:2px;transition:.3s;animation:fadeInUp 1s .4s ease both;box-shadow:0 4px 30px rgba(240,192,64,.3)}
+.cta-btn:hover{transform:translateY(-3px);box-shadow:0 8px 40px rgba(240,192,64,.5)}
+
+/* STATS BAR */
+.stats-bar{display:flex;justify-content:center;flex-wrap:wrap;gap:2rem;padding:2rem;background:var(--bg2);border-top:1px solid rgba(240,192,64,.1);border-bottom:1px solid rgba(240,192,64,.1)}
+.stat{text-align:center;min-width:100px}
+.stat .num{font-family:'Cinzel',serif;font-size:2rem;color:var(--gold);font-weight:900}
+.stat .label{font-size:.8rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+
+/* TABS */
+.tabs-wrapper{position:sticky;top:64px;z-index:99;background:rgba(22,33,62,.97);backdrop-filter:blur(8px);border-bottom:1px solid rgba(240,192,64,.1);overflow-x:auto}
+.tabs{display:flex;list-style:none;min-width:max-content;padding:0 1rem}
+.tabs li{padding:.8rem 1.2rem;cursor:pointer;font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:1px;color:var(--text2);border-bottom:2px solid transparent;transition:.3s;white-space:nowrap}
+.tabs li:hover{color:var(--gold)}
+.tabs li.active{color:var(--gold);border-bottom-color:var(--gold)}
+.tab-panel{display:none;padding:4rem 2rem;max-width:1400px;margin:0 auto;animation:fadeIn .4s ease}
+.tab-panel.active{display:block}
+
+/* CARDS */
+.grid{display:grid;gap:1.5rem}
+.grid-2{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.grid-3{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.grid-4{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.card{background:linear-gradient(145deg,rgba(22,33,62,.8),rgba(15,52,96,.4));border:1px solid rgba(240,192,64,.08);border-radius:var(--radius);padding:1.5rem;transition:.3s;position:relative;overflow:hidden}
+.card:hover{transform:translateY(-4px);border-color:rgba(240,192,64,.25);box-shadow:var(--shadow)}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:0;transition:.3s}
+.card:hover::before{opacity:1}
+.card h3{font-size:1.1rem;margin-bottom:.5rem}
+.card p{font-size:.9rem;color:var(--text2)}
+.card .icon{font-size:2rem;margin-bottom:.75rem}
+
+/* SECTION TITLES */
+.section-title{text-align:center;margin-bottom:3rem}
+.section-title h2{font-size:2.2rem;margin-bottom:.5rem}
+.section-title p{color:var(--text2);max-width:600px;margin:0 auto}
+.section-title .divider{width:80px;height:3px;background:var(--gold);margin:.75rem auto 0;border-radius:2px}
+
+/* MONSTER CARD */
+.monster-card{text-align:center}
+.monster-card .level{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+.monster-card .hp{color:var(--danger);font-weight:700;font-size:.9rem}
+.monster-card .avatar{width:64px;height:64px;border-radius:50%;background:rgba(240,192,64,.1);display:flex;align-items:center;justify-content:center;margin:0 auto .75rem;font-size:1.5rem}
+.tag{display:inline-block;padding:.15rem .6rem;border-radius:20px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.tag-safe{background:rgba(46,204,113,.15);color:var(--safe)}
+.tag-wilderness{background:rgba(231,76,60,.15);color:var(--danger)}
+.tag-boss{background:rgba(240,192,64,.15);color:var(--gold)}
+.tag-new{background:rgba(156,39,176,.15);color:var(--epic)}
+
+/* SKILL CARD */
+.skill-card .skill-header{display:flex;align-items:center;gap:1rem;margin-bottom:.75rem}
+.skill-card .skill-icon{width:48px;height:48px;border-radius:10px;background:rgba(240,192,64,.1);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.skill-card .progression{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.75rem}
+.skill-card .progression span{padding:.2rem .5rem;background:rgba(255,255,255,.05);border-radius:4px;font-size:.75rem;color:var(--text2)}
+
+/* NPC CARD */
+.npc-card{text-align:center;padding:2rem 1.5rem}
+.npc-card .npc-icon{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,rgba(240,192,64,.15),rgba(240,192,64,.05));display:flex;align-items:center;justify-content:center;margin:0 auto .75rem;font-size:1.4rem}
+
+/* QUEST CARD */
+.quest-card{display:flex;gap:1rem;align-items:flex-start}
+.quest-card .quest-num{width:36px;height:36px;border-radius:50%;background:rgba(240,192,64,.15);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-weight:700;color:var(--gold);font-size:.85rem;flex-shrink:0}
+
+/* ITEM TABS */
+.item-tabs{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:2rem}
+.item-tab{padding:.5rem 1.2rem;background:rgba(255,255,255,.05);border:1px solid rgba(240,192,64,.1);border-radius:20px;cursor:pointer;font-size:.8rem;color:var(--text2);transition:.3s}
+.item-tab:hover,.item-tab.active{background:rgba(240,192,64,.15);color:var(--gold);border-color:var(--gold)}
+.item-panel{display:none}.item-panel.active{display:block}
+
+/* PRAYER PATH */
+.prayer-path{margin-bottom:2rem}
+.prayer-path h3{margin-bottom:1rem;font-size:1.3rem}
+.prayer-list{display:grid;gap:.5rem}
+.prayer-item{display:flex;align-items:center;gap:1rem;padding:.75rem 1rem;background:rgba(255,255,255,.03);border-radius:8px;border-left:3px solid var(--gold);transition:.3s}
+.prayer-item:hover{background:rgba(240,192,64,.05)}
+.prayer-item .prayer-lvl{font-size:.7rem;color:var(--text2);min-width:50px}
+.prayer-item .prayer-name{font-weight:500}
+.prayer-item .prayer-desc{font-size:.85rem;color:var(--text2);margin-left:auto}
+
+/* MAP CARD */
+.map-card .area-type{font-size:.65rem;text-transform:uppercase;letter-spacing:2px;margin-bottom:.5rem}
+
+/* SYSTEM CARD */
+.system-card .sys-icon{font-size:2.5rem;margin-bottom:1rem}
+
+/* SCREENSHOT PLACEHOLDER */
+.screenshot-card{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.03);border:2px dashed rgba(240,192,64,.15);border-radius:var(--radius);font-size:.9rem;color:var(--text2);text-align:center;flex-direction:column;gap:.5rem}
+.screenshot-card .cam-icon{font-size:2.5rem;opacity:.4}
+
+/* COMING SOON */
+.coming-card{text-align:center;padding:2rem}
+.coming-card .coming-icon{font-size:2.5rem;margin-bottom:.75rem}
+
+/* FOOTER */
+.footer{background:var(--bg2);border-top:1px solid rgba(240,192,64,.1);padding:3rem 2rem;text-align:center}
+.footer .brand{font-family:'MedievalSharp',cursive;font-size:1.5rem;color:var(--gold);margin-bottom:.5rem}
+.footer p{color:var(--text2);font-size:.85rem}
+.footer-links{display:flex;justify-content:center;gap:1.5rem;margin-top:1rem;flex-wrap:wrap}
+.footer-links a{color:var(--text2);text-decoration:none;font-size:.85rem;transition:.3s}
+.footer-links a:hover{color:var(--gold)}
+
+/* RARITY */
+.rarity-common{color:var(--common)}.rarity-uncommon{color:var(--uncommon)}.rarity-rare{color:var(--rare)}.rarity-epic{color:var(--epic)}.rarity-legendary{color:var(--legendary)}
+.rarity-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+
+/* ANIMATIONS */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
+/* MOBILE */
+@media(max-width:768px){
+.nav-links{position:fixed;top:64px;left:0;right:0;background:rgba(26,26,46,.98);flex-direction:column;padding:1rem 2rem;gap:1rem;transform:translateY(-120%);transition:.3s;border-bottom:1px solid rgba(240,192,64,.1)}
+.nav-links.open{transform:translateY(0)}
+.hamburger{display:flex}
+.hero h1{font-size:3rem}
+.grid-3,.grid-4{grid-template-columns:1fr 1fr}
+.tabs li{padding:.6rem .8rem;font-size:.65rem}
+.tab-panel{padding:2rem 1rem}
+}
+@media(max-width:480px){
+.grid-3,.grid-4,.grid-2{grid-template-columns:1fr}
+.stats-bar{gap:1rem}
+.stat .num{font-size:1.4rem}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+<a href="#" class="nav-logo">⚔ WILDERNESS</a>
+<ul class="nav-links" id="navLinks">
+<li><a href="#hero">Home</a></li>
+<li><a href="#content" onclick="switchTab(0)">Overview</a></li>
+<li><a href="#content" onclick="switchTab(1)">Skills</a></li>
+<li><a href="#content" onclick="switchTab(2)">Bestiary</a></li>
+<li><a href="#content" onclick="switchTab(6)">Items</a></li>
+<li><a href="#content" onclick="switchTab(5)">Quests</a></li>
+</ul>
+<button class="hamburger" id="hamburger" onclick="toggleMenu()">
+<span></span><span></span><span></span>
+</button>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="hero">
+<canvas id="particles"></canvas>
+<div class="hero-content">
+<h1>WILDERNESS</h1>
+<p>A RuneScape-Inspired Roblox MMO</p>
+<a href="#content" class="cta-btn" onclick="switchTab(0)">Explore the World</a>
+</div>
+</section>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+<div class="stat"><div class="num">16+</div><div class="label">Monsters</div></div>
+<div class="stat"><div class="num">11</div><div class="label">Skills</div></div>
+<div class="stat"><div class="num">18+</div><div class="label">NPCs</div></div>
+<div class="stat"><div class="num">100+</div><div class="label">Items</div></div>
+<div class="stat"><div class="num">10+</div><div class="label">Quests</div></div>
+<div class="stat"><div class="num">30</div><div class="label">Prayers</div></div>
+</div>
+
+<!-- TABS + CONTENT -->
+<div id="content">
+<div class="tabs-wrapper">
+<ul class="tabs" id="tabs">
+<li class="active" onclick="switchTab(0)">Overview</li>
+<li onclick="switchTab(1)">Skills</li>
+<li onclick="switchTab(2)">Bestiary</li>
+<li onclick="switchTab(3)">Map</li>
+<li onclick="switchTab(4)">NPCs</li>
+<li onclick="switchTab(5)">Quests</li>
+<li onclick="switchTab(6)">Items</li>
+<li onclick="switchTab(7)">Prayer</li>
+<li onclick="switchTab(8)">Systems</li>
+<li onclick="switchTab(9)">Screenshots</li>
+<li onclick="switchTab(10)">Coming Soon</li>
+</ul>
+</div>
+
+<!-- 0: OVERVIEW -->
+<div class="tab-panel active" id="panel-0">
+<div class="section-title"><h2>Game Overview</h2><p>Explore a vast world filled with skills, combat, bosses, and full-loot PvP.</p><div class="divider"></div></div>
+<div class="grid grid-3">
+<div class="card"><div class="icon">⚔️</div><h3>Full-Loot PvP Wilderness</h3><p>Enter the Wilderness at your own risk. Defeat other players and claim their gear — or lose everything.</p></div>
+<div class="card"><div class="icon">📊</div><h3>10+ Trainable Skills</h3><p>Level up Mining, Woodcutting, Fishing, Cooking, Smithing, Crafting, Fletching, Strength, Defence, Prayer, and Ranged.</p></div>
+<div class="card"><div class="icon">🐉</div><h3>Boss Monsters</h3><p>Challenge powerful bosses from King Rooster to the Shadow Dragon for epic loot and glory.</p></div>
+<div class="card"><div class="icon">🤝</div><h3>Player Trading</h3><p>Trade items with other players through a secure confirmation-based trading system.</p></div>
+<div class="card"><div class="icon">🏦</div><h3>Banking System</h3><p>Store your hard-earned items safely in the bank with unlimited storage.</p></div>
+<div class="card"><div class="icon">🔨</div><h3>Crafting System</h3><p>Combine raw materials into powerful weapons, armor, and useful items through recipe-based crafting.</p></div>
+<div class="card"><div class="icon">🙏</div><h3>Prayer System</h3><p>Unlock 30 prayers across Protection, Combat, and Utility paths for powerful buffs.</p></div>
+<div class="card"><div class="icon">🎒</div><h3>Equipment &amp; Hotbar</h3><p>Equip gear across 6 slots and assign food & potions to your 8-slot hotbar for quick use.</p></div>
+<div class="card"><div class="icon">📜</div><h3>Quest System</h3><p>Embark on 10+ unique quests with engaging storylines and rewarding loot.</p></div>
+<div class="card"><div class="icon">💬</div><h3>NPC Interactions</h3><p>Meet 18+ NPCs — shopkeepers, trainers, quest givers, and mysterious characters.</p></div>
+</div>
+</div>
+
+<!-- 1: SKILLS -->
+<div class="tab-panel" id="panel-1">
+<div class="section-title"><h2>Skills</h2><p>Train 11 unique skills from level 1 to 99.</p><div class="divider"></div></div>
+<div class="grid grid-2">
+<div class="card skill-card"><div class="skill-header"><div class="skill-icon">⛏️</div><div><h3>Mining</h3><p>Level 1–99 · Gather Ores</p></div></div><p>Mine rocks to obtain ores for smithing. Higher levels unlock rarer ores.</p><div class="progression"><span>Copper</span><span>→ Iron</span><span>→ Gold</span><span>→ Runite</span></div></div>
+<div class="card skill-card"><div class="skill-header"><div class="skill-icon">🪓</div><div><h3>Woodcutting</h3><p>Level 1–99 · Chop Trees</p></div></div><p>Fell trees to collect logs for fletching and crafting.</p><div class="progression"><span>Oak</span><span>→ Willow</span><span>→ Yew</span><span>→ Magic</span></div></div>
+<div class="card skill-card"><div class="skill-header"><div class="skill-icon">🎣</div><div><h3>Fishing</h3><p>Level 1–99 · Catch Fish</p></div></div><p>Fish at various spots to catch food ingredients.</p><div class="progression"><span>Shrimp</span><span>→ Trout</span><span>→ Lobster</span><span>→ Dark Crab</span></div></div>
+<div class="card skill-card"><div class="skill-header"><div class="skill-icon">🍳</div><div><h3>Cooking</h3><p>Level 1–99 · Prepare Food</p></div></div><p>Cook raw fish and meat into healing food. Higher cooking means less burning.</p><div class="progression"><span>Shrimp</span><span>→ Trout</span><span>→ Lobster</span><span>→ Dark Crab</span></div></div>
+<div class="card skill-card"><div class="skill-header"><div class="skill-icon">🔨</div><div><h3>Smithing</h3><p>Level 1–99 · Forge Equipment</p></div></div><p>Smelt ores into bars and forge powerful weapons and armor.</p><div class="progression"><span>Bronze Bars</span><span>→ Iron</span><span>→ Gold</span><span>→ Runite</span></div></div>
+<div class="card skill-card"><div class="skill-header"><div class="skill-icon">🧵</div><div><h3>Crafting</h3><p>Level 1–99 · Create Gear</p></div></div><p>Create leather armor, bows, jewelry, and other useful equipment.</p><div class="progression"><span>Leather</span><span>→ Studded</span><span>→ Dragonhide</span><span>→ Jewelry</span></div></div>
+<div class="card skill-card"><div class="skill-header"><div class="skill-icon">🏹</div><div><h3>Fletching</h3><p>Level 1–99 · Make Ranged Weapons</p></div></div><p>Carve logs into bows and attach feathers to create arrows.</p><div class="progression"><span>Oak Bow</span><span>→ Willow</span><span>→ Yew</span><span>→ Magic Bow</span></div></div>
+<div class="card skill-card"><div class="skill-header"><div class="skill-icon">💪</div><div><h3>Strength</h3><p>Level 1–99 · Melee Damage</p></div></div><p>Increases your maximum melee hit. Train by fighting monsters in combat.</p><div class="progression"><span>+Melee Damage</span><span>+Max Hit</span></div></div>
+<div class="card skill-card"><div class="skill-header"><div class="skill-icon">🛡️</div><div><h3>Defence</h3><p>Level 1–99 · Damage Reduction</p></div></div><p>Reduces incoming damage and unlocks higher-tier armor.</p><div class="progression"><span>+Damage Reduction</span><span>+Armor Tiers</span></div></div>
+<div class="card skill-card"><div class="skill-header"><div class="skill-icon">🙏</div><div><h3>Prayer</h3><p>Level 1–99 · Divine Powers</p></div></div><p>Unlock 30 prayers across Protection, Combat, and Utility paths.</p><div class="progression"><span>Protection</span><span>Combat</span><span>Utility</span></div></div>
+<div class="card skill-card"><div class="skill-header"><div class="skill-icon">🎯</div><div><h3>Ranged</h3><p>Level 1–99 · Ranged Combat</p></div></div><p>Attack from a distance with bows and crossbows. Higher levels increase accuracy and damage.</p><div class="progression"><span>Oak Bow</span><span>→ Crossbows</span><span>→ Magic Bow</span></div></div>
+</div>
+</div>
+
+<!-- 2: BESTIARY -->
+<div class="tab-panel" id="panel-2">
+<div class="section-title"><h2>Bestiary</h2><p>Every creature lurking in the world of Wilderness.</p><div class="divider"></div></div>
+
+<h3 style="margin-bottom:1rem;font-size:1.2rem">🟢 Safe Zone Monsters</h3>
+<div class="grid grid-4" style="margin-bottom:2.5rem">
+<div class="card monster-card"><div class="avatar">🐔</div><h3>Chicken</h3><div class="level">Level 1</div><div class="hp">50 HP</div><span class="tag tag-safe">Safe</span></div>
+<div class="card monster-card"><div class="avatar">🐀</div><h3>Giant Rat</h3><div class="level">Level 2</div><div class="hp">125 HP</div><span class="tag tag-safe">Safe</span></div>
+<div class="card monster-card"><div class="avatar">🐄</div><h3>Cow</h3><div class="level">Level 3</div><div class="hp">150 HP</div><span class="tag tag-safe">Safe</span></div>
+<div class="card monster-card"><div class="avatar">🐕</div><h3>Guard Dog</h3><div class="level">Level 4</div><div class="hp">200 HP</div><span class="tag tag-safe">Safe</span></div>
+<div class="card monster-card"><div class="avatar">👺</div><h3>Goblin</h3><div class="level">Level 5</div><div class="hp">250 HP</div><span class="tag tag-safe">Safe</span></div>
+<div class="card monster-card"><div class="avatar">🎯</div><h3>Training Dummy</h3><div class="level">—</div><div class="hp">Immortal</div><span class="tag tag-safe">Safe</span></div>
+</div>
+
+<h3 style="margin-bottom:1rem;font-size:1.2rem">👑 Safe Zone Bosses</h3>
+<div class="grid grid-4" style="margin-bottom:2.5rem">
+<div class="card monster-card"><div class="avatar">🐓</div><h3>King Rooster</h3><div class="level">Level 20</div><div class="hp">300 HP</div><span class="tag tag-boss">Boss</span></div>
+<div class="card monster-card"><div class="avatar">🌳</div><h3>Elder Treant</h3><div class="level">Level 35</div><div class="hp">600 HP</div><span class="tag tag-boss">Boss</span></div>
+<div class="card monster-card"><div class="avatar">🤖</div><h3>Iron Golem</h3><div class="level">Level 50</div><div class="hp">1,000 HP</div><span class="tag tag-boss">Boss</span></div>
+<div class="card monster-card"><div class="avatar">🐍</div><h3>Lake Serpent</h3><div class="level">Level 65</div><div class="hp">1,500 HP</div><span class="tag tag-boss">Boss</span></div>
+<div class="card monster-card"><div class="avatar">🗿</div><h3>Corrupted Guardian</h3><div class="level">Level 80</div><div class="hp">2,500 HP</div><span class="tag tag-boss">Boss</span></div>
+</div>
+
+<h3 style="margin-bottom:1rem;font-size:1.2rem">🆕 New Area Monsters</h3>
+<div class="grid grid-4" style="margin-bottom:2.5rem">
+<div class="card monster-card"><div class="avatar">👻</div><h3>Pirate Ghost</h3><div class="level">Level 25</div><div class="hp">200 HP</div><span class="tag tag-new">New</span></div>
+<div class="card monster-card"><div class="avatar">❄️</div><h3>Ice Elemental</h3><div class="level">Level 40</div><div class="hp">500 HP</div><span class="tag tag-new">New</span></div>
+<div class="card monster-card"><div class="avatar">🐲</div><h3>Fairy Dragon</h3><div class="level">Level 30</div><div class="hp">350 HP</div><span class="tag tag-new">New</span></div>
+<div class="card monster-card"><div class="avatar">🌋</div><h3>Lava Golem</h3><div class="level">Level 55</div><div class="hp">900 HP</div><span class="tag tag-new">New</span></div>
+</div>
+
+<h3 style="margin-bottom:1rem;font-size:1.2rem">🆕 New Area Bosses</h3>
+<div class="grid grid-4" style="margin-bottom:2.5rem">
+<div class="card monster-card"><div class="avatar">🐉</div><h3>Frost Wyrm</h3><div class="level">Level 60</div><div class="hp">1,200 HP</div><span class="tag tag-boss">Boss</span> <span class="tag tag-new">New</span></div>
+<div class="card monster-card"><div class="avatar">🏛️</div><h3>Ancient Guardian</h3><div class="level">Level 70</div><div class="hp">2,000 HP</div><span class="tag tag-boss">Boss</span> <span class="tag tag-new">New</span></div>
+</div>
+
+<h3 style="margin-bottom:1rem;font-size:1.2rem">☠️ Wilderness Monsters</h3>
+<div class="grid grid-4" style="margin-bottom:2.5rem">
+<div class="card monster-card"><div class="avatar">💀</div><h3>Skeleton</h3><div class="level">Level 20</div><div class="hp">400 HP</div><span class="tag tag-wilderness">Wilderness</span></div>
+<div class="card monster-card"><div class="avatar">🧙</div><h3>Dark Wizard</h3><div class="level">Level 35</div><div class="hp">600 HP</div><span class="tag tag-wilderness">Wilderness</span></div>
+<div class="card monster-card"><div class="avatar">👿</div><h3>Demon</h3><div class="level">Level 50</div><div class="hp">1,000 HP</div><span class="tag tag-wilderness">Wilderness</span></div>
+</div>
+
+<h3 style="margin-bottom:1rem;font-size:1.2rem">💀 Wilderness Bosses</h3>
+<div class="grid grid-4">
+<div class="card monster-card" style="border-color:rgba(156,39,176,.3)"><div class="avatar" style="background:rgba(156,39,176,.15)">👑</div><h3 class="rarity-epic">Lich King Malachar</h3><div class="level">Level 90</div><div class="hp">4,000 HP</div><span class="tag tag-boss">Boss</span> <span class="tag tag-new">NEW!</span></div>
+<div class="card monster-card" style="border-color:rgba(255,152,0,.3)"><div class="avatar" style="background:rgba(255,152,0,.15)">🐉</div><h3 class="rarity-legendary">Shadow Dragon</h3><div class="level">Level 80</div><div class="hp">5,000 HP</div><span class="tag tag-boss">Final Boss</span></div>
+</div>
+</div>
+
+<!-- 3: MAP -->
+<div class="tab-panel" id="panel-3">
+<div class="section-title"><h2>World Map</h2><p>Explore safe havens and treacherous wilderness zones.</p><div class="divider"></div></div>
+
+<h3 style="margin-bottom:1rem;font-size:1.2rem">🟢 Safe Areas</h3>
+<div class="grid grid-3" style="margin-bottom:2.5rem">
+<div class="card map-card"><div class="area-type" style="color:var(--safe)">Safe Zone</div><h3>🏰 Haven City</h3><p>The starting city — home to shops, the bank, quest givers, and trainers.</p></div>
+<div class="card map-card"><div class="area-type" style="color:var(--safe)">Safe Zone</div><h3>🌻 Sunflower Fields</h3><p>Peaceful farmlands ideal for beginners. Fight chickens and gather herbs.</p></div>
+<div class="card map-card"><div class="area-type" style="color:var(--safe)">Safe Zone</div><h3>🌲 Whispering Woods</h3><p>Dense forest filled with trees to chop — Oak, Willow, Yew, and Magic.</p></div>
+<div class="card map-card"><div class="area-type" style="color:var(--safe)">Safe Zone</div><h3>⛏️ Deep Mine</h3><p>Underground mine with copper, iron, gold, and runite ore veins.</p></div>
+<div class="card map-card"><div class="area-type" style="color:var(--safe)">Safe Zone</div><h3>💎 Crystal Cavern</h3><p>Sparkling cave system with gems and rare mineral deposits.</p></div>
+<div class="card map-card"><div class="area-type" style="color:var(--safe)">Safe Zone</div><h3>🌙 Moonlit Pond</h3><p>Serene fishing spot under moonlight. Catch shrimp, trout, and lobster.</p></div>
+<div class="card map-card"><div class="area-type" style="color:var(--safe)">Safe Zone</div><h3>🌿 Thornwood Thicket</h3><p>Overgrown thicket full of herbs and crafting materials.</p></div>
+<div class="card map-card"><div class="area-type" style="color:var(--safe)">Safe Zone</div><h3>🪨 Abandoned Quarry</h3><p>Old quarry with stone deposits and the Iron Golem boss.</p></div>
+<div class="card map-card"><div class="area-type" style="color:var(--safe)">Safe Zone</div><h3>✨ Enchanted Garden</h3><p>Magical garden with arcane resources and mystical creatures.</p></div>
+<div class="card map-card"><div class="area-type" style="color:var(--safe)">Safe Zone</div><h3>🏴‍☠️ Pirate Cove</h3><p>Haunted cove with pirate ghosts and buried treasure. Home of the ghost pirates.</p></div>
+<div class="card map-card"><div class="area-type" style="color:var(--safe)">Safe Zone</div><h3>🏔️ Frozen Peaks</h3><p>Icy mountain peaks with Ice Elementals and the fearsome Frost Wyrm boss.</p></div>
+</div>
+
+<h3 style="margin-bottom:1rem;font-size:1.2rem">☠️ Wilderness (PvP Enabled)</h3>
+<div class="grid grid-3">
+<div class="card map-card" style="border-color:rgba(231,76,60,.15)"><div class="area-type" style="color:var(--danger)">⚠️ Wilderness</div><h3>🌑 Dark Forest</h3><p>Twisted trees and lurking skeletons. A dangerous entry point into the Wilderness.</p></div>
+<div class="card map-card" style="border-color:rgba(231,76,60,.15)"><div class="area-type" style="color:var(--danger)">⚠️ Wilderness</div><h3>🏕️ Bandit Camp</h3><p>Outlaw encampment crawling with hostile NPCs and PKers.</p></div>
+<div class="card map-card" style="border-color:rgba(231,76,60,.15)"><div class="area-type" style="color:var(--danger)">⚠️ Wilderness</div><h3>⛰️ Dragon's Spine Mountains</h3><p>Treacherous mountain range with valuable ores and deadly encounters.</p></div>
+<div class="card map-card" style="border-color:rgba(231,76,60,.15)"><div class="area-type" style="color:var(--danger)">⚠️ Wilderness</div><h3>🫧 Cursed Swamp</h3><p>Toxic marshlands inhabited by Dark Wizards and cursed spirits.</p></div>
+<div class="card map-card" style="border-color:rgba(231,76,60,.15)"><div class="area-type" style="color:var(--danger)">⚠️ Wilderness</div><h3>🕳️ The Abyss</h3><p>The deepest, darkest zone. Only the bravest — or most foolish — venture here.</p></div>
+<div class="card map-card" style="border-color:rgba(231,76,60,.15)"><div class="area-type" style="color:var(--danger)">⚠️ Wilderness</div><h3>🌋 Volcanic Crater</h3><p>Scorching volcanic zone with Lava Golems and rare fire-forged materials.</p></div>
+<div class="card map-card" style="border-color:rgba(231,76,60,.15)"><div class="area-type" style="color:var(--danger)">⚠️ Wilderness</div><h3>🏛️ Underground Ruins</h3><p>Ancient subterranean complex guarded by the Ancient Guardian boss.</p></div>
+<div class="card map-card" style="border-color:rgba(231,76,60,.15)"><div class="area-type" style="color:var(--danger)">⚠️ Wilderness</div><h3>🐉 Dragon's Nest</h3><p>The lair of the Shadow Dragon — final boss. Legendary treasures await the victorious.</p></div>
+</div>
+</div>
+
+<!-- 4: NPCs -->
+<div class="tab-panel" id="panel-4">
+<div class="section-title"><h2>NPCs</h2><p>Meet the characters who bring the world to life.</p><div class="divider"></div></div>
+<div class="grid grid-4">
+<div class="card npc-card"><div class="npc-icon">🏪</div><h3>General Store Owner</h3><p>Buys and sells basic supplies and materials.</p></div>
+<div class="card npc-card"><div class="npc-icon">⚒️</div><h3>Blacksmith</h3><p>Sells weapons and armor. Teaches Smithing basics.</p></div>
+<div class="card npc-card"><div class="npc-icon">🎣</div><h3>Fishing Instructor</h3><p>Provides fishing rods and teaches fishing techniques.</p></div>
+<div class="card npc-card"><div class="npc-icon">⛏️</div><h3>Mining Foreman</h3><p>Sells pickaxes and guides new miners.</p></div>
+<div class="card npc-card"><div class="npc-icon">👨‍🍳</div><h3>Chef</h3><p>Teaches cooking and sells recipe ingredients.</p></div>
+<div class="card npc-card"><div class="npc-icon">🏦</div><h3>Bank Teller</h3><p>Manages your bank — deposit, withdraw, and organize items.</p></div>
+<div class="card npc-card"><div class="npc-icon">🪓</div><h3>Woodcutting Master</h3><p>Provides axes and woodcutting training.</p></div>
+<div class="card npc-card"><div class="npc-icon">📜</div><h3>Quest Master</h3><p>Assigns quests and tracks your progress.</p></div>
+<div class="card npc-card"><div class="npc-icon">🗺️</div><h3>Wilderness Scout</h3><p>Warns about Wilderness dangers and provides survival tips.</p></div>
+<div class="card npc-card"><div class="npc-icon">🙏</div><h3>Prayer Priest</h3><p>Teaches prayers and recharges prayer points.</p></div>
+<div class="card npc-card"><div class="npc-icon">⚔️</div><h3>Guard Captain</h3><p>Protects Haven City and gives combat quests.</p></div>
+<div class="card npc-card"><div class="npc-icon">🌿</div><h3>Herbalist</h3><p>Sells herbs and teaches potion-making.</p></div>
+<div class="card npc-card"><div class="npc-icon">🏹</div><h3>Ranger Trainer</h3><p>Teaches ranged combat and sells bows.</p></div>
+<div class="card npc-card"><div class="npc-icon">🧪</div><h3>Apothecary</h3><p>Crafts potions and sells rare ingredients.</p></div>
+<div class="card npc-card"><div class="npc-icon">🏟️</div><h3>Arena Master</h3><p>Manages the combat arena and PvP events.</p></div>
+<div class="card npc-card"><div class="npc-icon">💰</div><h3>Treasure Hunter</h3><p>Sells treasure maps and hints about hidden loot.</p></div>
+<div class="card npc-card"><div class="npc-icon">🔮</div><h3>Runekeeper</h3><p>Mystical scholar who studies ancient runes and magic.</p></div>
+<div class="card npc-card"><div class="npc-icon">📚</div><h3>Librarian</h3><p>Keeper of lore and knowledge about the world's history.</p></div>
+</div>
+</div>
+
+<!-- 5: QUESTS -->
+<div class="tab-panel" id="panel-5">
+<div class="section-title"><h2>Quests</h2><p>Embark on adventures and earn powerful rewards.</p><div class="divider"></div></div>
+<div class="grid grid-2">
+<div class="card quest-card"><div class="quest-num">1</div><div><h3>Chicken Slayer</h3><p>Defeat 10 chickens in the Sunflower Fields. A rite of passage for every adventurer.</p><span class="tag tag-safe">Beginner</span></div></div>
+<div class="card quest-card"><div class="quest-num">2</div><div><h3>Goblin Menace</h3><p>Goblins are raiding the outskirts! Slay 15 goblins to protect Haven City.</p><span class="tag tag-safe">Beginner</span></div></div>
+<div class="card quest-card"><div class="quest-num">3</div><div><h3>Into the Wilderness</h3><p>The Wilderness Scout needs a brave soul to scout the Dark Forest and return alive.</p><span class="tag tag-wilderness">Intermediate</span></div></div>
+<div class="card quest-card"><div class="quest-num">4</div><div><h3>Dragon Slayer</h3><p>Journey to Dragon's Nest and defeat the Shadow Dragon. The ultimate challenge.</p><span class="tag tag-boss">Master</span></div></div>
+<div class="card quest-card"><div class="quest-num">5</div><div><h3>Mining Mastery</h3><p>Mine 50 of each ore type to prove your skill to the Mining Foreman.</p><span class="tag tag-safe">Skill</span></div></div>
+<div class="card quest-card"><div class="quest-num">6</div><div><h3>Master Chef</h3><p>Cook one of every food item without burning any. The Chef will be impressed.</p><span class="tag tag-safe">Skill</span></div></div>
+<div class="card quest-card"><div class="quest-num">7</div><div><h3>The Lost Artifact</h3><p>The Librarian discovered clues to an ancient artifact hidden in the Underground Ruins.</p><span class="tag tag-wilderness">Advanced</span></div></div>
+<div class="card quest-card"><div class="quest-num">8</div><div><h3>Guardian's Trial</h3><p>Defeat all 5 safe zone bosses in sequence to earn the Guardian title.</p><span class="tag tag-boss">Advanced</span></div></div>
+<div class="card quest-card"><div class="quest-num">9</div><div><h3>Pirate's Revenge</h3><p>The ghosts of Pirate Cove are restless. Uncover their story and put them to rest.</p><span class="tag tag-new">New</span></div></div>
+<div class="card quest-card"><div class="quest-num">10</div><div><h3>Frozen Heart</h3><p>Climb the Frozen Peaks and defeat the Frost Wyrm to retrieve its frozen core.</p><span class="tag tag-new">New</span></div></div>
+</div>
+</div>
+
+<!-- 6: ITEMS -->
+<div class="tab-panel" id="panel-6">
+<div class="section-title"><h2>Item Database</h2><p>Over 100 items to discover, craft, and wield.</p><div class="divider"></div></div>
+
+<div class="item-tabs">
+<div class="item-tab active" onclick="switchItemTab(0)">⚔️ Weapons</div>
+<div class="item-tab" onclick="switchItemTab(1)">🛡️ Armor</div>
+<div class="item-tab" onclick="switchItemTab(2)">🔧 Tools</div>
+<div class="item-tab" onclick="switchItemTab(3)">📦 Materials</div>
+<div class="item-tab" onclick="switchItemTab(4)">🍖 Food</div>
+</div>
+
+<div class="item-panel active" id="items-0">
+<div class="grid grid-4">
+<div class="card"><h3 class="rarity-common">Copper Sword</h3><p>Basic starter melee weapon.</p></div>
+<div class="card"><h3 class="rarity-common">Iron Sword</h3><p>Reliable iron blade.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Gold Sword</h3><p>Gilded sword with decent power.</p></div>
+<div class="card"><h3 class="rarity-rare">Runite Sword</h3><p>Forged from rare runite ore.</p></div>
+<div class="card"><h3 class="rarity-legendary">Dragon Sword</h3><p>Legendary blade of dragonfire.</p></div>
+<div class="card"><h3 class="rarity-common">Oak Bow</h3><p>Simple wooden bow.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Willow Bow</h3><p>Flexible willow longbow.</p></div>
+<div class="card"><h3 class="rarity-rare">Yew Bow</h3><p>Sturdy yew longbow.</p></div>
+<div class="card"><h3 class="rarity-legendary">Magic Bow</h3><p>Enchanted bow of immense power.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Crossbow</h3><p>Mechanical ranged weapon.</p></div>
+<div class="card"><h3 class="rarity-epic">Soul Staff</h3><p>Staff imbued with soul energy.</p></div>
+<div class="card"><h3 class="rarity-legendary">Lava Blade</h3><p>Forged in volcanic fire. Burns on hit.</p></div>
+<div class="card"><h3 class="rarity-epic">Sea Fang</h3><p>Dropped by the Lake Serpent.</p></div>
+<div class="card"><h3 class="rarity-epic">Ice Fang</h3><p>Frost Wyrm's frozen fang weapon.</p></div>
+<div class="card"><h3 class="rarity-rare">Pirate Cutlass</h3><p>Ghostly blade from Pirate Cove.</p></div>
+</div>
+</div>
+
+<div class="item-panel" id="items-1">
+<div class="grid grid-4">
+<div class="card"><h3 class="rarity-common">Bronze Helm / Body / Legs</h3><p>Basic bronze armor set.</p></div>
+<div class="card"><h3 class="rarity-common">Iron Helm / Body / Legs</h3><p>Sturdy iron armor set.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Gold Helm / Body / Legs</h3><p>Gilded armor with improved defence.</p></div>
+<div class="card"><h3 class="rarity-rare">Runite Helm / Body / Legs</h3><p>High-tier runite armor set.</p></div>
+<div class="card"><h3 class="rarity-legendary">Dragon Helm / Body / Legs</h3><p>Legendary dragonforged armor.</p></div>
+<div class="card"><h3 class="rarity-common">Leather Armor</h3><p>Light ranged armor from crafting.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Studded Armor</h3><p>Reinforced leather with metal studs.</p></div>
+<div class="card"><h3 class="rarity-rare">Dragonhide Armor</h3><p>Crafted from dragon scales.</p></div>
+<div class="card"><h3 class="rarity-common">Wooden Shield</h3><p>Basic defensive shield.</p></div>
+<div class="card"><h3 class="rarity-rare">Runite Shield</h3><p>Heavy runite kite shield.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Wizard Robe</h3><p>Magic-boosting cloth armor.</p></div>
+<div class="card"><h3 class="rarity-epic">Necrotic Robe</h3><p>Dark robes of the Lich King.</p></div>
+<div class="card"><h3 class="rarity-epic">Corrupted Plate</h3><p>Dropped by the Corrupted Guardian.</p></div>
+<div class="card"><h3 class="rarity-legendary">Ancient Armor</h3><p>Relic armor from the Ancient Guardian.</p></div>
+<div class="card"><h3 class="rarity-epic">Frost Armor</h3><p>Ice-infused armor from Frozen Peaks.</p></div>
+<div class="card"><h3 class="rarity-legendary">Lich Crown</h3><p>Crown of the Lich King Malachar.</p></div>
+</div>
+</div>
+
+<div class="item-panel" id="items-2">
+<div class="grid grid-4">
+<div class="card"><h3 class="rarity-common">Bronze Pickaxe</h3><p>Basic mining tool.</p></div>
+<div class="card"><h3 class="rarity-common">Iron Pickaxe</h3><p>Improved mining speed.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Gold Pickaxe</h3><p>Fast and reliable.</p></div>
+<div class="card"><h3 class="rarity-rare">Runite Pickaxe</h3><p>Mines the toughest ores.</p></div>
+<div class="card"><h3 class="rarity-legendary">Dragon Pickaxe</h3><p>The ultimate mining tool.</p></div>
+<div class="card"><h3 class="rarity-common">Bronze Axe</h3><p>Basic woodcutting hatchet.</p></div>
+<div class="card"><h3 class="rarity-common">Iron Axe</h3><p>Sharper cutting edge.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Gold Axe</h3><p>Premium golden axe.</p></div>
+<div class="card"><h3 class="rarity-rare">Runite Axe</h3><p>Fells any tree swiftly.</p></div>
+<div class="card"><h3 class="rarity-legendary">Dragon Axe</h3><p>Legendary lumberjack's dream.</p></div>
+<div class="card"><h3 class="rarity-common">Bronze Fishing Rod</h3><p>Basic fishing rod.</p></div>
+<div class="card"><h3 class="rarity-common">Iron Fishing Rod</h3><p>Catches better fish.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Gold Fishing Rod</h3><p>Reliable angling tool.</p></div>
+<div class="card"><h3 class="rarity-rare">Runite Fishing Rod</h3><p>Expert-grade rod.</p></div>
+<div class="card"><h3 class="rarity-legendary">Dragon Fishing Rod</h3><p>The ultimate fishing rod.</p></div>
+</div>
+</div>
+
+<div class="item-panel" id="items-3">
+<div class="grid grid-4">
+<div class="card"><h3 class="rarity-common">Copper Ore</h3><p>Basic ore, found everywhere.</p></div>
+<div class="card"><h3 class="rarity-common">Iron Ore</h3><p>Common ore for iron bars.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Gold Ore</h3><p>Precious gold ore.</p></div>
+<div class="card"><h3 class="rarity-rare">Runite Ore</h3><p>Rare and powerful ore.</p></div>
+<div class="card"><h3 class="rarity-common">Oak Log</h3><p>Common log for fletching.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Willow Log</h3><p>Flexible willow wood.</p></div>
+<div class="card"><h3 class="rarity-rare">Yew Log</h3><p>Strong, dense wood.</p></div>
+<div class="card"><h3 class="rarity-epic">Magic Log</h3><p>Enchanted ancient wood.</p></div>
+<div class="card"><h3 class="rarity-common">Raw Shrimp</h3><p>Tiny but plentiful.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Raw Trout</h3><p>Freshwater fish.</p></div>
+<div class="card"><h3 class="rarity-rare">Raw Lobster</h3><p>Prized crustacean.</p></div>
+<div class="card"><h3 class="rarity-epic">Raw Dark Crab</h3><p>Rare deep-sea crab.</p></div>
+<div class="card"><h3 class="rarity-common">Bronze Bar</h3><p>Smelted bronze ingot.</p></div>
+<div class="card"><h3 class="rarity-common">Iron Bar</h3><p>Smelted iron ingot.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Gold Bar</h3><p>Smelted gold ingot.</p></div>
+<div class="card"><h3 class="rarity-rare">Runite Bar</h3><p>Smelted runite ingot.</p></div>
+<div class="card"><h3 class="rarity-legendary">Dragon Scale</h3><p>Dropped by Shadow Dragon.</p></div>
+<div class="card"><h3 class="rarity-epic">Demon Heart</h3><p>Dark essence from Demons.</p></div>
+<div class="card"><h3 class="rarity-legendary">Shadow Gem</h3><p>Rare drop from Shadow Dragon.</p></div>
+<div class="card"><h3 class="rarity-epic">Serpent Scale</h3><p>Dropped by Lake Serpent.</p></div>
+<div class="card"><h3 class="rarity-rare">Golem Core</h3><p>Iron Golem's power core.</p></div>
+<div class="card"><h3 class="rarity-epic">Frost Crystal</h3><p>Dropped by Frost Wyrm.</p></div>
+<div class="card"><h3 class="rarity-legendary">Lich Phylactery</h3><p>Soul vessel of the Lich King.</p></div>
+<div class="card"><h3 class="rarity-rare">Treant Bark</h3><p>Sturdy bark from Elder Treant.</p></div>
+</div>
+</div>
+
+<div class="item-panel" id="items-4">
+<div class="grid grid-4">
+<div class="card"><h3 class="rarity-common">Cooked Shrimp</h3><p>Heals 30 HP.</p></div>
+<div class="card"><h3 class="rarity-common">Cooked Chicken</h3><p>Heals 40 HP.</p></div>
+<div class="card"><h3 class="rarity-common">Cooked Meat</h3><p>Heals 50 HP.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Cooked Trout</h3><p>Heals 80 HP.</p></div>
+<div class="card"><h3 class="rarity-uncommon">Cooked Cow Steak</h3><p>Heals 100 HP.</p></div>
+<div class="card"><h3 class="rarity-rare">Cooked Lobster</h3><p>Heals 150 HP.</p></div>
+<div class="card"><h3 class="rarity-epic">Cooked Dark Crab</h3><p>Heals 250 HP.</p></div>
+<div class="card"><h3 class="rarity-legendary">Dragon Steak</h3><p>Heals 400 HP. Cooked from dragon meat.</p></div>
+</div>
+</div>
+</div>
+
+<!-- 7: PRAYER -->
+<div class="tab-panel" id="panel-7">
+<div class="section-title"><h2>Prayer System</h2><p>30 divine prayers across 3 paths. Unlock them as you level Prayer.</p><div class="divider"></div></div>
+
+<div class="prayer-path">
+<h3>🛡️ Protection Path</h3>
+<div class="prayer-list">
+<div class="prayer-item"><span class="prayer-lvl">Lv 1</span><span class="prayer-name">Thick Skin</span><span class="prayer-desc">+5% Defence</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 5</span><span class="prayer-name">Rock Skin</span><span class="prayer-desc">+10% Defence</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 10</span><span class="prayer-name">Steel Skin</span><span class="prayer-desc">+15% Defence</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 19</span><span class="prayer-name">Mystic Guard</span><span class="prayer-desc">+15% Magic Defence</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 28</span><span class="prayer-name">Protect from Melee</span><span class="prayer-desc">Block 40% melee damage</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 37</span><span class="prayer-name">Protect from Ranged</span><span class="prayer-desc">Block 40% ranged damage</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 46</span><span class="prayer-name">Protect from Magic</span><span class="prayer-desc">Block 40% magic damage</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 60</span><span class="prayer-name">Fortify</span><span class="prayer-desc">+25% all Defence</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 75</span><span class="prayer-name">Aegis</span><span class="prayer-desc">Block 50% all damage</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 90</span><span class="prayer-name">Divine Shield</span><span class="prayer-desc">Block 60% all damage for 10s</span></div>
+</div>
+</div>
+
+<div class="prayer-path">
+<h3>⚔️ Combat Path</h3>
+<div class="prayer-list">
+<div class="prayer-item"><span class="prayer-lvl">Lv 2</span><span class="prayer-name">Clarity of Thought</span><span class="prayer-desc">+5% Attack accuracy</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 7</span><span class="prayer-name">Improved Reflexes</span><span class="prayer-desc">+10% Attack accuracy</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 13</span><span class="prayer-name">Incredible Reflexes</span><span class="prayer-desc">+15% Attack accuracy</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 20</span><span class="prayer-name">Burst of Strength</span><span class="prayer-desc">+5% Melee damage</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 31</span><span class="prayer-name">Superhuman Strength</span><span class="prayer-desc">+10% Melee damage</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 40</span><span class="prayer-name">Ultimate Strength</span><span class="prayer-desc">+15% Melee damage</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 52</span><span class="prayer-name">Chivalry</span><span class="prayer-desc">+15% Atk, +18% Str, +15% Def</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 65</span><span class="prayer-name">Piety</span><span class="prayer-desc">+20% Atk, +23% Str, +20% Def</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 80</span><span class="prayer-name">Turmoil</span><span class="prayer-desc">+25% all combat stats</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 95</span><span class="prayer-name">Wrath</span><span class="prayer-desc">Explode on death, dealing massive AoE</span></div>
+</div>
+</div>
+
+<div class="prayer-path">
+<h3>✨ Utility Path</h3>
+<div class="prayer-list">
+<div class="prayer-item"><span class="prayer-lvl">Lv 3</span><span class="prayer-name">Rapid Restore</span><span class="prayer-desc">2× stat restore rate</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 8</span><span class="prayer-name">Rapid Heal</span><span class="prayer-desc">2× HP regen rate</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 15</span><span class="prayer-name">Protect Item</span><span class="prayer-desc">Keep 1 extra item on death</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 22</span><span class="prayer-name">Sharp Eye</span><span class="prayer-desc">+5% Ranged accuracy</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 35</span><span class="prayer-name">Hawk Eye</span><span class="prayer-desc">+10% Ranged accuracy</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 44</span><span class="prayer-name">Eagle Eye</span><span class="prayer-desc">+15% Ranged accuracy & damage</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 55</span><span class="prayer-name">Redemption</span><span class="prayer-desc">Heal 25% HP when below 10%</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 68</span><span class="prayer-name">Smite</span><span class="prayer-desc">Drain enemy prayer on hit</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 82</span><span class="prayer-name">Rigour</span><span class="prayer-desc">+20% Ranged atk & +23% dmg</span></div>
+<div class="prayer-item"><span class="prayer-lvl">Lv 92</span><span class="prayer-name">Soul Split</span><span class="prayer-desc">Heal 10% of damage dealt</span></div>
+</div>
+</div>
+</div>
+
+<!-- 8: SYSTEMS -->
+<div class="tab-panel" id="panel-8">
+<div class="section-title"><h2>Game Systems</h2><p>Core mechanics that power the Wilderness experience.</p><div class="divider"></div></div>
+<div class="grid grid-2">
+<div class="card system-card"><div class="sys-icon">🎽</div><h3>Equipment System</h3><p>6 gear slots: Head, Body, Legs, Weapon, Shield, and Tool. Each piece provides stats that boost your combat effectiveness and skill efficiency. Mix and match to find your perfect loadout.</p></div>
+<div class="card system-card"><div class="sys-icon">🎮</div><h3>Hotbar System</h3><p>8 customizable hotbar slots with drag-and-drop support. Assign food, potions, and tools for quick access during combat. Essential for PvP survival.</p></div>
+<div class="card system-card"><div class="sys-icon">🏦</div><h3>Banking</h3><p>Unlimited bank storage accessible from any Bank Teller. Deposit and withdraw items freely. Your bank is safe — even in the Wilderness, banked items are never lost.</p></div>
+<div class="card system-card"><div class="sys-icon">🔨</div><h3>Crafting</h3><p>Recipe-based crafting system with skill requirements. Combine raw materials at workstations to create weapons, armor, food, and more. Discover recipes through quests and exploration.</p></div>
+<div class="card system-card"><div class="sys-icon">🤝</div><h3>Trading</h3><p>Player-to-player trading with a secure two-step confirmation system. Both players must accept the trade. No scams, no tricks — fair trading guaranteed.</p></div>
+<div class="card system-card"><div class="sys-icon">💀</div><h3>Full-Loot PvP Wilderness</h3><p>The Wilderness is lawless territory. When you die, you lose ALL items in your inventory. Risk it all for the rarest monsters, best resources, and legendary boss drops.</p></div>
+</div>
+</div>
+
+<!-- 9: SCREENSHOTS -->
+<div class="tab-panel" id="panel-9">
+<div class="section-title"><h2>Screenshots</h2><p>A glimpse into the world of Wilderness.</p><div class="divider"></div></div>
+<div class="grid grid-3">
+<div class="screenshot-card"><div class="cam-icon">📸</div>Haven City<br><small>Screenshots Coming Soon</small></div>
+<div class="screenshot-card"><div class="cam-icon">📸</div>Wilderness PvP<br><small>Screenshots Coming Soon</small></div>
+<div class="screenshot-card"><div class="cam-icon">📸</div>Boss Fight<br><small>Screenshots Coming Soon</small></div>
+<div class="screenshot-card"><div class="cam-icon">📸</div>Skill Training<br><small>Screenshots Coming Soon</small></div>
+<div class="screenshot-card"><div class="cam-icon">📸</div>Player Trading<br><small>Screenshots Coming Soon</small></div>
+<div class="screenshot-card"><div class="cam-icon">📸</div>Dragon's Nest<br><small>Screenshots Coming Soon</small></div>
+</div>
+</div>
+
+<!-- 10: COMING SOON -->
+<div class="tab-panel" id="panel-10">
+<div class="section-title"><h2>Coming Soon</h2><p>Exciting features on the horizon.</p><div class="divider"></div></div>
+<div class="grid grid-3">
+<div class="card coming-card"><div class="coming-icon">🏰</div><h3>Clan System</h3><p>Form clans, build a reputation, and wage clan wars in the Wilderness.</p></div>
+<div class="card coming-card"><div class="coming-icon">🏠</div><h3>Housing</h3><p>Build and customize your own player-owned house.</p></div>
+<div class="card coming-card"><div class="coming-icon">🐾</div><h3>Pets</h3><p>Collect and raise companion pets that follow you on adventures.</p></div>
+<div class="card coming-card"><div class="coming-icon">🎲</div><h3>Mini-Games</h3><p>Competitive and cooperative mini-games with unique rewards.</p></div>
+<div class="card coming-card"><div class="coming-icon">📖</div><h3>Achievement Diary</h3><p>Complete region-specific tasks for exclusive rewards.</p></div>
+<div class="card coming-card"><div class="coming-icon">💱</div><h3>Grand Exchange</h3><p>Global auction house for buying and selling items.</p></div>
+<div class="card coming-card"><div class="coming-icon">⛵</div><h3>Sailing Skill</h3><p>Set sail to discover new islands and underwater treasures.</p></div>
+<div class="card coming-card"><div class="coming-icon">🏚️</div><h3>Dungeoneering</h3><p>Procedurally generated dungeons with escalating difficulty.</p></div>
+<div class="card coming-card"><div class="coming-icon">⚡</div><h3>Boss Rush Mode</h3><p>Fight every boss back-to-back in a timed challenge.</p></div>
+<div class="card coming-card"><div class="coming-icon">🎄</div><h3>Seasonal Events</h3><p>Limited-time holiday events with exclusive cosmetics and loot.</p></div>
+</div>
+</div>
+
+</div><!-- end #content -->
+
+<!-- FOOTER -->
+<footer class="footer">
+<div class="brand">⚔ WILDERNESS</div>
+<p>A RuneScape-Inspired Roblox MMO</p>
+<p style="margin-top:.5rem;font-size:.75rem;color:var(--text2)">Developed by <strong style="color:var(--gold)">Kermicle Media</strong></p>
+<div class="footer-links">
+<a href="#hero">Home</a>
+<a href="#content" onclick="switchTab(0)">Overview</a>
+<a href="#content" onclick="switchTab(2)">Bestiary</a>
+<a href="#content" onclick="switchTab(6)">Items</a>
+<a href="#content" onclick="switchTab(5)">Quests</a>
+</div>
+<p style="margin-top:1.5rem;font-size:.7rem;color:rgba(255,255,255,.2)">© 2026 Kermicle Media. All rights reserved. WILDERNESS is not affiliated with Jagex or RuneScape.</p>
+</footer>
+
+<script>
+// PARTICLES
+(function(){const c=document.getElementById('particles'),x=c.getContext('2d');let w,h,pts=[];function resize(){w=c.width=c.offsetWidth;h=c.height=c.offsetHeight}window.addEventListener('resize',resize);resize();for(let i=0;i<80;i++)pts.push({x:Math.random()*w,y:Math.random()*h,r:Math.random()*2+.5,dx:(Math.random()-.5)*.5,dy:(Math.random()-.5)*.5,a:Math.random()*.5+.2});function draw(){x.clearRect(0,0,w,h);pts.forEach(p=>{p.x+=p.dx;p.y+=p.dy;if(p.x<0)p.x=w;if(p.x>w)p.x=0;if(p.y<0)p.y=h;if(p.y>h)p.y=0;x.beginPath();x.arc(p.x,p.y,p.r,0,Math.PI*2);x.fillStyle=`rgba(240,192,64,${p.a})`;x.fill()});pts.forEach((a,i)=>{for(let j=i+1;j<pts.length;j++){const b=pts[j],d=Math.hypot(a.x-b.x,a.y-b.y);if(d<120){x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.strokeStyle=`rgba(240,192,64,${.08*(1-d/120)})`;x.stroke()}}});requestAnimationFrame(draw)}draw()})();
+
+// TABS
+function switchTab(i){document.querySelectorAll('.tabs li').forEach((t,j)=>t.classList.toggle('active',j===i));document.querySelectorAll('.tab-panel').forEach((p,j)=>p.classList.toggle('active',j===i))}
+
+// ITEM TABS
+function switchItemTab(i){document.querySelectorAll('.item-tab').forEach((t,j)=>t.classList.toggle('active',j===i));document.querySelectorAll('.item-panel').forEach((p,j)=>p.classList.toggle('active',j===i))}
+
+// MOBILE MENU
+function toggleMenu(){document.getElementById('navLinks').classList.toggle('open');document.getElementById('hamburger').classList.toggle('active')}
+document.querySelectorAll('.nav-links a').forEach(a=>a.addEventListener('click',()=>{document.getElementById('navLinks').classList.remove('open');document.getElementById('hamburger').classList.remove('active')}));
+
+// SCROLL ANIMATIONS
+const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){e.target.style.opacity='1';e.target.style.transform='translateY(0)'}})},{threshold:.1});
+document.querySelectorAll('.card,.prayer-item,.screenshot-card').forEach(el=>{el.style.opacity='0';el.style.transform='translateY(20px)';el.style.transition='opacity .5s ease, transform .5s ease';obs.observe(el)});
+</script>
+</body>
+</html>

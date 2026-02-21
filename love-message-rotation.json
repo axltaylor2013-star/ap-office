@@ -1,0 +1,32 @@
+{
+  "current_morning_message": 1,
+  "current_night_message": 3,
+  "last_sent": {
+    "morning": {
+      "date": "2026-02-20",
+      "time": "08:03",
+      "message_number": 1,
+      "sent_by": "Forge",
+      "status": "sent",
+      "message_id": "221"
+    },
+    "night": {
+      "date": "2026-02-19",
+      "time": "20:00",
+      "message_number": 2,
+      "sent_by": "Forge",
+      "status": "sent"
+    }
+  },
+  "next_scheduled": {
+    "morning": {
+      "date": "2026-02-21",
+      "message_number": 2
+    },
+    "night": {
+      "date": "2026-02-20",
+      "message_number": 3
+    }
+  },
+  "notes": "Rotation system: Messages 1-14, then repeat. Add personal touches and seasonal references when possible."
+}

@@ -1,0 +1,243 @@
+--[[
+	HealthBar.client.lua
+	Main player health bar (top center, large and visible)
+	+ overhead health bars for other players
+]]
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+--------------------------------------------------------------------------------
+-- LOCAL PLAYER HEALTH BAR (big, top center)
+--------------------------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "HealthBarUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui", 5)
+
+-- Main container
+local container = Instance.new("Frame")
+container.Name = "HealthContainer"
+container.Size = UDim2.new(0, 300, 0, 40)
+container.Position = UDim2.new(0.5, -150, 0, 10)
+container.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
+container.BorderSizePixel = 0
+container.Parent = screenGui
+
+local containerCorner = Instance.new("UICorner")
+containerCorner.CornerRadius = UDim.new(0, 8)
+containerCorner.Parent = container
+
+local containerStroke = Instance.new("UIStroke")
+containerStroke.Color = Color3.fromRGB(240, 192, 64)
+containerStroke.Thickness = 2
+containerStroke.Parent = container
+
+-- Health bar background
+local barBg = Instance.new("Frame")
+barBg.Name = "BarBg"
+barBg.Size = UDim2.new(1, -16, 0, 20)
+barBg.Position = UDim2.new(0, 8, 0, 14)
+barBg.BackgroundColor3 = Color3.fromRGB(40, 10, 10)
+barBg.BorderSizePixel = 0
+barBg.Parent = container
+
+local barBgCorner = Instance.new("UICorner")
+barBgCorner.CornerRadius = UDim.new(0, 6)
+barBgCorner.Parent = barBg
+
+-- Health fill
+local barFill = Instance.new("Frame")
+barFill.Name = "Fill"
+barFill.Size = UDim2.new(1, 0, 1, 0)
+barFill.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+barFill.BorderSizePixel = 0
+barFill.Parent = barBg
+
+local fillCorner = Instance.new("UICorner")
+fillCorner.CornerRadius = UDim.new(0, 6)
+fillCorner.Parent = barFill
+
+-- Health text overlay
+local hpText = Instance.new("TextLabel")
+hpText.Name = "HPText"
+hpText.Size = UDim2.new(1, 0, 1, 0)
+hpText.BackgroundTransparency = 1
+hpText.Text = "100 / 100"
+hpText.TextColor3 = Color3.fromRGB(255, 255, 255)
+hpText.Font = Enum.Font.GothamBold
+hpText.TextSize = 14
+hpText.TextStrokeTransparency = 0.3
+hpText.ZIndex = 2
+hpText.Parent = barBg
+
+-- Player name label above bar
+local nameLabel = Instance.new("TextLabel")
+nameLabel.Name = "NameLabel"
+nameLabel.Size = UDim2.new(1, 0, 0, 14)
+nameLabel.Position = UDim2.new(0, 0, 0, 0)
+nameLabel.BackgroundTransparency = 1
+nameLabel.Text = LocalPlayer.DisplayName
+nameLabel.TextColor3 = Color3.fromRGB(240, 192, 64)
+nameLabel.Font = Enum.Font.GothamBold
+nameLabel.TextSize = 12
+nameLabel.Parent = container
+
+-- Damage flash overlay
+local flashOverlay = Instance.new("Frame")
+flashOverlay.Name = "Flash"
+flashOverlay.Size = UDim2.new(1, 0, 1, 0)
+flashOverlay.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+flashOverlay.BackgroundTransparency = 1
+flashOverlay.BorderSizePixel = 0
+flashOverlay.ZIndex = 3
+flashOverlay.Parent = barBg
+
+local flashCorner = Instance.new("UICorner")
+flashCorner.CornerRadius = UDim.new(0, 6)
+flashCorner.Parent = flashOverlay
+
+local function getBarColor(pct)
+	if pct > 0.6 then
+		return Color3.fromRGB(0, 200, 0)
+	elseif pct > 0.3 then
+		return Color3.fromRGB(220, 180, 0)
+	else
+		return Color3.fromRGB(200, 30, 30)
+	end
+end
+
+local lastHP = -1
+
+local function updateLocalHP()
+	local character = LocalPlayer.Character
+	if not character then return end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	local hp = math.floor(humanoid.Health)
+	local maxHP = math.floor(humanoid.MaxHealth)
+	local pct = math.clamp(hp / maxHP, 0, 1)
+
+	-- Smooth tween the bar
+	TweenService:Create(barFill, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+		Size = UDim2.new(pct, 0, 1, 0),
+		BackgroundColor3 = getBarColor(pct),
+	}):Play()
+
+	hpText.Text = hp .. " / " .. maxHP
+
+	-- Flash red on damage
+	if lastHP > 0 and hp < lastHP then
+		flashOverlay.BackgroundTransparency = 0.3
+		TweenService:Create(flashOverlay, TweenInfo.new(0.4), {
+			BackgroundTransparency = 1,
+		}):Play()
+	end
+
+	lastHP = hp
+end
+
+-- Connect to character
+local function setupCharacter(character)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if not humanoid then return end
+
+	updateLocalHP()
+	humanoid.HealthChanged:Connect(updateLocalHP)
+	humanoid:GetPropertyChangedSignal("MaxHealth"):Connect(updateLocalHP)
+end
+
+if LocalPlayer.Character then
+	task.spawn(setupCharacter, LocalPlayer.Character)
+end
+LocalPlayer.CharacterAdded:Connect(function(char)
+	task.spawn(setupCharacter, char)
+end)
+
+--------------------------------------------------------------------------------
+-- OTHER PLAYER OVERHEAD BARS (smaller, above heads)
+--------------------------------------------------------------------------------
+local activeBillboards = {}
+
+local function setupOverheadBar(player, character)
+	local old = activeBillboards[player]
+	if old then old:Destroy() end
+
+	local head = character:WaitForChild("Head", 5)
+	local humanoid = character:WaitForChild("Humanoid", 5)
+	if not head or not humanoid then return end
+
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "OverheadBar"
+	bb.Adornee = head
+	bb.Size = UDim2.fromScale(4, 0.8)
+	bb.StudsOffset = Vector3.new(0, 3, 0)
+	bb.AlwaysOnTop = false
+	bb.MaxDistance = 80
+	bb.Parent = head
+	activeBillboards[player] = bb
+
+	local oName = Instance.new("TextLabel")
+	oName.Size = UDim2.new(1, 0, 0.45, 0)
+	oName.BackgroundTransparency = 1
+	oName.Font = Enum.Font.GothamBold
+	oName.TextColor3 = Color3.new(1, 1, 1)
+	oName.TextStrokeTransparency = 0.4
+	oName.TextScaled = true
+	oName.Text = player.DisplayName
+	oName.Parent = bb
+
+	local oBar = Instance.new("Frame")
+	oBar.Size = UDim2.new(1, 0, 0.35, 0)
+	oBar.Position = UDim2.fromScale(0, 0.5)
+	oBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	oBar.BorderSizePixel = 0
+	oBar.Parent = bb
+
+	local oCorner = Instance.new("UICorner")
+	oCorner.CornerRadius = UDim.new(0.3, 0)
+	oCorner.Parent = oBar
+
+	local oFill = Instance.new("Frame")
+	oFill.Name = "Fill"
+	oFill.Size = UDim2.fromScale(1, 1)
+	oFill.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+	oFill.BorderSizePixel = 0
+	oFill.Parent = oBar
+
+	local oFillCorner = Instance.new("UICorner")
+	oFillCorner.CornerRadius = UDim.new(0.3, 0)
+	oFillCorner.Parent = oFill
+
+	humanoid.HealthChanged:Connect(function()
+		if not bb.Parent then return end
+		local pct = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+		oFill.Size = UDim2.fromScale(pct, 1)
+		oFill.BackgroundColor3 = getBarColor(pct)
+	end)
+end
+
+local function onPlayerAdded(player)
+	if player == LocalPlayer then return end
+	if player.Character then
+		task.spawn(setupOverheadBar, player, player.Character)
+	end
+	player.CharacterAdded:Connect(function(char)
+		task.spawn(setupOverheadBar, player, char)
+	end)
+end
+
+for _, p in Players:GetPlayers() do
+	task.spawn(onPlayerAdded, p)
+end
+Players.PlayerAdded:Connect(onPlayerAdded)
+Players.PlayerRemoving:Connect(function(player)
+	local bb = activeBillboards[player]
+	if bb then bb:Destroy() end
+	activeBillboards[player] = nil
+end)
+
+print("[HealthBar] Loaded — main HP bar + overhead bars")

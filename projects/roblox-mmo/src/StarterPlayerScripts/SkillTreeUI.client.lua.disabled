@@ -1,0 +1,944 @@
+--[[
+	SkillTreeUI.client.lua
+	A RuneScape-inspired Skill Tree UI for an MMO game.
+	Press K to toggle. Shows 6 skills with vertical perk trees.
+]]
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+-- Remote
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local getSkillData = Remotes:WaitForChild("GetSkillData", 10)
+
+-- Config: XP formula — level N needs N*N*100 total XP
+local function xpForLevel(n: number): number
+	return n * n * 100
+end
+
+local function levelFromXP(totalXP: number): number
+	local lv = 1
+	for i = 1, 99 do
+		if totalXP >= xpForLevel(i) then
+			lv = i
+		else
+			break
+		end
+	end
+	return lv
+end
+
+-- Colors
+local DARK_BG = Color3.fromHex("#1a1a2e")
+local GOLD = Color3.fromHex("#f0c040")
+local GOLD_DIM = Color3.fromHex("#b8922e")
+local GREY = Color3.fromHex("#555566")
+local GREY_DARK = Color3.fromHex("#2a2a3e")
+local GREY_LIGHT = Color3.fromHex("#888899")
+local WHITE = Color3.fromHex("#eeeeee")
+local GREEN = Color3.fromHex("#44cc66")
+local LOCKED_COLOR = Color3.fromHex("#3a3a4e")
+local NEXT_GLOW = Color3.fromHex("#f0c040")
+
+-- Skill tree data
+local SKILL_TREES = {
+	Mining = {
+		icon = "⛏️",
+		nodes = {
+			{level = 1,  name = "Copper Miner",       desc = "Can mine Copper Ore"},
+			{level = 15, name = "Iron Miner",          desc = "Can mine Iron Ore"},
+			{level = 25, name = "Efficient Miner",     desc = "10% chance to mine double ore"},
+			{level = 40, name = "Gold Miner",           desc = "Can mine Gold Ore"},
+			{level = 55, name = "Master Prospector",    desc = "15% faster mining"},
+			{level = 70, name = "Runite Miner",         desc = "Can mine Runite Ore"},
+			{level = 85, name = "Mining Legend",         desc = "20% chance double ore"},
+			{level = 99, name = "Grandmaster Miner",    desc = "Mining cape unlocked"},
+		},
+	},
+	Woodcutting = {
+		icon = "🪓",
+		nodes = {
+			{level = 1,  name = "Oak Chopper",          desc = "Can chop Oak Trees"},
+			{level = 20, name = "Willow Chopper",        desc = "Can chop Willow Trees"},
+			{level = 30, name = "Lumberjack",            desc = "10% chance double logs"},
+			{level = 50, name = "Yew Chopper",           desc = "Can chop Yew Trees"},
+			{level = 60, name = "Master Lumberjack",     desc = "15% faster chopping"},
+			{level = 75, name = "Magic Chopper",         desc = "Can chop Magic Trees"},
+			{level = 85, name = "Forest Guardian",       desc = "20% chance double logs"},
+			{level = 99, name = "Grandmaster Woodcutter",desc = "Woodcutting cape"},
+		},
+	},
+	Fishing = {
+		icon = "🎣",
+		nodes = {
+			{level = 1,  name = "Shrimper",             desc = "Can catch Shrimp"},
+			{level = 20, name = "Angler",                desc = "Can catch Trout"},
+			{level = 30, name = "Lucky Fisher",          desc = "10% chance extra fish"},
+			{level = 40, name = "Lobster Trapper",       desc = "Can catch Lobster"},
+			{level = 55, name = "Master Angler",         desc = "15% faster fishing"},
+			{level = 70, name = "Deep Sea Fisher",       desc = "Can catch Dark Crab"},
+			{level = 85, name = "Ocean Master",          desc = "20% chance extra fish"},
+			{level = 99, name = "Grandmaster Fisher",    desc = "Fishing cape"},
+		},
+	},
+	Smithing = {
+		icon = "🔨",
+		nodes = {
+			{level = 1,  name = "Copper Smith",          desc = "Can smelt Copper"},
+			{level = 15, name = "Iron Smith",             desc = "Can smelt Iron"},
+			{level = 25, name = "Efficient Smith",        desc = "10% chance save materials"},
+			{level = 40, name = "Gold Smith",             desc = "Can smelt Gold"},
+			{level = 55, name = "Weaponsmith",            desc = "Weapons deal +5% damage"},
+			{level = 70, name = "Master Smith",           desc = "15% chance save materials"},
+			{level = 85, name = "Legendary Forger",       desc = "Weapons deal +10% damage"},
+			{level = 99, name = "Grandmaster Smith",      desc = "Smithing cape"},
+		},
+	},
+	Cooking = {
+		icon = "🍳",
+		nodes = {
+			{level = 1,  name = "Apprentice Cook",       desc = "Can cook basic food"},
+			{level = 20, name = "Competent Cook",         desc = "Less burn chance"},
+			{level = 30, name = "Seasoned Chef",          desc = "Food heals 10% more"},
+			{level = 40, name = "Expert Cook",            desc = "Can cook Lobster"},
+			{level = 55, name = "Master Chef",            desc = "Food heals 20% more"},
+			{level = 70, name = "Gourmet",                desc = "Can cook Dark Crab"},
+			{level = 85, name = "Culinary Master",        desc = "Food heals 30% more"},
+			{level = 99, name = "Grandmaster Chef",       desc = "Cooking cape"},
+		},
+	},
+	Strength = {
+		icon = "💪",
+		nodes = {
+			{level = 1,  name = "Brawler",               desc = "Basic melee attacks"},
+			{level = 5,  name = "Power Strike",           desc = "2x damage active (30s CD)"},
+			{level = 15, name = "Iron Grip",              desc = "Can equip Iron weapons"},
+			{level = 25, name = "Combo Hit",              desc = "3rd hit does 1.5x damage"},
+			{level = 40, name = "Gold Wielder",           desc = "Can equip Gold weapons"},
+			{level = 50, name = "Berserker",              desc = "Below 30% HP = +25% damage"},
+			{level = 60, name = "Life Steal",             desc = "5% of damage heals you"},
+			{level = 75, name = "Dragon Wielder",         desc = "Can equip Dragon weapons"},
+			{level = 80, name = "Double Strike",          desc = "10% chance to hit twice"},
+			{level = 90, name = "Undying",                desc = "Survive lethal hit 1HP (5min CD)"},
+			{level = 99, name = "Grandmaster Warrior",    desc = "Strength mastery cape"},
+		},
+	},
+	Defense = {
+		icon = "🛡️",
+		nodes = {
+			{level = 1,  name = "Tough Skin",             desc = "Base damage reduction"},
+			{level = 10, name = "Iron Skin",              desc = "+5% damage reduction"},
+			{level = 15, name = "Iron Armor",             desc = "Can equip Iron armor/shields"},
+			{level = 25, name = "Shield Wall",            desc = "+15% block with shield"},
+			{level = 35, name = "War Cry",                desc = "AoE taunt monsters"},
+			{level = 40, name = "Gold Armor",             desc = "Can equip Gold armor/shields"},
+			{level = 55, name = "Shield Bash",            desc = "Stun enemy 2s (45s CD)"},
+			{level = 70, name = "Vengeance",              desc = "Reflect 15% damage taken"},
+			{level = 80, name = "Runite Armor",           desc = "Can equip Runite gear"},
+			{level = 90, name = "Fortress",               desc = "+50 max HP"},
+			{level = 99, name = "Grandmaster Defender",   desc = "Defense mastery cape"},
+		},
+	},
+	Ranged = {
+		icon = "🏹",
+		nodes = {
+			{level = 1,  name = "Archer",                 desc = "Can use Oak bows"},
+			{level = 5,  name = "Quick Draw",             desc = "10% faster arrows"},
+			{level = 20, name = "Willow Archer",          desc = "Can use Willow bows"},
+			{level = 25, name = "Eagle Eye",              desc = "+15% long range accuracy"},
+			{level = 45, name = "Rapid Fire",             desc = "Fire 3 arrows in 1s (45s CD)"},
+			{level = 55, name = "Yew Archer",             desc = "Can use Yew bows"},
+			{level = 60, name = "Piercing Shot",          desc = "20% chance ignore armor"},
+			{level = 80, name = "Multi-Shot",             desc = "15% chance hit 2 enemies"},
+			{level = 85, name = "Magic Archer",           desc = "Can use Magic bows"},
+			{level = 90, name = "Dead Eye",               desc = "+30% crit while still"},
+			{level = 99, name = "Grandmaster Ranger",     desc = "Ranged mastery cape"},
+		},
+	},
+	Fletching = {
+		icon = "🪶",
+		nodes = {
+			{level = 1,  name = "Whittler",               desc = "Craft bronze arrows"},
+			{level = 5,  name = "Bowyer",                  desc = "Craft Oak bows"},
+			{level = 10, name = "Precise Cut",             desc = "10% bonus arrows"},
+			{level = 25, name = "Willow Crafter",          desc = "Craft Willow bows"},
+			{level = 35, name = "Quick Fingers",           desc = "15% faster fletching"},
+			{level = 50, name = "Bulk Craft",              desc = "Make 2x arrows per craft"},
+			{level = 65, name = "Yew Crafter",             desc = "Craft Yew bows"},
+			{level = 70, name = "Master Fletcher",         desc = "20% Superior ammo chance"},
+			{level = 80, name = "Magic Crafter",           desc = "Craft Magic bows"},
+			{level = 90, name = "Enchanted Arrows",        desc = "5% poison on arrows"},
+			{level = 99, name = "Grandmaster Fletcher",    desc = "Fletching mastery cape"},
+		},
+	},
+	Prayer = {
+		icon = "🙏",
+		nodes = {
+			{level = 1,  name = "Thick Skin",             desc = "+5% Defense boost"},
+			{level = 5,  name = "Burst of Strength",      desc = "+5% Strength boost"},
+			{level = 10, name = "Clarity of Thought",      desc = "+5% Ranged accuracy"},
+			{level = 15, name = "Sharp Eye",               desc = "+10% Ranged boost"},
+			{level = 20, name = "Rock Skin",               desc = "+10% Defense boost"},
+			{level = 25, name = "Protect from Melee",      desc = "Block 50% melee damage"},
+			{level = 30, name = "Protect from Ranged",     desc = "Block 50% ranged damage"},
+			{level = 40, name = "Superhuman Strength",     desc = "+15% Strength boost"},
+			{level = 50, name = "Steel Skin",              desc = "+15% Defense boost"},
+			{level = 60, name = "Eagle Eye",               desc = "+15% Ranged boost"},
+			{level = 70, name = "Piety",                   desc = "+20% Str, Def, Ranged"},
+			{level = 80, name = "Rigour",                  desc = "+25% Ranged + Defense"},
+			{level = 90, name = "Soul Split",              desc = "Heal 10% of damage dealt"},
+			{level = 99, name = "Grandmaster Prayer",      desc = "Prayer mastery cape"},
+		},
+	},
+}
+
+local SKILL_ORDER = {"Mining", "Woodcutting", "Fishing", "Smithing", "Cooking", "Strength", "Defense", "Ranged", "Fletching", "Prayer"}
+
+-- State
+local isOpen = false
+local selectedSkill = "Mining"
+local skillData = {} -- {SkillName = {level=N, xp=N}}
+local pulseConnections = {}
+
+--------------------------------------------------------------------------------
+-- Helper: create Instance with props
+--------------------------------------------------------------------------------
+local function create(className: string, props: {[string]: any}, children: {Instance}?): Instance
+	local inst = Instance.new(className)
+	for k, v in props do
+		if k ~= "Parent" then
+			(inst :: any)[k] = v
+		end
+	end
+	if children then
+		for _, c in children do
+			c.Parent = inst
+		end
+	end
+	if props.Parent then
+		inst.Parent = props.Parent
+	end
+	return inst
+end
+
+--------------------------------------------------------------------------------
+-- Build GUI
+--------------------------------------------------------------------------------
+local screenGui = create("ScreenGui", {
+	Name = "SkillTreeUI",
+	ResetOnSpawn = false,
+	DisplayOrder = 10,
+	IgnoreGuiInset = true,
+	Enabled = false,
+	Parent = playerGui,
+})
+
+-- Main overlay
+local overlay = create("Frame", {
+	Name = "Overlay",
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = DARK_BG,
+	BackgroundTransparency = 0.1,
+	BorderSizePixel = 0,
+	Parent = screenGui,
+})
+
+-- Container (centered, 90% of screen)
+local container = create("Frame", {
+	Name = "Container",
+	Size = UDim2.fromScale(0.88, 0.88),
+	Position = UDim2.fromScale(0.5, 0.5),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundColor3 = DARK_BG,
+	BackgroundTransparency = 0,
+	BorderSizePixel = 0,
+	Parent = overlay,
+}, {
+	create("UICorner", {CornerRadius = UDim.new(0, 16)}),
+	create("UIStroke", {Color = GOLD_DIM, Thickness = 2, Transparency = 0.5}),
+})
+
+-- Title bar
+local titleBar = create("Frame", {
+	Name = "TitleBar",
+	Size = UDim2.new(1, 0, 0, 50),
+	BackgroundTransparency = 1,
+	Parent = container,
+})
+
+create("TextLabel", {
+	Name = "Title",
+	Text = "⚜ SKILL TREE ⚜",
+	Size = UDim2.fromScale(1, 1),
+	BackgroundTransparency = 1,
+	TextColor3 = GOLD,
+	TextSize = 28,
+	Font = Enum.Font.GothamBold,
+	Parent = titleBar,
+})
+
+-- Close button
+local closeBtn = create("TextButton", {
+	Name = "CloseBtn",
+	Text = "✕",
+	Size = UDim2.fromOffset(40, 40),
+	Position = UDim2.new(1, -10, 0, 5),
+	AnchorPoint = Vector2.new(1, 0),
+	BackgroundColor3 = Color3.fromHex("#cc3344"),
+	TextColor3 = WHITE,
+	TextSize = 22,
+	Font = Enum.Font.GothamBold,
+	Parent = container,
+}, {
+	create("UICorner", {CornerRadius = UDim.new(0, 8)}),
+})
+
+-- Tabs bar
+local tabsBar = create("Frame", {
+	Name = "TabsBar",
+	Size = UDim2.new(1, -40, 0, 48),
+	Position = UDim2.fromOffset(20, 55),
+	BackgroundTransparency = 1,
+	Parent = container,
+})
+
+create("UIListLayout", {
+	FillDirection = Enum.FillDirection.Horizontal,
+	HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	Padding = UDim.new(0, 8),
+	Parent = tabsBar,
+})
+
+-- Content area
+local contentArea = create("Frame", {
+	Name = "ContentArea",
+	Size = UDim2.new(1, -40, 1, -120),
+	Position = UDim2.fromOffset(20, 110),
+	BackgroundTransparency = 1,
+	Parent = container,
+})
+
+-- Left panel: level + XP ring
+local leftPanel = create("Frame", {
+	Name = "LeftPanel",
+	Size = UDim2.new(0.3, 0, 1, 0),
+	BackgroundColor3 = GREY_DARK,
+	BackgroundTransparency = 0,
+	BorderSizePixel = 0,
+	Parent = contentArea,
+}, {
+	create("UICorner", {CornerRadius = UDim.new(0, 12)}),
+})
+
+-- Right panel: skill tree
+local rightPanel = create("Frame", {
+	Name = "RightPanel",
+	Size = UDim2.new(0.68, 0, 1, 0),
+	Position = UDim2.fromScale(0.32, 0),
+	BackgroundColor3 = GREY_DARK,
+	BackgroundTransparency = 0,
+	BorderSizePixel = 0,
+	ClipsDescendants = true,
+	Parent = contentArea,
+}, {
+	create("UICorner", {CornerRadius = UDim.new(0, 12)}),
+})
+
+-- Scrolling frame for tree nodes
+local treeScroll = create("ScrollingFrame", {
+	Name = "TreeScroll",
+	Size = UDim2.new(1, -20, 1, -20),
+	Position = UDim2.fromOffset(10, 10),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ScrollBarThickness = 6,
+	ScrollBarImageColor3 = GOLD_DIM,
+	CanvasSize = UDim2.fromOffset(0, 0),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	Parent = rightPanel,
+})
+
+-- Left panel elements
+local skillIconLabel = create("TextLabel", {
+	Name = "SkillIcon",
+	Size = UDim2.new(1, 0, 0, 50),
+	Position = UDim2.fromOffset(0, 20),
+	BackgroundTransparency = 1,
+	TextColor3 = GOLD,
+	TextSize = 36,
+	Font = Enum.Font.GothamBold,
+	Text = "",
+	Parent = leftPanel,
+})
+
+local skillNameLabel = create("TextLabel", {
+	Name = "SkillName",
+	Size = UDim2.new(1, 0, 0, 30),
+	Position = UDim2.fromOffset(0, 70),
+	BackgroundTransparency = 1,
+	TextColor3 = GOLD,
+	TextSize = 22,
+	Font = Enum.Font.GothamBold,
+	Text = "",
+	Parent = leftPanel,
+})
+
+local levelLabel = create("TextLabel", {
+	Name = "Level",
+	Size = UDim2.new(1, 0, 0, 80),
+	Position = UDim2.fromOffset(0, 110),
+	BackgroundTransparency = 1,
+	TextColor3 = WHITE,
+	TextSize = 64,
+	Font = Enum.Font.GothamBold,
+	Text = "1",
+	Parent = leftPanel,
+})
+
+-- XP ring (using frames to simulate a circular progress ring)
+local ringContainer = create("Frame", {
+	Name = "RingContainer",
+	Size = UDim2.fromOffset(160, 160),
+	Position = UDim2.new(0.5, 0, 0, 200),
+	AnchorPoint = Vector2.new(0.5, 0),
+	BackgroundTransparency = 1,
+	Parent = leftPanel,
+})
+
+-- Background ring circle
+local ringBg = create("Frame", {
+	Name = "RingBg",
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = Color3.fromHex("#222233"),
+	Parent = ringContainer,
+}, {
+	create("UICorner", {CornerRadius = UDim.new(0.5, 0)}),
+	create("UIStroke", {Color = GREY, Thickness = 6}),
+})
+
+-- Inner circle
+local ringInner = create("Frame", {
+	Name = "RingInner",
+	Size = UDim2.fromScale(0.75, 0.75),
+	Position = UDim2.fromScale(0.5, 0.5),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundColor3 = GREY_DARK,
+	Parent = ringContainer,
+}, {
+	create("UICorner", {CornerRadius = UDim.new(0.5, 0)}),
+})
+
+-- Progress arc (we'll use a UIStroke on the bg ring and tween its thickness/color)
+local ringStroke = create("UIStroke", {
+	Name = "ProgressStroke",
+	Color = GOLD,
+	Thickness = 6,
+	Parent = ringBg,
+})
+
+-- XP percentage in center of ring
+local xpPercentLabel = create("TextLabel", {
+	Name = "XPPercent",
+	Size = UDim2.fromScale(1, 0.4),
+	Position = UDim2.fromScale(0.5, 0.35),
+	AnchorPoint = Vector2.new(0.5, 0),
+	BackgroundTransparency = 1,
+	TextColor3 = GOLD,
+	TextSize = 28,
+	Font = Enum.Font.GothamBold,
+	Text = "0%",
+	Parent = ringInner,
+})
+
+local xpDetailLabel = create("TextLabel", {
+	Name = "XPDetail",
+	Size = UDim2.fromScale(1, 0.3),
+	Position = UDim2.fromScale(0.5, 0.6),
+	AnchorPoint = Vector2.new(0.5, 0),
+	BackgroundTransparency = 1,
+	TextColor3 = GREY_LIGHT,
+	TextSize = 12,
+	Font = Enum.Font.Gotham,
+	Text = "0 / 100 XP",
+	TextWrapped = true,
+	Parent = ringInner,
+})
+
+-- Total XP label
+local totalXPLabel = create("TextLabel", {
+	Name = "TotalXP",
+	Size = UDim2.new(1, 0, 0, 30),
+	Position = UDim2.fromOffset(0, 375),
+	BackgroundTransparency = 1,
+	TextColor3 = GREY_LIGHT,
+	TextSize = 16,
+	Font = Enum.Font.Gotham,
+	Text = "Total XP: 0",
+	Parent = leftPanel,
+})
+
+-- XP bar (linear, below ring)
+local xpBarBg = create("Frame", {
+	Name = "XPBarBg",
+	Size = UDim2.new(0.8, 0, 0, 12),
+	Position = UDim2.new(0.5, 0, 0, 410),
+	AnchorPoint = Vector2.new(0.5, 0),
+	BackgroundColor3 = Color3.fromHex("#222233"),
+	Parent = leftPanel,
+}, {
+	create("UICorner", {CornerRadius = UDim.new(0, 6)}),
+})
+
+local xpBarFill = create("Frame", {
+	Name = "XPBarFill",
+	Size = UDim2.fromScale(0, 1),
+	BackgroundColor3 = GOLD,
+	Parent = xpBarBg,
+}, {
+	create("UICorner", {CornerRadius = UDim.new(0, 6)}),
+})
+
+local nextLevelLabel = create("TextLabel", {
+	Name = "NextLevel",
+	Size = UDim2.new(1, 0, 0, 20),
+	Position = UDim2.fromOffset(0, 428),
+	BackgroundTransparency = 1,
+	TextColor3 = GREY_LIGHT,
+	TextSize = 13,
+	Font = Enum.Font.Gotham,
+	Text = "",
+	Parent = leftPanel,
+})
+
+-- Hover tooltip
+local tooltip = create("Frame", {
+	Name = "Tooltip",
+	Size = UDim2.fromOffset(280, 80),
+	BackgroundColor3 = Color3.fromHex("#111122"),
+	BorderSizePixel = 0,
+	Visible = false,
+	ZIndex = 100,
+	Parent = screenGui,
+}, {
+	create("UICorner", {CornerRadius = UDim.new(0, 8)}),
+	create("UIStroke", {Color = GOLD_DIM, Thickness = 1}),
+	create("UIPadding", {
+		PaddingLeft = UDim.new(0, 10),
+		PaddingRight = UDim.new(0, 10),
+		PaddingTop = UDim.new(0, 8),
+		PaddingBottom = UDim.new(0, 8),
+	}),
+})
+
+local tooltipName = create("TextLabel", {
+	Name = "Name",
+	Size = UDim2.new(1, 0, 0, 22),
+	BackgroundTransparency = 1,
+	TextColor3 = GOLD,
+	TextSize = 16,
+	Font = Enum.Font.GothamBold,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	ZIndex = 101,
+	Parent = tooltip,
+})
+
+local tooltipLevel = create("TextLabel", {
+	Name = "Level",
+	Size = UDim2.new(1, 0, 0, 18),
+	Position = UDim2.fromOffset(0, 22),
+	BackgroundTransparency = 1,
+	TextColor3 = GREY_LIGHT,
+	TextSize = 13,
+	Font = Enum.Font.Gotham,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	ZIndex = 101,
+	Parent = tooltip,
+})
+
+local tooltipDesc = create("TextLabel", {
+	Name = "Desc",
+	Size = UDim2.new(1, 0, 0, 20),
+	Position = UDim2.fromOffset(0, 42),
+	BackgroundTransparency = 1,
+	TextColor3 = WHITE,
+	TextSize = 14,
+	Font = Enum.Font.Gotham,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextWrapped = true,
+	ZIndex = 101,
+	Parent = tooltip,
+})
+
+--------------------------------------------------------------------------------
+-- Tab buttons
+--------------------------------------------------------------------------------
+local tabButtons = {}
+
+for _, skillName in SKILL_ORDER do
+	local tree = SKILL_TREES[skillName]
+	local btn = create("TextButton", {
+		Name = "Tab_" .. skillName,
+		Size = UDim2.fromOffset(140, 40),
+		BackgroundColor3 = GREY_DARK,
+		TextColor3 = GREY_LIGHT,
+		Text = tree.icon .. " " .. skillName,
+		TextSize = 16,
+		Font = Enum.Font.GothamBold,
+		AutoButtonColor = false,
+		Parent = tabsBar,
+	}, {
+		create("UICorner", {CornerRadius = UDim.new(0, 8)}),
+		create("UIStroke", {Color = GREY, Thickness = 1}),
+	})
+
+	tabButtons[skillName] = btn
+
+	btn.MouseButton1Click:Connect(function()
+		selectedSkill = skillName
+		refreshUI()
+	end)
+
+	btn.MouseEnter:Connect(function()
+		if selectedSkill ~= skillName then
+			TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromHex("#3a3a5e")}):Play()
+		end
+	end)
+	btn.MouseLeave:Connect(function()
+		if selectedSkill ~= skillName then
+			TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = GREY_DARK}):Play()
+		end
+	end)
+end
+
+--------------------------------------------------------------------------------
+-- Build tree nodes
+--------------------------------------------------------------------------------
+local NODE_HEIGHT = 80
+local NODE_SPACING = 16
+local NODE_WIDTH_SCALE = 0.85
+
+local function clearPulseConnections()
+	for _, conn in pulseConnections do
+		conn:Disconnect()
+	end
+	table.clear(pulseConnections)
+end
+
+local function buildTreeNodes(skillName: string, currentLevel: number)
+	-- Clear existing
+	clearPulseConnections()
+	for _, child in treeScroll:GetChildren() do
+		child:Destroy()
+	end
+
+	local tree = SKILL_TREES[skillName]
+	if not tree then return end
+
+	local nodes = tree.nodes
+	local nextUnlockIndex = nil
+
+	-- Find next unlock
+	for i, node in nodes do
+		if node.level > currentLevel then
+			nextUnlockIndex = i
+			break
+		end
+	end
+
+	for i, node in nodes do
+		local unlocked = currentLevel >= node.level
+		local isNext = (i == nextUnlockIndex)
+		local yPos = (i - 1) * (NODE_HEIGHT + NODE_SPACING) + 20
+
+		-- Connector line to previous node
+		if i > 1 then
+			local prevUnlocked = currentLevel >= nodes[i - 1].level
+			local lineY = yPos - NODE_SPACING
+			create("Frame", {
+				Name = "Line_" .. i,
+				Size = UDim2.new(0, 3, 0, NODE_SPACING),
+				Position = UDim2.new(0.5, -1, 0, lineY),
+				BackgroundColor3 = if unlocked then GOLD else GREY,
+				BorderSizePixel = 0,
+				Parent = treeScroll,
+			})
+		end
+
+		-- Node frame
+		local nodeFrame = create("Frame", {
+			Name = "Node_" .. i,
+			Size = UDim2.new(NODE_WIDTH_SCALE, 0, 0, NODE_HEIGHT),
+			Position = UDim2.new((1 - NODE_WIDTH_SCALE) / 2, 0, 0, yPos),
+			BackgroundColor3 = if unlocked then Color3.fromHex("#2a2a1e") else LOCKED_COLOR,
+			BorderSizePixel = 0,
+			Parent = treeScroll,
+		}, {
+			create("UICorner", {CornerRadius = UDim.new(0, 10)}),
+			create("UIStroke", {
+				Name = "NodeStroke",
+				Color = if unlocked then GOLD elseif isNext then NEXT_GLOW else GREY,
+				Thickness = if isNext then 2 else 1,
+			}),
+		})
+
+		-- Status icon (left side)
+		local statusIcon = create("TextLabel", {
+			Name = "StatusIcon",
+			Size = UDim2.fromOffset(40, 40),
+			Position = UDim2.fromOffset(12, 20),
+			BackgroundColor3 = if unlocked then GOLD else GREY,
+			BackgroundTransparency = 0,
+			TextColor3 = if unlocked then DARK_BG else GREY_LIGHT,
+			TextSize = 20,
+			Font = Enum.Font.GothamBold,
+			Text = if unlocked then "✓" else "🔒",
+			Parent = nodeFrame,
+		}, {
+			create("UICorner", {CornerRadius = UDim.new(0.5, 0)}),
+		})
+
+		-- Level badge
+		create("TextLabel", {
+			Name = "LevelBadge",
+			Size = UDim2.fromOffset(50, 24),
+			Position = UDim2.new(1, -12, 0, 8),
+			AnchorPoint = Vector2.new(1, 0),
+			BackgroundColor3 = if unlocked then GOLD else GREY,
+			TextColor3 = DARK_BG,
+			TextSize = 13,
+			Font = Enum.Font.GothamBold,
+			Text = "Lv " .. node.level,
+			Parent = nodeFrame,
+		}, {
+			create("UICorner", {CornerRadius = UDim.new(0, 6)}),
+		})
+
+		-- Node name
+		create("TextLabel", {
+			Name = "NodeName",
+			Size = UDim2.new(1, -120, 0, 24),
+			Position = UDim2.fromOffset(62, 14),
+			BackgroundTransparency = 1,
+			TextColor3 = if unlocked then GOLD else GREY_LIGHT,
+			TextSize = 16,
+			Font = Enum.Font.GothamBold,
+			Text = node.name,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Parent = nodeFrame,
+		})
+
+		-- Description
+		create("TextLabel", {
+			Name = "NodeDesc",
+			Size = UDim2.new(1, -120, 0, 20),
+			Position = UDim2.fromOffset(62, 40),
+			BackgroundTransparency = 1,
+			TextColor3 = if unlocked then WHITE else GREY,
+			TextSize = 13,
+			Font = Enum.Font.Gotham,
+			Text = node.desc,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Parent = nodeFrame,
+		})
+
+		-- Pulse animation for next unlock
+		if isNext then
+			local stroke = nodeFrame:FindFirstChild("NodeStroke")
+			if stroke then
+				local pulseUp = true
+				local elapsed = 0
+				local conn = RunService.Heartbeat:Connect(function(dt)
+					elapsed += dt * 2
+					local alpha = (math.sin(elapsed * math.pi) + 1) / 2
+					stroke.Transparency = alpha * 0.6
+					stroke.Thickness = 2 + alpha * 2
+				end)
+				table.insert(pulseConnections, conn)
+			end
+		end
+
+		-- Hover tooltip
+		local hoverBtn = create("TextButton", {
+			Name = "HoverArea",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Text = "",
+			ZIndex = 10,
+			Parent = nodeFrame,
+		})
+
+		hoverBtn.MouseEnter:Connect(function()
+			tooltip.Visible = true
+			tooltipName.Text = node.name
+			tooltipLevel.Text = "Required Level: " .. node.level .. (if unlocked then "  ✓ Unlocked" else "  🔒 Locked")
+			tooltipDesc.Text = node.desc
+		end)
+		hoverBtn.MouseMoved:Connect(function(x, y)
+			tooltip.Position = UDim2.fromOffset(x + 15, y + 15)
+		end)
+		hoverBtn.MouseLeave:Connect(function()
+			tooltip.Visible = false
+		end)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Refresh UI
+--------------------------------------------------------------------------------
+function refreshUI()
+	local data = skillData[selectedSkill] or {level = 1, xp = 0}
+	local lv = data.level
+	local xp = data.xp
+
+	-- Tab highlights
+	for name, btn in tabButtons do
+		local isSelected = (name == selectedSkill)
+		local tabData = skillData[name] or {level = 1}
+		btn.BackgroundColor3 = if isSelected then GOLD else GREY_DARK
+		btn.TextColor3 = if isSelected then DARK_BG else GREY_LIGHT
+
+		local stroke = btn:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Color = if isSelected then GOLD else GREY
+		end
+	end
+
+	-- Left panel
+	local tree = SKILL_TREES[selectedSkill]
+	skillIconLabel.Text = tree.icon
+	skillNameLabel.Text = selectedSkill
+	levelLabel.Text = tostring(lv)
+
+	-- XP calculations
+	local currentLevelXP = xpForLevel(lv)
+	local nextLevelXP = xpForLevel(math.min(lv + 1, 99))
+	local xpIntoLevel = xp - currentLevelXP
+	local xpNeeded = nextLevelXP - currentLevelXP
+
+	local progress = 0
+	if lv >= 99 then
+		progress = 1
+		xpPercentLabel.Text = "MAX"
+		xpDetailLabel.Text = "Level 99!"
+		nextLevelLabel.Text = "Maximum level reached!"
+	else
+		progress = math.clamp(if xpNeeded > 0 then xpIntoLevel / xpNeeded else 0, 0, 1)
+		xpPercentLabel.Text = math.floor(progress * 100) .. "%"
+		xpDetailLabel.Text = string.format("%s / %s", tostring(math.floor(xpIntoLevel)), tostring(math.floor(xpNeeded)))
+		nextLevelLabel.Text = string.format("Next level: %d XP needed", math.floor(xpNeeded - xpIntoLevel))
+	end
+
+	totalXPLabel.Text = "Total XP: " .. string.format("%d", xp)
+
+	-- XP bar fill
+	TweenService:Create(xpBarFill, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+		Size = UDim2.fromScale(progress, 1)
+	}):Play()
+
+	-- Ring stroke color based on progress
+	ringStroke.Color = GOLD
+
+	-- Build tree
+	buildTreeNodes(selectedSkill, lv)
+end
+
+--------------------------------------------------------------------------------
+-- Fetch data from server
+--------------------------------------------------------------------------------
+local function fetchSkillData()
+	local ok, result = pcall(function()
+		return getSkillData:InvokeServer()
+	end)
+	if ok and result then
+		for _, skillName in SKILL_ORDER do
+			local d = result[skillName]
+			if d then
+				local lv = d.level or levelFromXP(d.xp or 0)
+				skillData[skillName] = {level = lv, xp = d.xp or 0}
+			else
+				skillData[skillName] = {level = 1, xp = 0}
+			end
+		end
+	else
+		-- Fallback: default data
+		for _, skillName in SKILL_ORDER do
+			if not skillData[skillName] then
+				skillData[skillName] = {level = 1, xp = 0}
+			end
+		end
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Toggle open/close
+--------------------------------------------------------------------------------
+local function toggleUI()
+	isOpen = not isOpen
+	if isOpen then
+		fetchSkillData()
+		screenGui.Enabled = true
+		-- Fade in
+		overlay.BackgroundTransparency = 1
+		TweenService:Create(overlay, TweenInfo.new(0.25), {BackgroundTransparency = 0.1}):Play()
+		-- Scale in
+		container.Size = UDim2.fromScale(0.8, 0.8)
+		TweenService:Create(container, TweenInfo.new(0.25, Enum.EasingStyle.Back), {
+			Size = UDim2.fromScale(0.88, 0.88)
+		}):Play()
+		refreshUI()
+	else
+		clearPulseConnections()
+		tooltip.Visible = false
+		TweenService:Create(overlay, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+		TweenService:Create(container, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+			Size = UDim2.fromScale(0.8, 0.8)
+		}):Play()
+		task.delay(0.2, function()
+			if not isOpen then
+				screenGui.Enabled = false
+			end
+		end)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Input
+--------------------------------------------------------------------------------
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.K then
+		toggleUI()
+	end
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+	if isOpen then
+		toggleUI()
+	end
+end)
+
+-- Close on overlay click (outside container)
+overlay.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		-- Check if click is outside container
+		local mouse = UserInputService:GetMouseLocation()
+		local absPos = container.AbsolutePosition
+		local absSize = container.AbsoluteSize
+		if mouse.X < absPos.X or mouse.X > absPos.X + absSize.X
+			or mouse.Y < absPos.Y or mouse.Y > absPos.Y + absSize.Y then
+			if isOpen then
+				toggleUI()
+			end
+		end
+	end
+end)
+
+print("[SkillTreeUI] Loaded!")

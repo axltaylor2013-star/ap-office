@@ -1,0 +1,437 @@
+-- FishingUI.client.lua
+-- Client-side fishing interface with error handling
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+
+-- Wait for dependencies with timeouts
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+
+-- Load ErrorHandler
+local ErrorHandler
+local errorHandlerSuccess, errorHandlerResult = pcall(function()
+	return require(Modules:WaitForChild("ErrorHandler", 5))
+end)
+
+if errorHandlerSuccess then
+	ErrorHandler = errorHandlerResult
+else
+	-- Fallback ErrorHandler
+	ErrorHandler = {
+		LogWarning = function(self, msg) warn(tostring(msg)) end,
+		LogDebug = function(self, msg) warn(tostring(msg)) end
+	}
+end
+
+-- RemoteEvents
+local StartFishingEvent = Remotes and Remotes:WaitForChild("StartFishing", 5)
+local FishingProgressEvent = Remotes and Remotes:WaitForChild("FishingProgress", 5)
+local FishingCompleteEvent = Remotes and Remotes:WaitForChild("FishingComplete", 5)
+local FishCaughtEvent = Remotes and Remotes:WaitForChild("FishCaught", 5)
+
+-- Validate remotes
+if not StartFishingEvent then
+	ErrorHandler:LogWarning("Fishing remotes not found")
+	return
+end
+
+-- UI State
+local isFishing = false
+local currentFishingSpot = nil
+local fishingProgress = 0
+local bobberModel = nil
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FishingUI"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Fishing progress frame
+local progressFrame = Instance.new("Frame")
+progressFrame.Name = "ProgressFrame"
+progressFrame.Size = UDim2.new(0, 300, 0, 80)
+progressFrame.Position = UDim2.new(0.5, -150, 0.7, 0)
+progressFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+progressFrame.BorderColor3 = Color3.fromRGB(60, 60, 70)
+progressFrame.BorderSizePixel = 2
+progressFrame.Visible = false
+progressFrame.Parent = screenGui
+
+-- Progress bar background
+local progressBarBg = Instance.new("Frame")
+progressBarBg.Name = "ProgressBarBg"
+progressBarBg.Size = UDim2.new(0.9, 0, 0, 20)
+progressBarBg.Position = UDim2.new(0.05, 0, 0.3, 0)
+progressBarBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+progressBarBg.BorderColor3 = Color3.fromRGB(80, 80, 90)
+progressBarBg.Parent = progressFrame
+
+-- Progress bar fill
+local progressBar = Instance.new("Frame")
+progressBar.Name = "ProgressBar"
+progressBar.Size = UDim2.new(0, 0, 1, 0)
+progressBar.Position = UDim2.new(0, 0, 0, 0)
+progressBar.BackgroundColor3 = Color3.fromRGB(80, 160, 220) -- Blue for fishing
+progressBar.BorderSizePixel = 0
+progressBar.Parent = progressBarBg
+
+-- Progress text
+local progressText = Instance.new("TextLabel")
+progressText.Name = "ProgressText"
+progressText.Size = UDim2.new(1, 0, 0, 30)
+progressText.Position = UDim2.new(0, 0, 0, -5)
+progressText.BackgroundTransparency = 1
+progressText.Text = "Fishing..."
+progressText.TextColor3 = Color3.fromRGB(220, 220, 220)
+progressText.Font = Enum.Font.GothamBold
+progressText.TextSize = 18
+progressText.Parent = progressFrame
+
+-- Fish info text
+local fishInfoText = Instance.new("TextLabel")
+fishInfoText.Name = "FishInfoText"
+fishInfoText.Size = UDim2.new(1, 0, 0, 20)
+fishInfoText.Position = UDim2.new(0, 0, 0.6, 0)
+fishInfoText.BackgroundTransparency = 1
+fishInfoText.Text = ""
+fishInfoText.TextColor3 = Color3.fromRGB(180, 200, 220)
+fishInfoText.Font = Enum.Font.Gotham
+fishInfoText.TextSize = 14
+fishInfoText.Parent = progressFrame
+
+-- Bite indicator
+local biteIndicator = Instance.new("TextLabel")
+biteIndicator.Name = "BiteIndicator"
+biteIndicator.Size = UDim2.new(1, 0, 0, 20)
+biteIndicator.Position = UDim2.new(0, 0, 0.8, 0)
+biteIndicator.BackgroundTransparency = 1
+biteIndicator.Text = ""
+biteIndicator.TextColor3 = Color3.fromRGB(255, 200, 100)
+biteIndicator.Font = Enum.Font.GothamBold
+biteIndicator.TextSize = 16
+biteIndicator.Visible = false
+biteIndicator.Parent = progressFrame
+
+-- Fishing prompt (appears when looking at water)
+local fishingPrompt = Instance.new("TextLabel")
+fishingPrompt.Name = "FishingPrompt"
+fishingPrompt.Size = UDim2.new(0, 200, 0, 40)
+fishingPrompt.Position = UDim2.new(0.5, -100, 0.6, 0)
+fishingPrompt.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+fishingPrompt.BackgroundTransparency = 0.7
+fishingPrompt.BorderColor3 = Color3.fromRGB(80, 80, 90)
+fishingPrompt.Text = "[F] Fish"
+fishingPrompt.TextColor3 = Color3.fromRGB(100, 180, 255)
+fishingPrompt.Font = Enum.Font.GothamBold
+fishingPrompt.TextSize = 16
+fishingPrompt.Visible = false
+fishingPrompt.Parent = screenGui
+
+-- Helper: Check if part is a fishing spot (water or fishing spot marker)
+local function isFishingSpot(part)
+	if not part or not part:IsA("BasePart") then
+		return false
+	end
+	
+	-- Check if it's water (blue color or named "Water")
+	if part.Name:lower():find("water") or part.Name:lower():find("river") or part.Name:lower():find("lake") or part.Name:lower():find("ocean") then
+		return true
+	end
+	
+	-- Check if it's a fishing spot marker
+	if part.Name == "FishingSpot" or part.Name == "FishSpot" then
+		return true
+	end
+	
+	-- Check material (water material)
+	if part.Material == Enum.Material.Water or part.Material == Enum.Material.SmoothPlastic then
+		-- Check color (blue-ish)
+		local color = part.Color
+		if color.B > color.R + 0.2 and color.B > color.G + 0.2 then
+			return true
+		end
+	end
+	
+	return false
+end
+
+-- Helper: Get fishing spot info
+local function getFishingSpotInfo(spot)
+	if not spot then return nil end
+	
+	-- Determine spot type based on name or properties
+	local spotInfo = {
+		name = "Fishing Spot",
+		color = Color3.fromRGB(100, 180, 255)
+	}
+	
+	if spot.Name:lower():find("river") then
+		spotInfo.name = "River"
+		spotInfo.color = Color3.fromRGB(100, 150, 255)
+	elseif spot.Name:lower():find("ocean") or spot.Name:lower():find("sea") then
+		spotInfo.name = "Ocean"
+		spotInfo.color = Color3.fromRGB(50, 100, 200)
+	elseif spot.Name:lower():find("lake") then
+		spotInfo.name = "Lake"
+		spotInfo.color = Color3.fromRGB(80, 120, 220)
+	end
+	
+	return spotInfo
+end
+
+-- Helper: Start fishing
+local function startFishing(fishingSpot)
+	if isFishing then
+		ErrorHandler:LogDebug("Already fishing")
+		return
+	end
+	
+	if not fishingSpot then
+		ErrorHandler:LogWarning("No fishing spot")
+		return
+	end
+	
+	-- Send fishing request to server
+	StartFishingEvent:FireServer(fishingSpot)
+	
+	-- Update UI state
+	isFishing = true
+	currentFishingSpot = fishingSpot
+	fishingPrompt.Visible = false
+	
+	-- Create bobber visual
+	createBobber(fishingSpot)
+	
+	ErrorHandler:LogDebug("Fishing started", {spot = fishingSpot.Name})
+end
+
+-- Helper: Create fishing bobber visual
+local function createBobber(fishingSpot)
+	if bobberModel then
+		bobberModel:Destroy()
+		bobberModel = nil
+	end
+	
+	-- Create simple bobber
+	bobberModel = Instance.new("Part")
+	bobberModel.Name = "FishingBobber"
+	bobberModel.Size = Vector3.new(0.5, 0.5, 0.5)
+	bobberModel.Shape = Enum.PartType.Ball
+	bobberModel.Color = Color3.fromRGB(255, 255, 255)
+	bobberModel.Material = Enum.Material.Neon
+	bobberModel.CanCollide = false
+	bobberModel.Anchored = true
+	
+	-- Position bobber at fishing spot (slightly above water)
+	local position = fishingSpot.Position
+	if fishingSpot:IsA("BasePart") then
+		position = fishingSpot.Position + Vector3.new(0, 2, 0)
+	end
+	
+	bobberModel.Position = position
+	bobberModel.Parent = workspace
+	
+	-- Add subtle bobbing animation
+	spawn(function()
+		local startY = position.Y
+		local bobTime = 0
+		
+		while bobberModel and bobberModel.Parent do
+			bobTime = bobTime + 0.1
+			local offset = math.sin(bobTime) * 0.2
+			bobberModel.Position = Vector3.new(position.X, startY + offset, position.Z)
+			wait(0.1)
+		end
+	end)
+end
+
+-- Helper: Update fishing progress
+local function updateFishingProgress(fishName, progress)
+	if not isFishing then return end
+	
+	fishingProgress = progress
+	
+	-- Update progress bar
+	progressBar.Size = UDim2.new(progress, 0, 1, 0)
+	
+	-- Update text
+	local percent = math.floor(progress * 100)
+	progressText.Text = string.format("Fishing... %d%%", percent)
+	
+	-- Update fish info
+	fishInfoText.Text = string.format("Trying to catch: %s", fishName)
+	
+	-- Show progress frame
+	progressFrame.Visible = true
+end
+
+-- Helper: Show bite indicator
+local function showBiteIndicator(message)
+	if not isFishing then return end
+	
+	biteIndicator.Text = message or "Bite!"
+	biteIndicator.Visible = true
+	
+	-- Flash effect
+	for i = 1, 3 do
+		biteIndicator.TextTransparency = 0.3
+		wait(0.1)
+		biteIndicator.TextTransparency = 0
+		wait(0.1)
+	end
+	
+	biteIndicator.Visible = false
+end
+
+-- Helper: Complete fishing
+local function completeFishing(success, message)
+	isFishing = false
+	currentFishingSpot = nil
+	fishingProgress = 0
+	
+	-- Remove bobber
+	if bobberModel then
+		bobberModel:Destroy()
+		bobberModel = nil
+	end
+	
+	-- Hide progress frame
+	progressFrame.Visible = false
+	biteIndicator.Visible = false
+	
+	if success then
+		-- Show success message briefly
+		progressText.Text = message or "Fish caught!"
+		progressBar.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+		progressFrame.Visible = true
+		
+		-- Hide after delay
+		wait(1.5)
+		progressFrame.Visible = false
+		
+		-- Reset bar color
+		progressBar.BackgroundColor3 = Color3.fromRGB(80, 160, 220)
+	else
+		-- Show error message
+		progressText.Text = message or "Fishing failed"
+		progressBar.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+		progressFrame.Visible = true
+		
+		-- Hide after delay
+		wait(1.5)
+		progressFrame.Visible = false
+		
+		-- Reset bar color
+		progressBar.BackgroundColor3 = Color3.fromRGB(80, 160, 220)
+	end
+	
+	ErrorHandler:LogDebug("Fishing completed", {success = success, message = message})
+end
+
+-- Input handling for fishing
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	
+	-- F key for fishing
+	if input.KeyCode == Enum.KeyCode.F then
+		local target = mouse.Target
+		if target and isFishingSpot(target) then
+			startFishing(target)
+		end
+	end
+	
+	-- Escape key to cancel fishing
+	if input.KeyCode == Enum.KeyCode.Escape and isFishing then
+		completeFishing(false, "Fishing cancelled")
+	end
+end)
+
+-- Mouse hover detection for fishing spots
+local lastHoveredSpot = nil
+local hoverCheckInterval = 0.1 -- Check every 100ms
+local lastHoverCheck = tick()
+
+RunService.RenderStepped:Connect(function()
+	-- Throttle hover checks
+	if tick() - lastHoverCheck < hoverCheckInterval then
+		return
+	end
+	lastHoverCheck = tick()
+	
+	if isFishing then
+		fishingPrompt.Visible = false
+		return
+	end
+	
+	local target = mouse.Target
+	if target and isFishingSpot(target) then
+		-- Show fishing prompt
+		local spotInfo = getFishingSpotInfo(target)
+		fishingPrompt.Text = string.format("[F] Fish at %s", spotInfo.name)
+		fishingPrompt.TextColor3 = spotInfo.color
+		fishingPrompt.Visible = true
+		lastHoveredSpot = target
+	else
+		fishingPrompt.Visible = false
+		lastHoveredSpot = nil
+	end
+end)
+
+-- Remote event handlers
+FishingProgressEvent.OnClientEvent:Connect(function(fishName, progress)
+	updateFishingProgress(fishName, progress)
+end)
+
+FishCaughtEvent.OnClientEvent:Connect(function(message)
+	showBiteIndicator(message)
+end)
+
+FishingCompleteEvent.OnClientEvent:Connect(function(success, message)
+	completeFishing(success, message)
+end)
+
+-- Animation: Simple fishing cast
+local function playFishingAnimation()
+	if not player.Character then return end
+	
+	local humanoid = player.Character:FindFirstChild("Humanoid")
+	if not humanoid then return end
+	
+	-- Load animation (would need an actual Animation object)
+	-- For now, just log that animation would play
+	ErrorHandler:LogDebug("Would play fishing animation")
+end
+
+-- Initialize
+ErrorHandler:LogDebug("FishingUI loaded successfully")
+
+-- Test: Create a test fishing spot in workspace (remove in production)
+local function createTestFishingSpot()
+	-- Only create test spot if in studio
+	if not game:GetService("RunService"):IsStudio() then
+		return
+	end
+	
+	local testWater = Instance.new("Part")
+	testWater.Name = "TestRiver"
+	testWater.Size = Vector3.new(20, 1, 20)
+	testWater.Position = Vector3.new(0, 0, 20)
+	testWater.Color = Color3.fromRGB(50, 100, 200)
+	testWater.Material = Enum.Material.SmoothPlastic
+	testWater.Transparency = 0.3
+	testWater.Anchored = true
+	testWater.CanCollide = true
+	testWater.Parent = workspace
+	
+	ErrorHandler:LogDebug("Created test fishing spot")
+end
+
+-- Create test spot after delay
+wait(2)
+createTestFishingSpot()

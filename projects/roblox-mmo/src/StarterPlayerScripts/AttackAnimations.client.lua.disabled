@@ -1,0 +1,2278 @@
+--[[
+	AttackAnimations.client.lua
+	StarterPlayerScripts
+
+	Comprehensive combat animation system for Roscape Runeblocks.
+	Uses TweenService to animate character limbs (no rbxassetid).
+	Handles: player attacks, monster attack visuals, hit effects,
+	damage numbers, death animations, combo counter, cooldown UI.
+]]
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Debris = game:GetService("Debris")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+local camera = workspace.CurrentCamera
+
+--------------------------------------------------------------------------------
+-- REMOTE EVENTS
+--------------------------------------------------------------------------------
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+
+local function waitForRemote(name)
+	-- Try Remotes folder first, then root ReplicatedStorage
+	local r = Remotes:FindFirstChild(name)
+	if r then return r end
+	r = ReplicatedStorage:FindFirstChild(name)
+	if r then return r end
+	-- Wait briefly
+	r = Remotes:FindFirstChild(name) or ReplicatedStorage:WaitForChild(name, 5)
+	return r
+end
+
+local MonsterDamageEvent = waitForRemote("MonsterDamage")
+local MonsterDeathEvent = waitForRemote("MonsterDeath")
+local AttackVisualEvent = waitForRemote("AttackVisual")
+local HitEffectEvent = waitForRemote("HitEffect")
+local MonsterAttackVisualEvent = waitForRemote("MonsterAttackVisual")
+
+--------------------------------------------------------------------------------
+-- SCREEN GUI for damage numbers, cooldown, combo
+--------------------------------------------------------------------------------
+local combatGui = Instance.new("ScreenGui")
+combatGui.Name = "CombatEffectsUI"
+combatGui.ResetOnSpawn = false
+combatGui.DisplayOrder = 10
+combatGui.Parent = playerGui
+
+--------------------------------------------------------------------------------
+-- STATE
+--------------------------------------------------------------------------------
+local isAnimating = false
+local lastAttackTime = 0
+local ATTACK_COOLDOWN = 0.6
+local punchHand = "right" -- alternates
+local comboCount = 0
+local lastComboTime = 0
+local COMBO_TIMEOUT = 3
+
+--------------------------------------------------------------------------------
+-- UTILITY
+--------------------------------------------------------------------------------
+local function getCharacter()
+	return player.Character
+end
+
+local function getHumanoidRootPart()
+	local char = getCharacter()
+	return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+-- Find Motor6D inside a limb part (R15)
+local function findMotor(character, limbName)
+	local limb = character:FindFirstChild(limbName)
+	if not limb then return nil, nil end
+	local motor = limb:FindFirstChildOfClass("Motor6D")
+	return motor, limb
+end
+
+-- Safe tween that doesn't error if object is destroyed
+local function safeTween(obj, info, props)
+	if not obj or not obj.Parent then return nil end
+	local t = TweenService:Create(obj, info, props)
+	t:Play()
+	return t
+end
+
+--------------------------------------------------------------------------------
+-- CAMERA SHAKE
+--------------------------------------------------------------------------------
+local shakeAmount = 0
+local shakeDecay = 0
+
+local function applyScreenShake(intensity, duration)
+	-- DISABLED: Camera shake was causing UI disappearing issues
+	-- shakeAmount = intensity
+	-- shakeDecay = intensity / duration
+end
+
+-- DISABLED: Camera shake was causing UI to disappear
+--[[
+RunService.RenderStepped:Connect(function(dt)
+	if shakeAmount > 0.001 then
+		local offsetX = (math.random() - 0.5) * 2 * shakeAmount
+		local offsetY = (math.random() - 0.5) * 2 * shakeAmount
+		camera.CFrame = camera.CFrame * CFrame.new(offsetX, offsetY, 0)
+		shakeAmount = math.max(0, shakeAmount - shakeDecay * dt)
+	end
+end)
+--]]
+
+--------------------------------------------------------------------------------
+-- COMBO COUNTER UI
+--------------------------------------------------------------------------------
+local comboFrame = Instance.new("Frame")
+comboFrame.Name = "ComboCounter"
+comboFrame.Size = UDim2.new(0, 120, 0, 60)
+comboFrame.Position = UDim2.new(1, -140, 0.35, 0)
+comboFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+comboFrame.BackgroundTransparency = 0.4
+comboFrame.BorderSizePixel = 0
+comboFrame.Visible = false
+comboFrame.Parent = combatGui
+
+local comboCorner = Instance.new("UICorner")
+comboCorner.CornerRadius = UDim.new(0, 8)
+comboCorner.Parent = comboFrame
+
+local comboStroke = Instance.new("UIStroke")
+comboStroke.Color = Color3.fromRGB(255, 200, 50)
+comboStroke.Thickness = 2
+comboStroke.Parent = comboFrame
+
+local comboLabel = Instance.new("TextLabel")
+comboLabel.Name = "Count"
+comboLabel.Size = UDim2.new(1, 0, 0.65, 0)
+comboLabel.Position = UDim2.new(0, 0, 0, 0)
+comboLabel.BackgroundTransparency = 1
+comboLabel.Text = "0"
+comboLabel.TextColor3 = Color3.fromRGB(255, 220, 50)
+comboLabel.TextScaled = true
+comboLabel.Font = Enum.Font.GothamBold
+comboLabel.Parent = comboFrame
+
+local comboSubLabel = Instance.new("TextLabel")
+comboSubLabel.Name = "Sub"
+comboSubLabel.Size = UDim2.new(1, 0, 0.35, 0)
+comboSubLabel.Position = UDim2.new(0, 0, 0.65, 0)
+comboSubLabel.BackgroundTransparency = 1
+comboSubLabel.Text = "COMBO"
+comboSubLabel.TextColor3 = Color3.fromRGB(200, 180, 100)
+comboSubLabel.TextScaled = true
+comboSubLabel.Font = Enum.Font.Gotham
+comboSubLabel.Parent = comboFrame
+
+local function updateCombo()
+	local now = tick()
+	if now - lastComboTime > COMBO_TIMEOUT then
+		comboCount = 0
+	end
+	comboCount = comboCount + 1
+	lastComboTime = now
+	comboLabel.Text = tostring(comboCount)
+	comboFrame.Visible = true
+
+	-- Pulse effect
+	comboFrame.Size = UDim2.new(0, 140, 0, 70)
+	safeTween(comboFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Size = UDim2.new(0, 120, 0, 60)
+	})
+
+	-- Color based on combo
+	if comboCount >= 10 then
+		comboLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+		comboStroke.Color = Color3.fromRGB(255, 50, 50)
+	elseif comboCount >= 5 then
+		comboLabel.TextColor3 = Color3.fromRGB(255, 150, 50)
+		comboStroke.Color = Color3.fromRGB(255, 150, 50)
+	else
+		comboLabel.TextColor3 = Color3.fromRGB(255, 220, 50)
+		comboStroke.Color = Color3.fromRGB(255, 200, 50)
+	end
+end
+
+-- Combo timeout check
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		if comboCount > 0 and tick() - lastComboTime > COMBO_TIMEOUT then
+			comboCount = 0
+			comboFrame.Visible = false
+		end
+	end
+end)
+
+--------------------------------------------------------------------------------
+-- COOLDOWN INDICATOR (circular timer near center)
+--------------------------------------------------------------------------------
+local cooldownFrame = Instance.new("Frame")
+cooldownFrame.Name = "CooldownIndicator"
+cooldownFrame.Size = UDim2.new(0, 30, 0, 30)
+cooldownFrame.Position = UDim2.new(0.5, -15, 0.55, 0)
+cooldownFrame.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+cooldownFrame.BackgroundTransparency = 0.7
+cooldownFrame.BorderSizePixel = 0
+cooldownFrame.Visible = false
+cooldownFrame.Parent = combatGui
+
+local cdCorner = Instance.new("UICorner")
+cdCorner.CornerRadius = UDim.new(0.5, 0)
+cdCorner.Parent = cooldownFrame
+
+local cdStroke = Instance.new("UIStroke")
+cdStroke.Color = Color3.fromRGB(255, 255, 255)
+cdStroke.Thickness = 2
+cdStroke.Transparency = 0.5
+cdStroke.Parent = cooldownFrame
+
+local function showCooldown()
+	cooldownFrame.Visible = true
+	cooldownFrame.BackgroundTransparency = 0.3
+	cooldownFrame.Size = UDim2.new(0, 30, 0, 30)
+	safeTween(cooldownFrame, TweenInfo.new(ATTACK_COOLDOWN, Enum.EasingStyle.Linear), {
+		BackgroundTransparency = 0.9,
+		Size = UDim2.new(0, 10, 0, 10),
+	})
+	task.delay(ATTACK_COOLDOWN, function()
+		cooldownFrame.Visible = false
+		cooldownFrame.Position = UDim2.new(0.5, -15, 0.55, 0)
+	end)
+end
+
+--------------------------------------------------------------------------------
+-- DAMAGE NUMBERS (3D billboard style)
+--------------------------------------------------------------------------------
+local function showDamageNumber3D(position, text, color, isCritical)
+	local part = Instance.new("Part")
+	part.Name = "DmgNum"
+	part.Size = Vector3.new(0.1, 0.1, 0.1)
+	part.Transparency = 1
+	part.Anchored = true
+	part.CanCollide = false
+	part.Position = position + Vector3.new((math.random() - 0.5) * 2, 2, (math.random() - 0.5) * 2)
+	part.Parent = workspace
+
+	local bbg = Instance.new("BillboardGui")
+	bbg.Size = isCritical and UDim2.new(6, 0, 2, 0) or UDim2.new(4, 0, 1.5, 0)
+	bbg.StudsOffset = Vector3.new(0, 0, 0)
+	bbg.AlwaysOnTop = true
+	bbg.Adornee = part
+	bbg.Parent = part
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = color
+	label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	label.TextStrokeTransparency = 0
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = bbg
+
+	-- Scale up on critical
+	if isCritical then
+		label.TextSize = 28
+		label.Text = "💥 " .. text .. " 💥"
+	end
+
+	-- Float up and fade
+	local startPos = part.Position
+	local endPos = startPos + Vector3.new(0, 4, 0)
+
+	safeTween(part, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = endPos,
+	})
+
+	task.delay(0.6, function()
+		safeTween(label, TweenInfo.new(0.6), {
+			TextTransparency = 1,
+			TextStrokeTransparency = 1,
+		})
+	end)
+
+	Debris:AddItem(part, 1.5)
+end
+
+--------------------------------------------------------------------------------
+-- HIT FLASH (white flash on target)
+--------------------------------------------------------------------------------
+local function applyHitFlash(model)
+	if not model or not model.Parent then return end
+	local originalColors = {}
+
+	for _, part in ipairs(model:GetDescendants()) do
+		if part:IsA("BasePart") and part.Name ~= "DmgNum" then
+			originalColors[part] = part.Color
+			part.Color = Color3.fromRGB(255, 255, 255)
+		end
+	end
+
+	task.delay(0.08, function()
+		for part, color in pairs(originalColors) do
+			if part and part.Parent then
+				part.Color = color
+			end
+		end
+	end)
+end
+
+--------------------------------------------------------------------------------
+-- BLOOD/HIT PARTICLES
+--------------------------------------------------------------------------------
+local function spawnHitParticles(position, color, count)
+	color = color or Color3.fromRGB(200, 50, 50)
+	count = count or 6
+
+	for i = 1, count do
+		local particle = Instance.new("Part")
+		particle.Name = "HitParticle"
+		particle.Size = Vector3.new(0.2, 0.2, 0.2)
+		particle.Shape = Enum.PartType.Ball
+		particle.Anchored = true
+		particle.CanCollide = false
+		particle.Material = Enum.Material.Neon
+		particle.Color = color
+		particle.Transparency = 0.2
+		particle.Position = position
+		particle.Parent = workspace
+
+		local dir = Vector3.new(
+			(math.random() - 0.5) * 6,
+			math.random() * 4 + 1,
+			(math.random() - 0.5) * 6
+		)
+
+		safeTween(particle, TweenInfo.new(0.4 + math.random() * 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = position + dir,
+			Size = Vector3.new(0.05, 0.05, 0.05),
+			Transparency = 1,
+		})
+
+		Debris:AddItem(particle, 0.8)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- SPARK PARTICLES (for shield block / metallic impacts)
+--------------------------------------------------------------------------------
+local function spawnSparks(position, count)
+	count = count or 8
+	for i = 1, count do
+		local spark = Instance.new("Part")
+		spark.Name = "Spark"
+		spark.Size = Vector3.new(0.15, 0.15, 0.15)
+		spark.Shape = Enum.PartType.Ball
+		spark.Anchored = true
+		spark.CanCollide = false
+		spark.Material = Enum.Material.Neon
+		spark.Color = Color3.fromRGB(255, 220 + math.random(35), math.random(100))
+		spark.Transparency = 0
+		spark.Position = position
+		spark.Parent = workspace
+
+		local dir = Vector3.new(
+			(math.random() - 0.5) * 5,
+			math.random() * 3 + 1,
+			(math.random() - 0.5) * 5
+		)
+
+		safeTween(spark, TweenInfo.new(0.2 + math.random() * 0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = position + dir,
+			Size = Vector3.new(0.03, 0.03, 0.03),
+			Transparency = 1,
+		})
+
+		Debris:AddItem(spark, 0.5)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- SWOOSH TRAIL (sword arc effect)
+--------------------------------------------------------------------------------
+local function createSwooshTrail(character, isLeftSwing)
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+
+	local startAngle = isLeftSwing and -60 or 60
+	local endAngle = isLeftSwing and 60 or -60
+
+	local slashColors = {
+		Color3.fromRGB(255, 255, 255),
+		Color3.fromRGB(200, 220, 255),
+		Color3.fromRGB(150, 180, 255),
+	}
+
+	for idx, color in ipairs(slashColors) do
+		local delay = (idx - 1) * 0.025
+		task.delay(delay, function()
+			if not root or not root.Parent then return end
+			local slash = Instance.new("Part")
+			slash.Name = "SwordSwoosh"
+			slash.Size = Vector3.new(0.1, 0.3, 4 + idx * 0.3)
+			slash.Anchored = true
+			slash.CanCollide = false
+			slash.Material = Enum.Material.Neon
+			slash.Color = color
+			slash.Transparency = 0.1 + (idx * 0.15)
+			slash.CFrame = root.CFrame * CFrame.new(0, 0.5, -2.5) * CFrame.Angles(0, 0, math.rad(startAngle))
+			slash.Parent = workspace
+
+			safeTween(slash, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				CFrame = root.CFrame * CFrame.new(0, 0.5, -2.5) * CFrame.Angles(0, 0, math.rad(endAngle)),
+				Transparency = 1,
+				Size = Vector3.new(0.03, 0.1, 5),
+			})
+
+			Debris:AddItem(slash, 0.3)
+		end)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- PLAYER ATTACK ANIMATIONS
+--------------------------------------------------------------------------------
+
+-- SWORD SWING (R15 Motor6D based)
+local function playSwordSwing(character, isCritical)
+	local rightShoulder = findMotor(character, "RightUpperArm")
+	local torsoMotor = findMotor(character, "UpperTorso")
+
+	local swingAngle = isCritical and -120 or -90
+	local swingDuration = isCritical and 0.15 or 0.2
+	local returnDelay = isCritical and 0.2 or 0.3
+
+	-- Alternate swing direction
+	local isLeftSwing = (comboCount % 2 == 0)
+
+	-- Swing right arm
+	if rightShoulder then
+		local originalC0 = rightShoulder.C0
+		local swingCF = originalC0 * CFrame.Angles(math.rad(swingAngle), math.rad(isLeftSwing and -20 or 20), 0)
+
+		safeTween(rightShoulder, TweenInfo.new(swingDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			C0 = swingCF,
+		})
+
+		task.delay(returnDelay, function()
+			if rightShoulder and rightShoulder.Parent then
+				safeTween(rightShoulder, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+					C0 = originalC0,
+				})
+			end
+		end)
+	end
+
+	-- Lean torso into swing
+	if torsoMotor then
+		local originalC0 = torsoMotor.C0
+		local leanAngle = isCritical and -15 or -8
+		local leanCF = originalC0 * CFrame.Angles(math.rad(leanAngle), math.rad(isLeftSwing and -5 or 5), 0)
+
+		safeTween(torsoMotor, TweenInfo.new(swingDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			C0 = leanCF,
+		})
+
+		task.delay(returnDelay, function()
+			if torsoMotor and torsoMotor.Parent then
+				safeTween(torsoMotor, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+					C0 = originalC0,
+				})
+			end
+		end)
+	end
+
+	-- Swoosh trail
+	createSwooshTrail(character, isLeftSwing)
+
+	-- Camera shake on critical
+	if isCritical then
+		applyScreenShake(0.4, 0.3)
+	else
+		applyScreenShake(0.1, 0.15)
+	end
+end
+
+-- BOW SHOT
+local function playBowShot(character, targetPosition)
+	local leftShoulder = findMotor(character, "LeftUpperArm")
+	local rightShoulder = findMotor(character, "RightUpperArm")
+
+	-- Draw bow (left arm pulls back)
+	if leftShoulder then
+		local originalC0 = leftShoulder.C0
+		local drawCF = originalC0 * CFrame.Angles(math.rad(-70), math.rad(30), 0)
+
+		safeTween(leftShoulder, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			C0 = drawCF,
+		})
+
+		-- Release
+		task.delay(0.3, function()
+			if leftShoulder and leftShoulder.Parent then
+				local releaseCF = originalC0 * CFrame.Angles(math.rad(-90), 0, 0)
+				safeTween(leftShoulder, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					C0 = releaseCF,
+				})
+			end
+		end)
+
+		-- Return
+		task.delay(0.5, function()
+			if leftShoulder and leftShoulder.Parent then
+				safeTween(leftShoulder, TweenInfo.new(0.2), { C0 = originalC0 })
+			end
+		end)
+	end
+
+	-- Right arm aims forward
+	if rightShoulder then
+		local originalC0 = rightShoulder.C0
+		local aimCF = originalC0 * CFrame.Angles(math.rad(-80), 0, 0)
+
+		safeTween(rightShoulder, TweenInfo.new(0.15), { C0 = aimCF })
+
+		task.delay(0.5, function()
+			if rightShoulder and rightShoulder.Parent then
+				safeTween(rightShoulder, TweenInfo.new(0.2), { C0 = originalC0 })
+			end
+		end)
+	end
+
+	-- Fire projectile arrow
+	task.delay(0.3, function()
+		local root = character:FindFirstChild("HumanoidRootPart")
+		if not root or not targetPosition then return end
+
+		local arrow = Instance.new("Part")
+		arrow.Name = "Arrow"
+		arrow.Size = Vector3.new(0.1, 0.1, 2)
+		arrow.Anchored = true
+		arrow.CanCollide = false
+		arrow.Material = Enum.Material.Wood
+		arrow.Color = Color3.fromRGB(139, 90, 43)
+		arrow.CFrame = CFrame.new(root.Position + Vector3.new(0, 1.5, 0), targetPosition)
+		arrow.Parent = workspace
+
+		-- Arrow tip
+		local tip = Instance.new("Part")
+		tip.Name = "ArrowTip"
+		tip.Size = Vector3.new(0.15, 0.15, 0.3)
+		tip.Anchored = true
+		tip.CanCollide = false
+		tip.Material = Enum.Material.Metal
+		tip.Color = Color3.fromRGB(150, 150, 150)
+		tip.CFrame = arrow.CFrame * CFrame.new(0, 0, -1.1)
+		tip.Parent = workspace
+
+		-- Fly to target
+		local dist = (targetPosition - root.Position).Magnitude
+		local flyTime = math.clamp(dist / 80, 0.1, 0.8)
+
+		local targetCF = CFrame.new(targetPosition, targetPosition + (targetPosition - root.Position).Unit)
+
+		safeTween(arrow, TweenInfo.new(flyTime, Enum.EasingStyle.Linear), {
+			CFrame = targetCF,
+		})
+		safeTween(tip, TweenInfo.new(flyTime, Enum.EasingStyle.Linear), {
+			CFrame = targetCF * CFrame.new(0, 0, -1.1),
+		})
+
+		-- Stick and fade
+		task.delay(flyTime + 0.5, function()
+			safeTween(arrow, TweenInfo.new(0.5), { Transparency = 1 })
+			safeTween(tip, TweenInfo.new(0.5), { Transparency = 1 })
+		end)
+
+		Debris:AddItem(arrow, flyTime + 1.5)
+		Debris:AddItem(tip, flyTime + 1.5)
+	end)
+end
+
+-- AXE/BATTLEAXE OVERHEAD CHOP
+local function playAxeChop(character, isCritical)
+	local rightShoulder = findMotor(character, "RightUpperArm")
+	local leftShoulder = findMotor(character, "LeftUpperArm")
+	local torsoMotor = findMotor(character, "UpperTorso")
+
+	local chopAngle = isCritical and -140 or -110
+	local chopDuration = isCritical and 0.12 or 0.18
+
+	-- Both arms raise overhead
+	if rightShoulder then
+		local originalC0 = rightShoulder.C0
+		local raiseCF = originalC0 * CFrame.Angles(math.rad(-160), 0, math.rad(-5))
+		local chopCF = originalC0 * CFrame.Angles(math.rad(chopAngle), 0, math.rad(-5))
+
+		-- Wind up
+		safeTween(rightShoulder, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			C0 = raiseCF,
+		})
+		-- Chop down
+		task.delay(0.14, function()
+			if rightShoulder and rightShoulder.Parent then
+				safeTween(rightShoulder, TweenInfo.new(chopDuration, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+					C0 = chopCF,
+				})
+			end
+		end)
+		-- Return
+		task.delay(0.4, function()
+			if rightShoulder and rightShoulder.Parent then
+				safeTween(rightShoulder, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+					C0 = originalC0,
+				})
+			end
+		end)
+	end
+
+	if leftShoulder then
+		local originalC0 = leftShoulder.C0
+		local raiseCF = originalC0 * CFrame.Angles(math.rad(-150), 0, math.rad(5))
+		local chopCF = originalC0 * CFrame.Angles(math.rad(chopAngle + 10), 0, math.rad(5))
+
+		safeTween(leftShoulder, TweenInfo.new(0.12), { C0 = raiseCF })
+		task.delay(0.14, function()
+			if leftShoulder and leftShoulder.Parent then
+				safeTween(leftShoulder, TweenInfo.new(chopDuration), { C0 = chopCF })
+			end
+		end)
+		task.delay(0.4, function()
+			if leftShoulder and leftShoulder.Parent then
+				safeTween(leftShoulder, TweenInfo.new(0.25), { C0 = originalC0 })
+			end
+		end)
+	end
+
+	-- Heavy lean forward on impact
+	if torsoMotor then
+		local originalC0 = torsoMotor.C0
+		task.delay(0.14, function()
+			if torsoMotor and torsoMotor.Parent then
+				safeTween(torsoMotor, TweenInfo.new(chopDuration), {
+					C0 = originalC0 * CFrame.Angles(math.rad(-20), 0, 0),
+				})
+			end
+		end)
+		task.delay(0.4, function()
+			if torsoMotor and torsoMotor.Parent then
+				safeTween(torsoMotor, TweenInfo.new(0.3), { C0 = originalC0 })
+			end
+		end)
+	end
+
+	-- Vertical swoosh (overhead arc)
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root then
+		local slash = Instance.new("Part")
+		slash.Name = "AxeSwoosh"
+		slash.Size = Vector3.new(3, 0.15, 0.8)
+		slash.Anchored = true
+		slash.CanCollide = false
+		slash.Material = Enum.Material.Neon
+		slash.Color = Color3.fromRGB(255, 200, 100)
+		slash.Transparency = 0.2
+		slash.CFrame = root.CFrame * CFrame.new(0, 2, -2) * CFrame.Angles(math.rad(-60), 0, 0)
+		slash.Parent = workspace
+
+		safeTween(slash, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			CFrame = root.CFrame * CFrame.new(0, -0.5, -2.5) * CFrame.Angles(math.rad(30), 0, 0),
+			Transparency = 1,
+			Size = Vector3.new(3.5, 0.05, 1.2),
+		})
+		Debris:AddItem(slash, 0.25)
+	end
+
+	-- Ground impact particles on critical
+	if isCritical and root then
+		task.delay(0.3, function()
+			local impactPos = root.Position + root.CFrame.LookVector * 3
+			for i = 1, 8 do
+				local debris = Instance.new("Part")
+				debris.Size = Vector3.new(0.3, 0.3, 0.3)
+				debris.Shape = Enum.PartType.Ball
+				debris.Anchored = true
+				debris.CanCollide = false
+				debris.Material = Enum.Material.Slate
+				debris.Color = Color3.fromRGB(120, 110, 90)
+				debris.Position = impactPos
+				debris.Parent = workspace
+				safeTween(debris, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Position = impactPos + Vector3.new((math.random()-0.5)*5, math.random()*3, (math.random()-0.5)*5),
+					Transparency = 1,
+					Size = Vector3.new(0.1, 0.1, 0.1),
+				})
+				Debris:AddItem(debris, 0.5)
+			end
+		end)
+		applyScreenShake(0.5, 0.4)
+	else
+		applyScreenShake(0.15, 0.2)
+	end
+end
+
+-- DAGGER QUICK STAB (fast, alternating)
+local function playDaggerStab(character, isCritical)
+	local isRight = (comboCount % 2 == 0)
+	local limbName = isRight and "RightUpperArm" or "LeftUpperArm"
+	local shoulder = findMotor(character, limbName)
+	local torsoMotor = findMotor(character, "UpperTorso")
+
+	if shoulder then
+		local originalC0 = shoulder.C0
+		-- Quick forward thrust
+		local stabCF = originalC0 * CFrame.Angles(math.rad(-80), math.rad(isRight and -15 or 15), 0)
+
+		safeTween(shoulder, TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			C0 = stabCF,
+		})
+		-- Rapid retract
+		task.delay(0.08, function()
+			if shoulder and shoulder.Parent then
+				safeTween(shoulder, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+					C0 = originalC0,
+				})
+			end
+		end)
+
+		-- Double stab on critical
+		if isCritical then
+			task.delay(0.15, function()
+				if shoulder and shoulder.Parent then
+					local otherLimb = isRight and "LeftUpperArm" or "RightUpperArm"
+					local otherShoulder = findMotor(character, otherLimb)
+					if otherShoulder then
+						local origOther = otherShoulder.C0
+						local stab2 = origOther * CFrame.Angles(math.rad(-85), math.rad(not isRight and -15 or 15), 0)
+						safeTween(otherShoulder, TweenInfo.new(0.06), { C0 = stab2 })
+						task.delay(0.08, function()
+							if otherShoulder and otherShoulder.Parent then
+								safeTween(otherShoulder, TweenInfo.new(0.08), { C0 = origOther })
+							end
+						end)
+					end
+				end
+			end)
+		end
+	end
+
+	-- Quick lean
+	if torsoMotor then
+		local originalC0 = torsoMotor.C0
+		safeTween(torsoMotor, TweenInfo.new(0.06), {
+			C0 = originalC0 * CFrame.Angles(math.rad(-8), math.rad(isRight and 3 or -3), 0),
+		})
+		task.delay(0.12, function()
+			if torsoMotor and torsoMotor.Parent then
+				safeTween(torsoMotor, TweenInfo.new(0.1), { C0 = originalC0 })
+			end
+		end)
+	end
+
+	-- Small quick stab trail
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root then
+		local side = isRight and 0.3 or -0.3
+		local trail = Instance.new("Part")
+		trail.Size = Vector3.new(0.1, 0.1, 2)
+		trail.Anchored = true
+		trail.CanCollide = false
+		trail.Material = Enum.Material.Neon
+		trail.Color = isCritical and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(220, 220, 255)
+		trail.Transparency = 0.3
+		trail.CFrame = root.CFrame * CFrame.new(side, 0.5, -1.5)
+		trail.Parent = workspace
+		safeTween(trail, TweenInfo.new(0.1), {
+			CFrame = root.CFrame * CFrame.new(side, 0.5, -3),
+			Transparency = 1,
+			Size = Vector3.new(0.05, 0.05, 2.5),
+		})
+		Debris:AddItem(trail, 0.15)
+	end
+
+	applyScreenShake(isCritical and 0.2 or 0.05, 0.1)
+end
+
+-- CROSSBOW SHOT (mechanical, heavier than bow)
+local function playCrossbowShot(character, targetPosition)
+	local rightShoulder = findMotor(character, "RightUpperArm")
+	local leftShoulder = findMotor(character, "LeftUpperArm")
+
+	-- Both arms forward aiming
+	if rightShoulder then
+		local originalC0 = rightShoulder.C0
+		local aimCF = originalC0 * CFrame.Angles(math.rad(-75), math.rad(-5), 0)
+		safeTween(rightShoulder, TweenInfo.new(0.1), { C0 = aimCF })
+
+		-- Recoil kick back
+		task.delay(0.2, function()
+			if rightShoulder and rightShoulder.Parent then
+				local recoilCF = originalC0 * CFrame.Angles(math.rad(-55), math.rad(-5), 0)
+				safeTween(rightShoulder, TweenInfo.new(0.05), { C0 = recoilCF })
+			end
+		end)
+		task.delay(0.35, function()
+			if rightShoulder and rightShoulder.Parent then
+				safeTween(rightShoulder, TweenInfo.new(0.2), { C0 = originalC0 })
+			end
+		end)
+	end
+
+	if leftShoulder then
+		local originalC0 = leftShoulder.C0
+		local aimCF = originalC0 * CFrame.Angles(math.rad(-75), math.rad(10), 0)
+		safeTween(leftShoulder, TweenInfo.new(0.1), { C0 = aimCF })
+		task.delay(0.35, function()
+			if leftShoulder and leftShoulder.Parent then
+				safeTween(leftShoulder, TweenInfo.new(0.2), { C0 = originalC0 })
+			end
+		end)
+	end
+
+	-- Fire bolt (heavier/faster than arrow)
+	task.delay(0.2, function()
+		local root = character:FindFirstChild("HumanoidRootPart")
+		if not root or not targetPosition then return end
+
+		local bolt = Instance.new("Part")
+		bolt.Name = "Bolt"
+		bolt.Size = Vector3.new(0.12, 0.12, 1.5)
+		bolt.Anchored = true
+		bolt.CanCollide = false
+		bolt.Material = Enum.Material.Metal
+		bolt.Color = Color3.fromRGB(80, 80, 90)
+		bolt.CFrame = CFrame.new(root.Position + Vector3.new(0, 1.5, 0), targetPosition)
+		bolt.Parent = workspace
+
+		-- Bolt tip (wider, heavier)
+		local tip = Instance.new("Part")
+		tip.Name = "BoltTip"
+		tip.Size = Vector3.new(0.2, 0.2, 0.25)
+		tip.Anchored = true
+		tip.CanCollide = false
+		tip.Material = Enum.Material.Metal
+		tip.Color = Color3.fromRGB(120, 120, 130)
+		tip.CFrame = bolt.CFrame * CFrame.new(0, 0, -0.85)
+		tip.Parent = workspace
+
+		-- Faster than arrow (crossbow power)
+		local dist = (targetPosition - root.Position).Magnitude
+		local flyTime = math.clamp(dist / 120, 0.08, 0.5)
+
+		local targetCF = CFrame.new(targetPosition, targetPosition + (targetPosition - root.Position).Unit)
+		safeTween(bolt, TweenInfo.new(flyTime, Enum.EasingStyle.Linear), { CFrame = targetCF })
+		safeTween(tip, TweenInfo.new(flyTime, Enum.EasingStyle.Linear), { CFrame = targetCF * CFrame.new(0, 0, -0.85) })
+
+		-- Impact spark
+		task.delay(flyTime, function()
+			if bolt and bolt.Parent then
+				spawnSparks(targetPosition + Vector3.new(0, 1, 0), 4)
+			end
+		end)
+
+		task.delay(flyTime + 0.3, function()
+			safeTween(bolt, TweenInfo.new(0.4), { Transparency = 1 })
+			safeTween(tip, TweenInfo.new(0.4), { Transparency = 1 })
+		end)
+
+		Debris:AddItem(bolt, flyTime + 1)
+		Debris:AddItem(tip, flyTime + 1)
+	end)
+
+	-- Screen shake from recoil
+	task.delay(0.2, function()
+		applyScreenShake(0.12, 0.15)
+	end)
+end
+
+-- UNARMED PUNCH
+local function playPunchAnimation(character)
+	local isRight = (punchHand == "right")
+	punchHand = isRight and "left" or "right"
+
+	local limbName = isRight and "RightUpperArm" or "LeftUpperArm"
+	local shoulder = findMotor(character, limbName)
+
+	if shoulder then
+		local originalC0 = shoulder.C0
+		local punchCF = originalC0 * CFrame.Angles(math.rad(-90), 0, math.rad(isRight and -10 or 10))
+
+		-- Quick jab
+		safeTween(shoulder, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			C0 = punchCF,
+		})
+
+		-- Retract
+		task.delay(0.15, function()
+			if shoulder and shoulder.Parent then
+				safeTween(shoulder, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+					C0 = originalC0,
+				})
+			end
+		end)
+	end
+
+	-- Lean into punch
+	local torsoMotor = findMotor(character, "UpperTorso")
+	if torsoMotor then
+		local originalC0 = torsoMotor.C0
+		local leanCF = originalC0 * CFrame.Angles(math.rad(-5), math.rad(isRight and 5 or -5), 0)
+		safeTween(torsoMotor, TweenInfo.new(0.1), { C0 = leanCF })
+		task.delay(0.2, function()
+			if torsoMotor and torsoMotor.Parent then
+				safeTween(torsoMotor, TweenInfo.new(0.15), { C0 = originalC0 })
+			end
+		end)
+	end
+
+	applyScreenShake(0.05, 0.1)
+end
+
+-- SHIELD BLOCK
+local function playShieldBlock(character)
+	local leftShoulder = findMotor(character, "LeftUpperArm")
+
+	if leftShoulder then
+		local originalC0 = leftShoulder.C0
+		local blockCF = originalC0 * CFrame.Angles(math.rad(-70), math.rad(40), math.rad(-20))
+
+		safeTween(leftShoulder, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			C0 = blockCF,
+		})
+
+		-- Shield flash effect
+		local root = character:FindFirstChild("HumanoidRootPart")
+		if root then
+			local flash = Instance.new("Part")
+			flash.Name = "ShieldFlash"
+			flash.Size = Vector3.new(2.5, 3, 0.3)
+			flash.Anchored = true
+			flash.CanCollide = false
+			flash.Material = Enum.Material.Neon
+			flash.Color = Color3.fromRGB(200, 220, 255)
+			flash.Transparency = 0.3
+			flash.CFrame = root.CFrame * CFrame.new(-0.8, 0.5, -1.5)
+			flash.Parent = workspace
+
+			safeTween(flash, TweenInfo.new(0.2), {
+				Transparency = 1,
+				Size = Vector3.new(3, 3.5, 0.5),
+			})
+			Debris:AddItem(flash, 0.3)
+
+			spawnSparks(root.Position + root.CFrame.LookVector * -1.5 + Vector3.new(0, 1, 0), 6)
+		end
+
+		-- Lower back
+		task.delay(0.3, function()
+			if leftShoulder and leftShoulder.Parent then
+				safeTween(leftShoulder, TweenInfo.new(0.2), { C0 = originalC0 })
+			end
+		end)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- DETECT WEAPON TYPE (cached from server EquipmentInfo event)
+--------------------------------------------------------------------------------
+local cachedWeaponType = "fist"
+local cachedWeaponName = ""
+local cachedHasShield = false
+
+-- Listen for equipment info from server
+local AARemotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+local EquipmentInfoEvent = AARemotes and AARemotes:WaitForChild("EquipmentInfo", 10)
+if EquipmentInfoEvent then
+	EquipmentInfoEvent.OnClientEvent:Connect(function(info)
+		if info then
+			cachedWeaponType = info.weaponType or "fist"
+			cachedWeaponName = info.weaponName or ""
+			cachedHasShield = info.hasShield or false
+		end
+	end)
+end
+
+local function getWeaponType()
+	-- Use cached weapon type from server EquipmentInfo for specific weapon styles
+	local wt = cachedWeaponType
+	if wt == "crossbow" then
+		return "crossbow"
+	elseif wt == "bow" then
+		return "bow"
+	elseif wt == "sword" then
+		-- Sub-classify melee weapons by name
+		local lower = cachedWeaponName:lower()
+		if lower:find("axe") or lower:find("battleaxe") or lower:find("halberd") then
+			return "axe"
+		elseif lower:find("dagger") or lower:find("knife") or lower:find("shiv") then
+			return "dagger"
+		end
+		return "sword"
+	end
+
+	-- Fallback: check for visual weapon on character
+	local char = getCharacter()
+	if char then
+		local visualWeapon = char:FindFirstChild("VisualEquip_Weapon")
+		if visualWeapon then
+			return "sword"
+		end
+	end
+
+	return "unarmed"
+end
+
+--------------------------------------------------------------------------------
+-- MAIN PLAYER ATTACK FUNCTION
+--------------------------------------------------------------------------------
+local function performPlayerAttack(targetModel, isCritical)
+	local character = getCharacter()
+	if not character then return end
+	if isAnimating then return end
+
+	local now = tick()
+	if now - lastAttackTime < ATTACK_COOLDOWN then return end
+	lastAttackTime = now
+	isAnimating = true
+
+	showCooldown()
+	updateCombo()
+
+	local weaponType = getWeaponType()
+	local targetPos = nil
+	if targetModel and targetModel.PrimaryPart then
+		targetPos = targetModel.PrimaryPart.Position
+	elseif targetModel and targetModel:IsA("BasePart") then
+		targetPos = targetModel.Position
+	end
+
+	if weaponType == "crossbow" then
+		playCrossbowShot(character, targetPos)
+	elseif weaponType == "bow" then
+		playBowShot(character, targetPos)
+	elseif weaponType == "axe" then
+		playAxeChop(character, isCritical)
+	elseif weaponType == "dagger" then
+		playDaggerStab(character, isCritical)
+	elseif weaponType == "sword" then
+		playSwordSwing(character, isCritical)
+	else
+		playPunchAnimation(character)
+	end
+
+	-- Impact effects at target
+	if targetPos then
+		task.delay(weaponType == "ranged" and 0.4 or 0.15, function()
+			spawnHitParticles(targetPos + Vector3.new(0, 1, 0), nil, isCritical and 10 or 5)
+		end)
+	end
+
+	task.delay(0.35, function()
+		isAnimating = false
+	end)
+end
+
+--------------------------------------------------------------------------------
+-- MONSTER ATTACK ANIMATIONS (client-side visuals)
+--------------------------------------------------------------------------------
+
+-- Map monster names to attack types
+local MONSTER_ATTACK_TYPES = {
+	["Goblin"] = "melee_lunge",
+	["Guard Dog"] = "bite",
+	["Skeleton"] = "spin",
+	["Demon"] = "slam",
+	["Giant Rat"] = "bite",
+	["Chicken"] = "peck",
+	["Cow"] = "headbutt",
+	["Dark Wizard"] = "magic_cast",
+	["Shadow Dragon"] = "dragon_breath",
+	["Training Dummy"] = nil,
+	["King Rooster"] = "peck",
+	["Elder Treant"] = "slam",
+	["Iron Golem"] = "slam",
+	["Lake Serpent"] = "poison_spit",
+	["Corrupted Guardian"] = "slam",
+	["Pirate Ghost"] = "melee_lunge",
+	["Ice Elemental"] = "magic_cast",
+	["Lava Golem"] = "slam",
+	["Fairy Dragon"] = "magic_cast",
+	["Ancient Guardian"] = "slam",
+	["Frost Wyrm"] = "poison_spit",
+	["Lich King Malachar"] = "magic_cast",
+}
+
+local function animateMeleeLunge(model, targetPos)
+	if not model or not model.PrimaryPart then return end
+	local body = model.PrimaryPart
+	local originalCF = body.CFrame
+
+	-- Calculate lunge direction
+	local dir = (targetPos - body.Position) * Vector3.new(1, 0, 1)
+	if dir.Magnitude < 0.1 then return end
+	local lungeOffset = dir.Unit * 2
+
+	-- Lunge forward
+	local lungeCF = CFrame.new(body.Position + lungeOffset, body.Position + lungeOffset + dir.Unit)
+
+	-- Move body forward
+	safeTween(body, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		CFrame = lungeCF,
+	})
+
+	-- Move extra parts too
+	for _, child in ipairs(model:GetChildren()) do
+		if child:IsA("BasePart") and child ~= body then
+			safeTween(child, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Position = child.Position + lungeOffset,
+			})
+		end
+	end
+
+	-- Snap back
+	task.delay(0.25, function()
+		if not model or not model.Parent or not body or not body.Parent then return end
+		safeTween(body, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			CFrame = originalCF,
+		})
+		-- Return children
+		local returnOffset = originalCF.Position - (body.Position)
+		for _, child in ipairs(model:GetChildren()) do
+			if child:IsA("BasePart") and child ~= body then
+				safeTween(child, TweenInfo.new(0.2), {
+					Position = child.Position + returnOffset,
+				})
+			end
+		end
+	end)
+
+	-- Animate arms/claws if they exist
+	local armL = model:FindFirstChild("ArmL") or model:FindFirstChild("ClawL")
+	local armR = model:FindFirstChild("ArmR") or model:FindFirstChild("ClawR")
+
+	if armL then
+		local origPos = armL.Position
+		safeTween(armL, TweenInfo.new(0.12), {
+			Position = origPos + lungeOffset * 0.5 + Vector3.new(0, 0.3, 0),
+		})
+		task.delay(0.25, function()
+			if armL and armL.Parent then
+				safeTween(armL, TweenInfo.new(0.2), { Position = origPos })
+			end
+		end)
+	end
+
+	if armR then
+		local origPos = armR.Position
+		safeTween(armR, TweenInfo.new(0.12), {
+			Position = origPos + lungeOffset * 0.5 + Vector3.new(0, 0.3, 0),
+		})
+		task.delay(0.25, function()
+			if armR and armR.Parent then
+				safeTween(armR, TweenInfo.new(0.2), { Position = origPos })
+			end
+		end)
+	end
+end
+
+local function animateBite(model, targetPos)
+	if not model or not model.PrimaryPart then return end
+	local body = model.PrimaryPart
+	local head = model:FindFirstChild("Head")
+	if not head then return end
+
+	local dir = (targetPos - body.Position) * Vector3.new(1, 0, 1)
+	if dir.Magnitude < 0.1 then return end
+	local biteOffset = dir.Unit * 1.5
+
+	local origHeadPos = head.Position
+	local origBodyCF = body.CFrame
+
+	-- Head lunges forward
+	safeTween(head, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = origHeadPos + biteOffset + Vector3.new(0, -0.3, 0),
+	})
+
+	-- Body follows slightly
+	safeTween(body, TweenInfo.new(0.12), {
+		CFrame = CFrame.new(body.Position + biteOffset * 0.3, body.Position + biteOffset * 0.3 + dir.Unit),
+	})
+
+	-- Snap back
+	task.delay(0.2, function()
+		if head and head.Parent then
+			safeTween(head, TweenInfo.new(0.15), { Position = origHeadPos })
+		end
+		if body and body.Parent then
+			safeTween(body, TweenInfo.new(0.15), { CFrame = origBodyCF })
+		end
+		-- Return all children
+		for _, child in ipairs(model:GetChildren()) do
+			if child:IsA("BasePart") and child ~= body and child ~= head then
+				safeTween(child, TweenInfo.new(0.15), {
+					Position = child.Position - biteOffset * 0.3,
+				})
+			end
+		end
+	end)
+
+	-- Snout/mouth parts animate
+	local snout = model:FindFirstChild("Snout")
+	if snout then
+		local origSnoutPos = snout.Position
+		safeTween(snout, TweenInfo.new(0.1), {
+			Position = origSnoutPos + biteOffset * 0.8,
+		})
+		task.delay(0.2, function()
+			if snout and snout.Parent then
+				safeTween(snout, TweenInfo.new(0.15), { Position = origSnoutPos })
+			end
+		end)
+	end
+end
+
+local function animateMagicCast(model, targetPos)
+	if not model or not model.PrimaryPart then return end
+	local body = model.PrimaryPart
+
+	-- Find staff orb
+	local staffOrb = model:FindFirstChild("StaffOrb")
+	local handL = model:FindFirstChild("HandL")
+
+	-- Arms raise (move arm parts up)
+	local armParts = {}
+	for _, name in ipairs({"HandL", "HandR", "Staff", "StaffOrb", "StaffRing"}) do
+		local p = model:FindFirstChild(name)
+		if p then
+			table.insert(armParts, {part = p, origPos = p.Position})
+			safeTween(p, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Position = p.Position + Vector3.new(0, 1.5, 0),
+			})
+		end
+	end
+
+	-- Staff orb glows brighter and scales
+	if staffOrb then
+		local origSize = staffOrb.Size
+		local origTransparency = staffOrb.Transparency
+		safeTween(staffOrb, TweenInfo.new(0.3), {
+			Size = origSize * 1.8,
+			Transparency = 0,
+		})
+
+		-- Fire projectile
+		task.delay(0.4, function()
+			if not staffOrb or not staffOrb.Parent then return end
+
+			-- Reset orb
+			safeTween(staffOrb, TweenInfo.new(0.3), {
+				Size = origSize,
+				Transparency = origTransparency or 0,
+			})
+
+			-- Create magic projectile
+			local projectile = Instance.new("Part")
+			projectile.Name = "MagicProjectile"
+			projectile.Size = Vector3.new(1.2, 1.2, 1.2)
+			projectile.Shape = Enum.PartType.Ball
+			projectile.Anchored = true
+			projectile.CanCollide = false
+			projectile.Material = Enum.Material.Neon
+			projectile.Color = Color3.fromRGB(180, 50, 255)
+			projectile.Position = staffOrb.Position
+			projectile.Parent = workspace
+
+			local light = Instance.new("PointLight")
+			light.Color = Color3.fromRGB(180, 50, 255)
+			light.Brightness = 3
+			light.Range = 12
+			light.Parent = projectile
+
+			-- Fly to target
+			local dist = (targetPos - staffOrb.Position).Magnitude
+			local flyTime = math.clamp(dist / 60, 0.15, 1.0)
+
+			safeTween(projectile, TweenInfo.new(flyTime, Enum.EasingStyle.Linear), {
+				Position = targetPos + Vector3.new(0, 2, 0),
+			})
+
+			-- Trail particles behind projectile
+			task.spawn(function()
+				local elapsed = 0
+				while elapsed < flyTime and projectile and projectile.Parent do
+					local trail = Instance.new("Part")
+					trail.Size = Vector3.new(0.4, 0.4, 0.4)
+					trail.Shape = Enum.PartType.Ball
+					trail.Anchored = true
+					trail.CanCollide = false
+					trail.Material = Enum.Material.Neon
+					trail.Color = Color3.fromRGB(140, 30, 200)
+					trail.Transparency = 0.3
+					trail.Position = projectile.Position
+					trail.Parent = workspace
+
+					safeTween(trail, TweenInfo.new(0.3), {
+						Size = Vector3.new(0.05, 0.05, 0.05),
+						Transparency = 1,
+					})
+					Debris:AddItem(trail, 0.4)
+
+					task.wait(0.03)
+					elapsed = elapsed + 0.03
+				end
+			end)
+
+			-- Impact effect
+			task.delay(flyTime, function()
+				if projectile and projectile.Parent then
+					-- Purple flash
+					local flash = Instance.new("Part")
+					flash.Name = "MagicImpact"
+					flash.Size = Vector3.new(3, 3, 3)
+					flash.Shape = Enum.PartType.Ball
+					flash.Anchored = true
+					flash.CanCollide = false
+					flash.Material = Enum.Material.Neon
+					flash.Color = Color3.fromRGB(180, 50, 255)
+					flash.Transparency = 0.3
+					flash.Position = projectile.Position
+					flash.Parent = workspace
+
+					safeTween(flash, TweenInfo.new(0.3), {
+						Size = Vector3.new(6, 6, 6),
+						Transparency = 1,
+					})
+					Debris:AddItem(flash, 0.4)
+
+					projectile:Destroy()
+
+					-- Screen effect if hit local player
+					local root = getHumanoidRootPart()
+					if root then
+						local d = (root.Position - targetPos).Magnitude
+						if d < 8 then
+							applyScreenShake(0.3, 0.3)
+						end
+					end
+				end
+			end)
+
+			Debris:AddItem(projectile, flyTime + 0.5)
+		end)
+	end
+
+	-- Return arms after cast
+	task.delay(0.8, function()
+		for _, data in ipairs(armParts) do
+			if data.part and data.part.Parent then
+				safeTween(data.part, TweenInfo.new(0.3), {
+					Position = data.origPos,
+				})
+			end
+		end
+	end)
+end
+
+local function animateDragonBreath(model, targetPos)
+	if not model or not model.PrimaryPart then return end
+	local body = model.PrimaryPart
+	local head = model:FindFirstChild("Head")
+	if not head then return end
+
+	local origHeadPos = head.Position
+
+	-- Head rears back
+	safeTween(head, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = origHeadPos + Vector3.new(0, 2, 0) + body.CFrame.LookVector * -2,
+	})
+
+	-- Then breath attack
+	task.delay(0.4, function()
+		if not head or not head.Parent then return end
+
+		-- Head snaps forward
+		safeTween(head, TweenInfo.new(0.15), {
+			Position = origHeadPos + body.CFrame.LookVector * 1,
+		})
+
+		-- Purple fire stream
+		local breathDir = (targetPos - head.Position) * Vector3.new(1, 0, 1)
+		if breathDir.Magnitude < 0.1 then
+			breathDir = body.CFrame.LookVector * 10
+		end
+		local breathUnit = breathDir.Unit
+
+		-- Stream of fire particles
+		task.spawn(function()
+			for i = 1, 20 do
+				if not head or not head.Parent then break end
+				local firePos = head.Position + breathUnit * (i * 0.8)
+
+				local fire = Instance.new("Part")
+				fire.Size = Vector3.new(1 + i * 0.2, 1 + i * 0.2, 1 + i * 0.2)
+				fire.Shape = Enum.PartType.Ball
+				fire.Anchored = true
+				fire.CanCollide = false
+				fire.Material = Enum.Material.Neon
+				fire.Color = Color3.fromRGB(
+					120 + math.random(60),
+					10 + math.random(40),
+					180 + math.random(75)
+				)
+				fire.Transparency = 0.2
+				fire.Position = firePos + Vector3.new(
+					(math.random() - 0.5) * i * 0.3,
+					(math.random() - 0.5) * i * 0.2,
+					(math.random() - 0.5) * i * 0.3
+				)
+				fire.Parent = workspace
+
+				safeTween(fire, TweenInfo.new(0.5), {
+					Size = Vector3.new(0.2, 0.2, 0.2),
+					Transparency = 1,
+					Position = fire.Position + Vector3.new(0, 2, 0),
+				})
+				Debris:AddItem(fire, 0.6)
+
+				task.wait(0.02)
+			end
+		end)
+
+		-- AoE circle on ground at target
+		task.delay(0.3, function()
+			local aoeCircle = Instance.new("Part")
+			aoeCircle.Name = "AoECircle"
+			aoeCircle.Size = Vector3.new(8, 0.1, 8)
+			aoeCircle.Shape = Enum.PartType.Cylinder
+			aoeCircle.Anchored = true
+			aoeCircle.CanCollide = false
+			aoeCircle.Material = Enum.Material.Neon
+			aoeCircle.Color = Color3.fromRGB(150, 30, 200)
+			aoeCircle.Transparency = 0.4
+			aoeCircle.CFrame = CFrame.new(targetPos.X, 0.05, targetPos.Z) * CFrame.Angles(0, 0, math.rad(90))
+			aoeCircle.Parent = workspace
+
+			safeTween(aoeCircle, TweenInfo.new(1.5), {
+				Size = Vector3.new(12, 0.1, 12),
+				Transparency = 1,
+			})
+			Debris:AddItem(aoeCircle, 2)
+
+			-- Screen shake if near
+			local root = getHumanoidRootPart()
+			if root then
+				local d = (root.Position - targetPos).Magnitude
+				if d < 15 then
+					applyScreenShake(0.5, 0.5)
+				end
+			end
+		end)
+	end)
+
+	-- Return head
+	task.delay(1.0, function()
+		if head and head.Parent then
+			safeTween(head, TweenInfo.new(0.4), { Position = origHeadPos })
+		end
+	end)
+end
+
+local function animateRangedAttack(model, targetPos)
+	if not model or not model.PrimaryPart then return end
+	local body = model.PrimaryPart
+
+	-- Simple arm pullback
+	local armR = model:FindFirstChild("ArmR")
+	if armR then
+		local origPos = armR.Position
+		safeTween(armR, TweenInfo.new(0.2), {
+			Position = origPos + Vector3.new(0, 0.5, 0) - body.CFrame.LookVector * 0.5,
+		})
+		task.delay(0.3, function()
+			if armR and armR.Parent then
+				safeTween(armR, TweenInfo.new(0.1), { Position = origPos + body.CFrame.LookVector * 0.3 })
+			end
+		end)
+		task.delay(0.5, function()
+			if armR and armR.Parent then
+				safeTween(armR, TweenInfo.new(0.2), { Position = origPos })
+			end
+		end)
+	end
+
+	-- Fire arrow
+	task.delay(0.3, function()
+		if not body or not body.Parent then return end
+		local arrow = Instance.new("Part")
+		arrow.Name = "MonsterArrow"
+		arrow.Size = Vector3.new(0.08, 0.08, 1.5)
+		arrow.Anchored = true
+		arrow.CanCollide = false
+		arrow.Material = Enum.Material.Wood
+		arrow.Color = Color3.fromRGB(100, 70, 35)
+		arrow.CFrame = CFrame.new(body.Position + Vector3.new(0, 1, 0), targetPos)
+		arrow.Parent = workspace
+
+		local dist = (targetPos - body.Position).Magnitude
+		local flyTime = math.clamp(dist / 70, 0.1, 1.0)
+
+		safeTween(arrow, TweenInfo.new(flyTime, Enum.EasingStyle.Linear), {
+			CFrame = CFrame.new(targetPos, targetPos + (targetPos - body.Position).Unit),
+		})
+
+		task.delay(flyTime + 0.3, function()
+			safeTween(arrow, TweenInfo.new(0.4), { Transparency = 1 })
+		end)
+		Debris:AddItem(arrow, flyTime + 1)
+	end)
+end
+
+local function animateHeadbutt(model, targetPos)
+	if not model or not model.PrimaryPart then return end
+	local body = model.PrimaryPart
+	local head = model:FindFirstChild("Head")
+	if not head then return end
+
+	local dir = (targetPos - body.Position) * Vector3.new(1, 0, 1)
+	if dir.Magnitude < 0.1 then return end
+	local chargeOffset = dir.Unit * 3
+
+	local origBodyCF = body.CFrame
+	local origHeadPos = head.Position
+
+	-- Head down, body forward charge
+	safeTween(head, TweenInfo.new(0.1), {
+		Position = origHeadPos + Vector3.new(0, -0.5, 0),
+	})
+	
+	-- Charge forward
+	safeTween(body, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		CFrame = CFrame.new(body.Position + chargeOffset, body.Position + chargeOffset + dir.Unit),
+	})
+
+	-- Move all parts with body
+	for _, child in ipairs(model:GetChildren()) do
+		if child:IsA("BasePart") and child ~= body and child ~= head then
+			safeTween(child, TweenInfo.new(0.2), {
+				Position = child.Position + chargeOffset,
+			})
+		end
+	end
+
+	-- Snap back
+	task.delay(0.3, function()
+		if not model or not model.Parent or not body or not body.Parent then return end
+		safeTween(body, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			CFrame = origBodyCF,
+		})
+		if head and head.Parent then
+			safeTween(head, TweenInfo.new(0.25), { Position = origHeadPos })
+		end
+		-- Return children
+		local returnOffset = origBodyCF.Position - body.Position
+		for _, child in ipairs(model:GetChildren()) do
+			if child:IsA("BasePart") and child ~= body and child ~= head then
+				safeTween(child, TweenInfo.new(0.25), {
+					Position = child.Position + returnOffset,
+				})
+			end
+		end
+	end)
+end
+
+local function animatePeck(model, targetPos)
+	if not model or not model.PrimaryPart then return end
+	local body = model.PrimaryPart
+	local head = model:FindFirstChild("Head")
+	local beak = model:FindFirstChild("Beak") or model:FindFirstChild("KingBeak")
+	if not head then return end
+
+	local dir = (targetPos - body.Position) * Vector3.new(1, 0, 1)
+	if dir.Magnitude < 0.1 then return end
+	local peckOffset = dir.Unit * 1.2
+
+	local origHeadPos = head.Position
+	local origBeakPos = beak and beak.Position
+
+	-- Quick downward jab
+	safeTween(head, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = origHeadPos + peckOffset + Vector3.new(0, -0.8, 0),
+	})
+
+	if beak then
+		safeTween(beak, TweenInfo.new(0.08), {
+			Position = origBeakPos + peckOffset + Vector3.new(0, -0.8, 0),
+		})
+	end
+
+	-- Rapid return
+	task.delay(0.12, function()
+		if head and head.Parent then
+			safeTween(head, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				Position = origHeadPos,
+			})
+		end
+		if beak and beak.Parent and origBeakPos then
+			safeTween(beak, TweenInfo.new(0.1), { Position = origBeakPos })
+		end
+	end)
+
+	-- Body bob slightly
+	local origBodyCF = body.CFrame
+	safeTween(body, TweenInfo.new(0.08), {
+		CFrame = origBodyCF * CFrame.new(0, -0.2, 0),
+	})
+	task.delay(0.12, function()
+		if body and body.Parent then
+			safeTween(body, TweenInfo.new(0.1), { CFrame = origBodyCF })
+		end
+	end)
+end
+
+local function animateSpin(model, targetPos)
+	if not model or not model.PrimaryPart then return end
+	local body = model.PrimaryPart
+	
+	local origBodyCF = body.CFrame
+	local weapon = model:FindFirstChild("Sword") or model:FindFirstChild("AncientMaceL") or model:FindFirstChild("AncientMaceR")
+
+	-- 360 degree spin with weapon
+	safeTween(body, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+		CFrame = origBodyCF * CFrame.Angles(0, math.rad(360), 0),
+	})
+
+	-- Spin all parts with body
+	for _, child in ipairs(model:GetChildren()) do
+		if child:IsA("BasePart") and child ~= body then
+			local relativePos = child.Position - body.Position
+			local relativeRotated = origBodyCF:VectorToWorldSpace(relativePos)
+			task.spawn(function()
+				for i = 1, 20 do
+					if not child or not child.Parent or not body or not body.Parent then break end
+					local angle = (i / 20) * math.rad(360)
+					local rotatedPos = body.Position + Vector3.new(
+						relativeRotated.X * math.cos(angle) - relativeRotated.Z * math.sin(angle),
+						relativeRotated.Y,
+						relativeRotated.X * math.sin(angle) + relativeRotated.Z * math.cos(angle)
+					)
+					child.Position = rotatedPos
+					task.wait(0.02)
+				end
+			end)
+		end
+	end
+
+	-- Weapon trail effect
+	if weapon then
+		local slash = Instance.new("Part")
+		slash.Name = "SpinSwoosh"
+		slash.Size = Vector3.new(8, 0.2, 8)
+		slash.Shape = Enum.PartType.Cylinder
+		slash.Anchored = true
+		slash.CanCollide = false
+		slash.Material = Enum.Material.Neon
+		slash.Color = Color3.fromRGB(200, 200, 255)
+		slash.Transparency = 0.3
+		slash.CFrame = body.CFrame * CFrame.new(0, 1, 0) * CFrame.Angles(0, 0, math.rad(90))
+		slash.Parent = workspace
+
+		safeTween(slash, TweenInfo.new(0.4), {
+			Size = Vector3.new(12, 0.05, 12),
+			Transparency = 1,
+		})
+		Debris:AddItem(slash, 0.5)
+	end
+end
+
+local function animateSlam(model, targetPos)
+	if not model or not model.PrimaryPart then return end
+	local body = model.PrimaryPart
+	local arms = {}
+	
+	-- Find arms/weapons
+	for _, name in ipairs({"ArmL", "ArmR", "WeaponArmL", "WeaponArmR", "AncientMaceL", "AncientMaceR"}) do
+		local part = model:FindFirstChild(name)
+		if part then
+			table.insert(arms, {part = part, origPos = part.Position})
+		end
+	end
+
+	local origBodyCF = body.CFrame
+
+	-- Raise arms overhead
+	for _, armData in ipairs(arms) do
+		safeTween(armData.part, TweenInfo.new(0.15), {
+			Position = armData.origPos + Vector3.new(0, 2, 0),
+		})
+	end
+
+	-- Body rises slightly
+	safeTween(body, TweenInfo.new(0.15), {
+		CFrame = origBodyCF * CFrame.new(0, 0.5, 0),
+	})
+
+	-- Slam down
+	task.delay(0.2, function()
+		if not body or not body.Parent then return end
+		
+		-- Arms slam down
+		for _, armData in ipairs(arms) do
+			if armData.part and armData.part.Parent then
+				safeTween(armData.part, TweenInfo.new(0.12, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+					Position = armData.origPos + Vector3.new(0, -1, 0),
+				})
+			end
+		end
+
+		-- Body slams down
+		safeTween(body, TweenInfo.new(0.12, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+			CFrame = origBodyCF * CFrame.new(0, -0.5, 0),
+		})
+
+		-- Ground impact
+		task.delay(0.12, function()
+			if not body or not body.Parent then return end
+			
+			-- Ground shockwave
+			local shockwave = Instance.new("Part")
+			shockwave.Name = "Shockwave"
+			shockwave.Size = Vector3.new(8, 0.1, 8)
+			shockwave.Shape = Enum.PartType.Cylinder
+			shockwave.Anchored = true
+			shockwave.CanCollide = false
+			shockwave.Material = Enum.Material.Neon
+			shockwave.Color = Color3.fromRGB(255, 200, 100)
+			shockwave.Transparency = 0.4
+			shockwave.CFrame = CFrame.new(body.Position.X, 0.05, body.Position.Z) * CFrame.Angles(0, 0, math.rad(90))
+			shockwave.Parent = workspace
+
+			safeTween(shockwave, TweenInfo.new(0.6), {
+				Size = Vector3.new(16, 0.1, 16),
+				Transparency = 1,
+			})
+			Debris:AddItem(shockwave, 0.8)
+
+			-- Debris particles
+			for i = 1, 10 do
+				local debris = Instance.new("Part")
+				debris.Size = Vector3.new(0.4, 0.4, 0.4)
+				debris.Shape = Enum.PartType.Ball
+				debris.Anchored = true
+				debris.CanCollide = false
+				debris.Material = Enum.Material.Rock
+				debris.Color = Color3.fromRGB(120, 100, 80)
+				debris.Position = body.Position + Vector3.new((math.random()-0.5)*6, 0, (math.random()-0.5)*6)
+				debris.Parent = workspace
+				
+				safeTween(debris, TweenInfo.new(0.5), {
+					Position = debris.Position + Vector3.new(0, math.random()*3, 0),
+					Transparency = 1,
+					Size = Vector3.new(0.1, 0.1, 0.1),
+				})
+				Debris:AddItem(debris, 0.6)
+			end
+		end)
+	end)
+
+	-- Return to normal
+	task.delay(0.5, function()
+		if not body or not body.Parent then return end
+		safeTween(body, TweenInfo.new(0.3), { CFrame = origBodyCF })
+		for _, armData in ipairs(arms) do
+			if armData.part and armData.part.Parent then
+				safeTween(armData.part, TweenInfo.new(0.3), { Position = armData.origPos })
+			end
+		end
+	end)
+end
+
+local function animateCharge(model, targetPos)
+	if not model or not model.PrimaryPart then return end
+	local body = model.PrimaryPart
+	
+	local dir = (targetPos - body.Position) * Vector3.new(1, 0, 1)
+	if dir.Magnitude < 0.1 then return end
+	local chargeOffset = dir.Unit * 4
+
+	local origBodyCF = body.CFrame
+
+	-- Lean back briefly
+	safeTween(body, TweenInfo.new(0.1), {
+		CFrame = origBodyCF * CFrame.new(0, 0, -0.5) * CFrame.Angles(math.rad(-10), 0, 0),
+	})
+
+	-- Fast charge forward
+	task.delay(0.12, function()
+		if not body or not body.Parent then return end
+		safeTween(body, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+			CFrame = CFrame.new(body.Position + chargeOffset, body.Position + chargeOffset + dir.Unit) * CFrame.Angles(math.rad(10), 0, 0),
+		})
+
+		-- Move all parts
+		for _, child in ipairs(model:GetChildren()) do
+			if child:IsA("BasePart") and child ~= body then
+				safeTween(child, TweenInfo.new(0.15), {
+					Position = child.Position + chargeOffset,
+				})
+			end
+		end
+
+		-- Dust trail
+		task.spawn(function()
+			for i = 1, 8 do
+				local dust = Instance.new("Part")
+				dust.Size = Vector3.new(0.6, 0.6, 0.6)
+				dust.Shape = Enum.PartType.Ball
+				dust.Anchored = true
+				dust.CanCollide = false
+				dust.Material = Enum.Material.Sand
+				dust.Color = Color3.fromRGB(150, 120, 90)
+				dust.Transparency = 0.4
+				dust.Position = body.Position - dir.Unit * (i * 0.5) + Vector3.new(0, -0.5, 0)
+				dust.Parent = workspace
+				
+				safeTween(dust, TweenInfo.new(0.4), {
+					Position = dust.Position + Vector3.new(0, 1, 0),
+					Size = Vector3.new(0.2, 0.2, 0.2),
+					Transparency = 1,
+				})
+				Debris:AddItem(dust, 0.5)
+				task.wait(0.02)
+			end
+		end)
+	end)
+
+	-- Return
+	task.delay(0.4, function()
+		if not body or not body.Parent then return end
+		safeTween(body, TweenInfo.new(0.3), { CFrame = origBodyCF })
+		local returnOffset = origBodyCF.Position - body.Position
+		for _, child in ipairs(model:GetChildren()) do
+			if child:IsA("BasePart") and child ~= body then
+				safeTween(child, TweenInfo.new(0.3), {
+					Position = child.Position + returnOffset,
+				})
+			end
+		end
+	end)
+end
+
+local function animatePoisonSpit(model, targetPos)
+	if not model or not model.PrimaryPart then return end
+	local body = model.PrimaryPart
+	local head = model:FindFirstChild("Head")
+	if not head then return end
+
+	local origHeadPos = head.Position
+
+	-- Head rears back
+	safeTween(head, TweenInfo.new(0.2), {
+		Position = origHeadPos + Vector3.new(0, 0.5, 0) + body.CFrame.LookVector * -0.5,
+	})
+
+	-- Spit projectile
+	task.delay(0.25, function()
+		if not head or not head.Parent then return end
+
+		-- Head snaps forward
+		safeTween(head, TweenInfo.new(0.1), {
+			Position = origHeadPos + body.CFrame.LookVector * 0.5,
+		})
+
+		-- Green poison projectile
+		local spit = Instance.new("Part")
+		spit.Name = "PoisonSpit"
+		spit.Size = Vector3.new(0.8, 0.8, 0.8)
+		spit.Shape = Enum.PartType.Ball
+		spit.Anchored = true
+		spit.CanCollide = false
+		spit.Material = Enum.Material.Neon
+		spit.Color = Color3.fromRGB(50, 255, 50)
+		spit.Transparency = 0.2
+		spit.Position = head.Position + body.CFrame.LookVector * 1
+		spit.Parent = workspace
+
+		-- Green light
+		local light = Instance.new("PointLight")
+		light.Color = Color3.fromRGB(50, 255, 50)
+		light.Brightness = 2
+		light.Range = 8
+		light.Parent = spit
+
+		-- Fly to target
+		local dist = (targetPos - spit.Position).Magnitude
+		local flyTime = math.clamp(dist / 50, 0.2, 1.2)
+
+		safeTween(spit, TweenInfo.new(flyTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = targetPos + Vector3.new(0, 1, 0),
+			Size = Vector3.new(1.2, 1.2, 1.2),
+		})
+
+		-- Poison trail
+		task.spawn(function()
+			local elapsed = 0
+			while elapsed < flyTime and spit and spit.Parent do
+				local trail = Instance.new("Part")
+				trail.Size = Vector3.new(0.3, 0.3, 0.3)
+				trail.Shape = Enum.PartType.Ball
+				trail.Anchored = true
+				trail.CanCollide = false
+				trail.Material = Enum.Material.Neon
+				trail.Color = Color3.fromRGB(30, 200, 30)
+				trail.Transparency = 0.5
+				trail.Position = spit.Position
+				trail.Parent = workspace
+
+				safeTween(trail, TweenInfo.new(0.4), {
+					Size = Vector3.new(0.05, 0.05, 0.05),
+					Transparency = 1,
+				})
+				Debris:AddItem(trail, 0.5)
+
+				task.wait(0.04)
+				elapsed = elapsed + 0.04
+			end
+		end)
+
+		-- Impact effect
+		task.delay(flyTime, function()
+			if spit and spit.Parent then
+				-- Green poison splash
+				local splash = Instance.new("Part")
+				splash.Name = "PoisonSplash"
+				splash.Size = Vector3.new(4, 4, 4)
+				splash.Shape = Enum.PartType.Ball
+				splash.Anchored = true
+				splash.CanCollide = false
+				splash.Material = Enum.Material.Neon
+				splash.Color = Color3.fromRGB(50, 255, 50)
+				splash.Transparency = 0.4
+				splash.Position = spit.Position
+				splash.Parent = workspace
+
+				safeTween(splash, TweenInfo.new(0.5), {
+					Size = Vector3.new(8, 8, 8),
+					Transparency = 1,
+				})
+				Debris:AddItem(splash, 0.6)
+
+				spit:Destroy()
+			end
+		end)
+
+		Debris:AddItem(spit, flyTime + 0.5)
+	end)
+
+	-- Return head
+	task.delay(0.5, function()
+		if head and head.Parent then
+			safeTween(head, TweenInfo.new(0.3), { Position = origHeadPos })
+		end
+	end)
+end
+
+local function playMonsterAttackAnimation(model, targetPos, attackType)
+	if not model or not model.Parent then return end
+
+	if attackType == "melee_lunge" then
+		animateMeleeLunge(model, targetPos)
+	elseif attackType == "bite" then
+		animateBite(model, targetPos)
+	elseif attackType == "magic_cast" then
+		animateMagicCast(model, targetPos)
+	elseif attackType == "dragon_breath" then
+		animateDragonBreath(model, targetPos)
+	elseif attackType == "ranged" then
+		animateRangedAttack(model, targetPos)
+	elseif attackType == "headbutt" then
+		animateHeadbutt(model, targetPos)
+	elseif attackType == "peck" then
+		animatePeck(model, targetPos)
+	elseif attackType == "spin" then
+		animateSpin(model, targetPos)
+	elseif attackType == "slam" then
+		animateSlam(model, targetPos)
+	elseif attackType == "charge" then
+		animateCharge(model, targetPos)
+	elseif attackType == "poison_spit" then
+		animatePoisonSpit(model, targetPos)
+	else
+		-- Default: simple lunge
+		animateMeleeLunge(model, targetPos)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- DEATH ANIMATION
+--------------------------------------------------------------------------------
+local function playDeathAnimation(model)
+	if not model or not model.Parent then return end
+
+	local parts = {}
+	for _, child in ipairs(model:GetChildren()) do
+		if child:IsA("BasePart") then
+			table.insert(parts, child)
+		end
+	end
+
+	-- Destroy billboard/humanoid immediately
+	local bbg = model:FindFirstChild("OverheadGui")
+	if bbg then bbg:Destroy() end
+	local hum = model:FindFirstChildOfClass("Humanoid")
+	if hum then hum:Destroy() end
+
+	-- Fall over: tilt body parts
+	local body = model.PrimaryPart
+	if body then
+		local fallDir = body.CFrame.LookVector * -1 -- fall backwards
+		safeTween(body, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			CFrame = body.CFrame * CFrame.Angles(math.rad(90), 0, 0) + Vector3.new(0, -body.Size.Y / 2, 0) + fallDir * 1,
+		})
+	end
+
+	-- Scatter parts slightly and fade
+	for _, part in ipairs(parts) do
+		local randomOffset = Vector3.new(
+			(math.random() - 0.5) * 3,
+			math.random() * 1.5,
+			(math.random() - 0.5) * 3
+		)
+
+		task.delay(0.2, function()
+			if part and part.Parent then
+				safeTween(part, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Position = part.Position + randomOffset,
+					Transparency = 1,
+					Size = part.Size * 0.5,
+				})
+			end
+		end)
+	end
+
+	-- Hit particles at death location
+	if body then
+		spawnHitParticles(body.Position, Color3.fromRGB(200, 50, 50), 12)
+	end
+
+	-- Clean up model after animation
+	Debris:AddItem(model, 1.5)
+end
+
+--------------------------------------------------------------------------------
+-- CONNECT TO EVENTS
+--------------------------------------------------------------------------------
+
+-- Monster takes damage (from any player attacking)
+if MonsterDamageEvent then
+	MonsterDamageEvent.OnClientEvent:Connect(function(model, damage, currentHP, maxHP, attackerPlayer)
+		if not model or not model.Parent then return end
+
+		local pos = model.PrimaryPart and model.PrimaryPart.Position or model:GetBoundingBox().Position
+
+		-- Determine if critical (>= 20% of max HP in one hit)
+		local isCritical = damage >= (maxHP * 0.2)
+
+		-- Damage number
+		local color = isCritical and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(255, 255, 255)
+		showDamageNumber3D(pos, tostring(damage), color, isCritical)
+
+		-- Hit flash
+		applyHitFlash(model)
+
+		-- Hit particles
+		spawnHitParticles(pos + Vector3.new(0, 1, 0), Color3.fromRGB(200, 50, 50), isCritical and 8 or 4)
+
+		-- Play attack animation for local player if they dealt the damage
+		if attackerPlayer == player then
+			performPlayerAttack(model, isCritical)
+		end
+	end)
+end
+
+-- Monster dies
+if MonsterDeathEvent then
+	MonsterDeathEvent.OnClientEvent:Connect(function(model, killerPlayer, drops)
+		-- The server will destroy the model, but we try to animate first
+		-- Since server destroys it, we clone quickly for death animation
+		if not model or not model.Parent then return end
+
+		local deathPos = model.PrimaryPart and model.PrimaryPart.Position or Vector3.new(0, 0, 0)
+
+		-- Clone for death animation (original gets destroyed by server)
+		local clone = model:Clone()
+		-- Remove click detectors and humanoid from clone
+		for _, desc in ipairs(clone:GetDescendants()) do
+			if desc:IsA("ClickDetector") then desc:Destroy() end
+		end
+		clone.Parent = workspace
+
+		-- Play death animation on clone
+		playDeathAnimation(clone)
+
+		-- Screen shake for nearby kills
+		local root = getHumanoidRootPart()
+		if root then
+			local d = (root.Position - deathPos).Magnitude
+			if d < 20 then
+				applyScreenShake(0.2, 0.3)
+			end
+		end
+	end)
+end
+
+-- Monster attack visual (server tells clients to show monster attacking)
+if MonsterAttackVisualEvent then
+	MonsterAttackVisualEvent.OnClientEvent:Connect(function(model, targetPlayer, monsterName)
+		if not model or not model.Parent then return end
+
+		local attackType = MONSTER_ATTACK_TYPES[monsterName] or "melee_lunge"
+
+		-- Get target position
+		local targetPos = nil
+		if targetPlayer then
+			local char = targetPlayer.Character
+			if char then
+				local hrp = char:FindFirstChild("HumanoidRootPart")
+				if hrp then
+					targetPos = hrp.Position
+				end
+			end
+		end
+
+		if not targetPos then return end
+
+		playMonsterAttackAnimation(model, targetPos, attackType)
+
+		-- If we're the target, show damage received effects
+		if targetPlayer == player then
+			-- Red flash on screen edge
+			local dmgOverlay = Instance.new("Frame")
+			dmgOverlay.Name = "DamageOverlay"
+			dmgOverlay.Size = UDim2.new(1, 0, 1, 0)
+			dmgOverlay.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+			dmgOverlay.BackgroundTransparency = 0.7
+			dmgOverlay.BorderSizePixel = 0
+			dmgOverlay.Parent = combatGui
+
+			safeTween(dmgOverlay, TweenInfo.new(0.3), {
+				BackgroundTransparency = 1,
+			})
+			Debris:AddItem(dmgOverlay, 0.4)
+
+			applyScreenShake(0.15, 0.2)
+		end
+	end)
+end
+
+-- Hit effect event (server sends specific hit effects)
+if HitEffectEvent then
+	HitEffectEvent.OnClientEvent:Connect(function(position, damage, effectType, isCritical)
+		if not position then return end
+
+		if effectType == "shield_block" then
+			spawnSparks(position, 10)
+			showDamageNumber3D(position, "BLOCKED", Color3.fromRGB(150, 200, 255), false)
+
+			-- Play shield block animation on local player
+			local char = getCharacter()
+			if char then
+				playShieldBlock(char)
+			end
+		elseif effectType == "damage_taken" then
+			showDamageNumber3D(position, tostring(damage), Color3.fromRGB(255, 50, 50), isCritical)
+			if isCritical then
+				applyScreenShake(0.3, 0.3)
+			end
+		elseif effectType == "damage_dealt" then
+			showDamageNumber3D(position, tostring(damage), Color3.fromRGB(255, 255, 255), isCritical)
+		end
+	end)
+end
+
+-- AttackVisual event (server broadcasts player attacks to all clients)
+if AttackVisualEvent then
+	AttackVisualEvent.OnClientEvent:Connect(function(attackerPlayer, targetModel, weaponType, isCritical)
+		-- Don't replay our own attack animation
+		if attackerPlayer == player then return end
+
+		local char = attackerPlayer.Character
+		if not char then return end
+
+		if weaponType == "crossbow" then
+			local targetPos = targetModel and targetModel.PrimaryPart and targetModel.PrimaryPart.Position
+			playCrossbowShot(char, targetPos)
+		elseif weaponType == "bow" or weaponType == "ranged" then
+			local targetPos = targetModel and targetModel.PrimaryPart and targetModel.PrimaryPart.Position
+			playBowShot(char, targetPos)
+		elseif weaponType == "axe" then
+			playAxeChop(char, isCritical)
+		elseif weaponType == "dagger" then
+			playDaggerStab(char, isCritical)
+		elseif weaponType == "melee" or weaponType == "sword" then
+			playSwordSwing(char, isCritical)
+		else
+			playPunchAnimation(char)
+		end
+	end)
+end
+
+--------------------------------------------------------------------------------
+-- MOUSE INPUT — ATTACK MONSTERS
+-- (Replaces the old attack code in UIController)
+--------------------------------------------------------------------------------
+local mouse = player:GetMouse()
+local attackRemote = Remotes:WaitForChild("Attack", 5)
+
+mouse.Button1Down:Connect(function()
+	local target = mouse.Target
+	if not target then return end
+
+	local character = getCharacter()
+	if not character then return end
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+
+	-- Check if clicking a monster (TargetClick ClickDetector)
+	local monsterModel = nil
+	if target:FindFirstChild("TargetClick") then
+		monsterModel = target.Parent
+	elseif target.Parent and target.Parent:FindFirstChild("TargetClick") then
+		monsterModel = target.Parent.Parent or target.Parent
+	elseif target.Parent and target.Parent:IsA("Model") and target.Parent.PrimaryPart and target.Parent.PrimaryPart:FindFirstChild("TargetClick") then
+		monsterModel = target.Parent
+	end
+
+	-- Monster attack
+	if monsterModel and monsterModel:FindFirstChildOfClass("Humanoid") then
+		-- Check it's not a player character
+		local isPlayerChar = Players:GetPlayerFromCharacter(monsterModel)
+		if not isPlayerChar then
+			performPlayerAttack(monsterModel, false)
+			-- The actual ClickDetector handles the server-side damage
+			return
+		end
+	end
+
+	-- Player vs Player attack
+	local targetChar = target.Parent
+	if targetChar then
+		local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+		if targetPlayer and targetPlayer ~= player then
+			performPlayerAttack(targetChar, false)
+			attackRemote:FireServer(targetPlayer)
+			return
+		end
+	end
+end)
+
+--------------------------------------------------------------------------------
+-- EXPOSE API for other scripts (e.g. UIController)
+--------------------------------------------------------------------------------
+shared.AttackAnimations = {
+	ShowDamageNumber = showDamageNumber3D,
+	ApplyHitFlash = applyHitFlash,
+	SpawnHitParticles = spawnHitParticles,
+	SpawnSparks = spawnSparks,
+	ScreenShake = applyScreenShake,
+	PlayShieldBlock = playShieldBlock,
+	ResetCombo = function()
+		comboCount = 0
+		comboFrame.Visible = false
+	end,
+}
+
+print("[AttackAnimations] Combat animation system loaded!")

@@ -1,0 +1,647 @@
+-- FriendUI.client.lua
+-- Client-side friend system interface with error handling
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TextService = game:GetService("TextService")
+
+local player = Players.LocalPlayer
+
+-- Wait for dependencies with timeouts
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+
+-- Load ErrorHandler
+local ErrorHandler
+local errorHandlerSuccess, errorHandlerResult = pcall(function()
+	local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+	return require(Modules:WaitForChild("ErrorHandler", 5))
+end)
+
+if errorHandlerSuccess then
+	ErrorHandler = errorHandlerResult
+else
+	-- Fallback ErrorHandler with self parameter
+	ErrorHandler = {
+		LogWarning = function(self, msg, data) warn("[FriendUI] " .. tostring(msg)) end,
+		LogDebug = function(self, msg, data) print("[DEBUG] " .. tostring(msg)) end
+	}
+end
+
+-- Forward declarations (must be before any callbacks that reference them)
+local toggleUI
+local refreshFriendList
+local updateOnlineStatus
+
+-- RemoteEvents
+local FriendRequestEvent = Remotes and Remotes:WaitForChild("FriendRequest", 5)
+local FriendAcceptEvent = Remotes and Remotes:WaitForChild("FriendAccept", 5)
+local FriendDeclineEvent = Remotes and Remotes:WaitForChild("FriendDecline", 5)
+local FriendRemoveEvent = Remotes and Remotes:WaitForChild("FriendRemove", 5)
+local FriendUpdateEvent = Remotes and Remotes:WaitForChild("FriendUpdate", 5)
+
+-- Validate remotes
+if not FriendRequestEvent then
+	ErrorHandler:LogWarning(ErrorHandler, "Friend remotes not found")
+	return
+end
+
+-- UI State
+local isUIOpen = false
+local friendsList = {}
+local pendingRequests = {}
+local maxFriends = 50
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FriendUI"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Main frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 400, 0, 500)
+mainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+mainFrame.BorderColor3 = Color3.fromRGB(60, 60, 70)
+mainFrame.BorderSizePixel = 2
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Name = "Title"
+title.Size = UDim2.new(1, 0, 0, 50)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+title.BorderColor3 = Color3.fromRGB(80, 80, 90)
+title.Text = "FRIENDS (" .. tostring(#friendsList) .. "/" .. tostring(maxFriends) .. ")"
+title.TextColor3 = Color3.fromRGB(100, 180, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 24
+title.Parent = mainFrame
+
+-- Close button
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 40, 0, 40)
+closeButton.Position = UDim2.new(1, -45, 0, 5)
+closeButton.BackgroundColor3 = Color3.fromRGB(60, 30, 30)
+closeButton.BorderColor3 = Color3.fromRGB(100, 50, 50)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 20
+closeButton.Parent = mainFrame
+
+closeButton.MouseButton1Click:Connect(function()
+	toggleUI(false)
+end)
+
+-- Tab buttons
+local tabsFrame = Instance.new("Frame")
+tabsFrame.Name = "TabsFrame"
+tabsFrame.Size = UDim2.new(1, 0, 0, 40)
+tabsFrame.Position = UDim2.new(0, 0, 0, 50)
+tabsFrame.BackgroundTransparency = 1
+tabsFrame.Parent = mainFrame
+
+-- Friends tab button
+local friendsTab = Instance.new("TextButton")
+friendsTab.Name = "FriendsTab"
+friendsTab.Size = UDim2.new(0.5, 0, 1, 0)
+friendsTab.Position = UDim2.new(0, 0, 0, 0)
+friendsTab.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+friendsTab.BorderColor3 = Color3.fromRGB(80, 80, 90)
+friendsTab.Text = "FRIENDS"
+friendsTab.TextColor3 = Color3.fromRGB(200, 200, 220)
+friendsTab.Font = Enum.Font.GothamBold
+friendsTab.TextSize = 16
+friendsTab.Parent = tabsFrame
+
+-- Requests tab button
+local requestsTab = Instance.new("TextButton")
+requestsTab.Name = "RequestsTab"
+requestsTab.Size = UDim2.new(0.5, 0, 1, 0)
+requestsTab.Position = UDim2.new(0.5, 0, 0, 0)
+requestsTab.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+requestsTab.BorderColor3 = Color3.fromRGB(80, 80, 90)
+requestsTab.Text = "REQUESTS (" .. tostring(#pendingRequests) .. ")"
+requestsTab.TextColor3 = Color3.fromRGB(200, 200, 220)
+requestsTab.Font = Enum.Font.GothamBold
+requestsTab.TextSize = 16
+requestsTab.Parent = tabsFrame
+
+-- Content area
+local contentFrame = Instance.new("Frame")
+contentFrame.Name = "ContentFrame"
+contentFrame.Size = UDim2.new(1, 0, 1, -90)
+contentFrame.Position = UDim2.new(0, 0, 0, 90)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = mainFrame
+
+-- Friends list
+local friendsListFrame = Instance.new("ScrollingFrame")
+friendsListFrame.Name = "FriendsListFrame"
+friendsListFrame.Size = UDim2.new(1, 0, 1, 0)
+friendsListFrame.Position = UDim2.new(0, 0, 0, 0)
+friendsListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+friendsListFrame.BorderColor3 = Color3.fromRGB(50, 50, 60)
+friendsListFrame.ScrollBarThickness = 8
+friendsListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+friendsListFrame.Visible = true
+friendsListFrame.Parent = contentFrame
+
+-- Requests list
+local requestsListFrame = Instance.new("ScrollingFrame")
+requestsListFrame.Name = "RequestsListFrame"
+requestsListFrame.Size = UDim2.new(1, 0, 1, 0)
+requestsListFrame.Position = UDim2.new(0, 0, 0, 0)
+requestsListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+requestsListFrame.BorderColor3 = Color3.fromRGB(50, 50, 60)
+requestsListFrame.ScrollBarThickness = 8
+requestsListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+requestsListFrame.Visible = false
+requestsListFrame.Parent = contentFrame
+
+-- Add friend section
+local addFriendFrame = Instance.new("Frame")
+addFriendFrame.Name = "AddFriendFrame"
+addFriendFrame.Size = UDim2.new(1, -20, 0, 80)
+addFriendFrame.Position = UDim2.new(0, 10, 1, -90)
+addFriendFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+addFriendFrame.BorderColor3 = Color3.fromRGB(60, 60, 70)
+addFriendFrame.Parent = mainFrame
+
+local addFriendLabel = Instance.new("TextLabel")
+addFriendLabel.Name = "AddFriendLabel"
+addFriendLabel.Size = UDim2.new(1, 0, 0, 30)
+addFriendLabel.Position = UDim2.new(0, 0, 0, 0)
+addFriendLabel.BackgroundTransparency = 1
+addFriendLabel.Text = "Add Friend:"
+addFriendLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
+addFriendLabel.Font = Enum.Font.Gotham
+addFriendLabel.TextSize = 16
+addFriendLabel.TextXAlignment = Enum.TextXAlignment.Left
+addFriendLabel.Parent = addFriendFrame
+
+local friendNameInput = Instance.new("TextBox")
+friendNameInput.Name = "FriendNameInput"
+friendNameInput.Size = UDim2.new(0.7, 0, 0, 30)
+friendNameInput.Position = UDim2.new(0, 0, 0, 35)
+friendNameInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+friendNameInput.BorderColor3 = Color3.fromRGB(80, 80, 90)
+friendNameInput.Text = ""
+friendNameInput.PlaceholderText = "Enter player name"
+friendNameInput.TextColor3 = Color3.fromRGB(220, 220, 220)
+friendNameInput.Font = Enum.Font.Gotham
+friendNameInput.TextSize = 16
+friendNameInput.Parent = addFriendFrame
+
+local sendRequestButton = Instance.new("TextButton")
+sendRequestButton.Name = "SendRequestButton"
+sendRequestButton.Size = UDim2.new(0.3, -5, 0, 30)
+sendRequestButton.Position = UDim2.new(0.7, 5, 0, 35)
+sendRequestButton.BackgroundColor3 = Color3.fromRGB(40, 80, 40)
+sendRequestButton.BorderColor3 = Color3.fromRGB(80, 120, 80)
+sendRequestButton.Text = "SEND"
+sendRequestButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+sendRequestButton.Font = Enum.Font.GothamBold
+sendRequestButton.TextSize = 16
+sendRequestButton.Parent = addFriendFrame
+
+-- Notification area
+local notificationFrame = Instance.new("Frame")
+notificationFrame.Name = "NotificationFrame"
+notificationFrame.Size = UDim2.new(0, 300, 0, 60)
+notificationFrame.Position = UDim2.new(0.5, -150, 0.1, 0)
+notificationFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+notificationFrame.BackgroundTransparency = 0.8
+notificationFrame.BorderColor3 = Color3.fromRGB(80, 80, 90)
+notificationFrame.Visible = false
+notificationFrame.Parent = screenGui
+
+local notificationText = Instance.new("TextLabel")
+notificationText.Name = "NotificationText"
+notificationText.Size = UDim2.new(1, -20, 1, -20)
+notificationText.Position = UDim2.new(0, 10, 0, 10)
+notificationText.BackgroundTransparency = 1
+notificationText.Text = ""
+notificationText.TextColor3 = Color3.fromRGB(255, 255, 255)
+notificationText.Font = Enum.Font.Gotham
+notificationText.TextSize = 16
+notificationText.TextWrapped = true
+notificationText.Parent = notificationFrame
+
+-- Helper: Toggle UI visibility
+function toggleUI(visible)
+	isUIOpen = visible
+	mainFrame.Visible = visible
+	
+	if visible then
+		-- Set default tab
+		switchTab("friends")
+	end
+end
+
+-- Helper: Switch between tabs
+local function switchTab(tabName)
+	if tabName == "friends" then
+		friendsTab.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+		friendsTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+		requestsTab.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+		requestsTab.TextColor3 = Color3.fromRGB(200, 200, 220)
+		
+		friendsListFrame.Visible = true
+		requestsListFrame.Visible = false
+		
+		-- Update requests tab count
+		requestsTab.Text = "REQUESTS (" .. tostring(#pendingRequests) .. ")"
+		
+	elseif tabName == "requests" then
+		requestsTab.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+		requestsTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+		friendsTab.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+		friendsTab.TextColor3 = Color3.fromRGB(200, 200, 220)
+		
+		friendsListFrame.Visible = false
+		requestsListFrame.Visible = true
+		
+		-- Update requests tab count
+		requestsTab.Text = "REQUESTS (" .. tostring(#pendingRequests) .. ")"
+	end
+end
+
+-- Helper: Show notification
+local function showNotification(message, color)
+	if not color then
+		color = Color3.fromRGB(255, 255, 255)
+	end
+	
+	notificationText.Text = message
+	notificationText.TextColor3 = color
+	notificationFrame.Visible = true
+	
+	-- Auto-hide after 3 seconds
+	wait(3)
+	notificationFrame.Visible = false
+end
+
+-- Helper: Update friends list display
+function refreshFriendList()
+	-- Clear existing friends
+	for _, child in pairs(friendsListFrame:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	
+	local yOffset = 0
+	
+	-- Add online friends first
+	for _, friend in ipairs(friendsList) do
+		if friend.online then
+			createFriendEntry(friend, yOffset, friendsListFrame)
+			yOffset = yOffset + 55
+		end
+	end
+	
+	-- Add offline friends
+	for _, friend in ipairs(friendsList) do
+		if not friend.online then
+			createFriendEntry(friend, yOffset, friendsListFrame)
+			yOffset = yOffset + 55
+		end
+	end
+	
+	-- Update canvas size
+	friendsListFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+	
+	-- Update title
+	title.Text = "FRIENDS (" .. tostring(#friendsList) .. "/" .. tostring(maxFriends) .. ")"
+end
+
+-- Helper: Create friend list entry
+local function createFriendEntry(friend, yOffset, parentFrame)
+	local entryFrame = Instance.new("Frame")
+	entryFrame.Name = "Friend_" .. friend.userId
+	entryFrame.Size = UDim2.new(1, -10, 0, 50)
+	entryFrame.Position = UDim2.new(0, 5, 0, yOffset)
+	entryFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+	entryFrame.BorderColor3 = Color3.fromRGB(60, 60, 70)
+	entryFrame.Parent = parentFrame
+	
+	-- Friend name
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "Name"
+	nameLabel.Size = UDim2.new(0.6, 0, 1, 0)
+	nameLabel.Position = UDim2.new(0, 10, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = friend.name
+	if friend.online then
+		nameLabel.TextColor3 = Color3.fromRGB(100, 255, 100) -- Green for online
+	else
+		nameLabel.TextColor3 = Color3.fromRGB(180, 180, 180) -- Gray for offline
+	end
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.TextSize = 18
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Parent = entryFrame
+	
+	-- Status indicator
+	local statusLabel = Instance.new("TextLabel")
+	statusLabel.Name = "Status"
+	statusLabel.Size = UDim2.new(0.2, 0, 1, 0)
+	statusLabel.Position = UDim2.new(0.6, 0, 0, 0)
+	statusLabel.BackgroundTransparency = 1
+	if friend.online then
+		statusLabel.Text = "ONLINE"
+		statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+	else
+		-- Show last seen time
+		local timeDiff = os.time() - friend.lastSeen
+		local timeText
+		
+		if timeDiff < 60 then
+			timeText = "Just now"
+		elseif timeDiff < 3600 then
+			timeText = tostring(math.floor(timeDiff / 60)) .. "m ago"
+		elseif timeDiff < 86400 then
+			timeText = tostring(math.floor(timeDiff / 3600)) .. "h ago"
+		else
+			timeText = tostring(math.floor(timeDiff / 86400)) .. "d ago"
+		end
+		
+		statusLabel.Text = timeText
+		statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+	end
+	statusLabel.Font = Enum.Font.Gotham
+	statusLabel.TextSize = 14
+	statusLabel.Parent = entryFrame
+	
+	-- Remove button
+	local removeButton = Instance.new("TextButton")
+	removeButton.Name = "RemoveButton"
+	removeButton.Size = UDim2.new(0.2, -10, 0, 30)
+	removeButton.Position = UDim2.new(0.8, 0, 0.5, -15)
+	removeButton.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+	removeButton.BorderColor3 = Color3.fromRGB(120, 50, 50)
+	removeButton.Text = "REMOVE"
+	removeButton.TextColor3 = Color3.fromRGB(255, 200, 200)
+	removeButton.Font = Enum.Font.Gotham
+	removeButton.TextSize = 12
+	removeButton.Parent = entryFrame
+	
+	-- Remove button click handler
+	removeButton.MouseButton1Click:Connect(function()
+		-- Send remove request to server
+		FriendRemoveEvent:FireServer(friend.userId)
+		
+		showNotification("Removed " .. friend.name, Color3.fromRGB(255, 100, 100))
+	end)
+	
+	return entryFrame
+end
+
+-- Helper: Update pending requests display
+local function updateRequestsList()
+	-- Clear existing requests
+	for _, child in pairs(requestsListFrame:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	
+	local yOffset = 0
+	
+	-- Add request entries
+	for _, request in ipairs(pendingRequests) do
+		createRequestEntry(request, yOffset)
+		yOffset = yOffset + 80
+	end
+	
+	-- Update canvas size
+	requestsListFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+	
+	-- Update requests tab count
+	requestsTab.Text = "REQUESTS (" .. tostring(#pendingRequests) .. ")"
+	
+	-- Show message if no requests
+	if #pendingRequests == 0 then
+		local noRequestsLabel = Instance.new("TextLabel")
+		noRequestsLabel.Name = "NoRequestsLabel"
+		noRequestsLabel.Size = UDim2.new(1, -20, 0, 50)
+		noRequestsLabel.Position = UDim2.new(0, 10, 0, 10)
+		noRequestsLabel.BackgroundTransparency = 1
+		noRequestsLabel.Text = "No pending friend requests"
+		noRequestsLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
+		noRequestsLabel.Font = Enum.Font.Gotham
+		noRequestsLabel.TextSize = 16
+		noRequestsLabel.Parent = requestsListFrame
+	end
+end
+
+-- Helper: Create request list entry
+local function createRequestEntry(request, yOffset)
+	local entryFrame = Instance.new("Frame")
+	entryFrame.Name = "Request_" .. request.fromUserId
+	entryFrame.Size = UDim2.new(1, -10, 0, 75)
+	entryFrame.Position = UDim2.new(0, 5, 0, yOffset)
+	entryFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+	entryFrame.BorderColor3 = Color3.fromRGB(60, 60, 70)
+	entryFrame.Parent = requestsListFrame
+	
+	-- Request info
+	local infoLabel = Instance.new("TextLabel")
+	infoLabel.Name = "Info"
+	infoLabel.Size = UDim2.new(1, -20, 0, 40)
+	infoLabel.Position = UDim2.new(0, 10, 0, 5)
+	infoLabel.BackgroundTransparency = 1
+	infoLabel.Text = request.fromName .. " wants to be your friend"
+	infoLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+	infoLabel.Font = Enum.Font.Gotham
+	infoLabel.TextSize = 16
+	infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+	infoLabel.TextWrapped = true
+	infoLabel.Parent = entryFrame
+	
+	-- Accept button
+	local acceptButton = Instance.new("TextButton")
+	acceptButton.Name = "AcceptButton"
+	acceptButton.Size = UDim2.new(0.45, -5, 0, 25)
+	acceptButton.Position = UDim2.new(0, 0, 1, -30)
+	acceptButton.BackgroundColor3 = Color3.fromRGB(40, 80, 40)
+	acceptButton.BorderColor3 = Color3.fromRGB(80, 120, 80)
+	acceptButton.Text = "ACCEPT"
+	acceptButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	acceptButton.Font = Enum.Font.GothamBold
+	acceptButton.TextSize = 14
+	acceptButton.Parent = entryFrame
+	
+	-- Decline button
+	local declineButton = Instance.new("TextButton")
+	declineButton.Name = "DeclineButton"
+	declineButton.Size = UDim2.new(0.45, -5, 0, 25)
+	declineButton.Position = UDim2.new(0.55, 0, 1, -30)
+	declineButton.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+	declineButton.BorderColor3 = Color3.fromRGB(120, 50, 50)
+	declineButton.Text = "DECLINE"
+	declineButton.TextColor3 = Color3.fromRGB(255, 200, 200)
+	declineButton.Font = Enum.Font.GothamBold
+	declineButton.TextSize = 14
+	declineButton.Parent = entryFrame
+	
+	-- Button click handlers
+	acceptButton.MouseButton1Click:Connect(function()
+		-- Send accept request to server
+		FriendAcceptEvent:FireServer(request.fromUserId)
+		
+		showNotification("Accepted friend request from " .. request.fromName, Color3.fromRGB(100, 255, 100))
+	end)
+	
+	declineButton.MouseButton1Click:Connect(function()
+		-- Send decline request to server
+		FriendDeclineEvent:FireServer(request.fromUserId)
+		
+		showNotification("Declined friend request from " .. request.fromName, Color3.fromRGB(255, 100, 100))
+	end)
+	
+	return entryFrame
+end
+
+-- Helper: Send friend request
+local function sendFriendRequestToPlayer(playerName)
+	if not playerName or playerName == "" then
+		showNotification("Please enter a player name", Color3.fromRGB(255, 200, 100))
+		return
+	end
+	
+	-- Clear input
+	friendNameInput.Text = ""
+	
+	-- Send request to server
+	FriendRequestEvent:FireServer(playerName)
+	
+	showNotification("Friend request sent to " .. playerName, Color3.fromRGB(100, 200, 255))
+end
+
+-- Tab button click handlers
+friendsTab.MouseButton1Click:Connect(function()
+	switchTab("friends")
+end)
+
+requestsTab.MouseButton1Click:Connect(function()
+	switchTab("requests")
+end)
+
+-- Send request button click handler
+sendRequestButton.MouseButton1Click:Connect(function()
+	sendFriendRequestToPlayer(friendNameInput.Text)
+end)
+
+-- Enter key in friend name input
+friendNameInput.FocusLost:Connect(function(enterPressed)
+	if enterPressed then
+		sendFriendRequestToPlayer(friendNameInput.Text)
+	end
+end)
+
+-- Remote event handlers
+FriendUpdateEvent.OnClientEvent:Connect(function(eventType, data)
+	if eventType == "init" then
+		-- Initial friend data
+		friendsList = data.friends or {}
+		pendingRequests = data.requests or {}
+		maxFriends = data.maxFriends or 50
+		
+		refreshFriendList()
+		updateRequestsList()
+		
+		ErrorHandler:LogDebug(ErrorHandler, "Friend system initialized", {
+			friendCount = #friendsList,
+			requestCount = #pendingRequests
+		})
+		
+	elseif eventType == "list" then
+		-- Updated friend list
+		friendsList = data.friends or {}
+		pendingRequests = data.requests or {}
+		
+		refreshFriendList()
+		updateRequestsList()
+		
+	elseif eventType == "requests" then
+		-- Updated requests list
+		pendingRequests = data or {}
+		
+		updateRequestsList()
+		
+	elseif eventType == "request" then
+		-- New friend request received
+		table.insert(pendingRequests, {
+			fromUserId = data.fromUserId,
+			fromName = data.fromName,
+			timestamp = data.timestamp
+		})
+		
+		updateRequestsList()
+		
+		-- Show notification
+		showNotification("New friend request from " .. data.fromName, Color3.fromRGB(100, 200, 255))
+		
+	elseif eventType == "accepted" then
+		-- Friend request accepted
+		showNotification(data.name .. " accepted your friend request!", Color3.fromRGB(100, 255, 100))
+		
+	elseif eventType == "declined" then
+		-- Friend request declined
+		showNotification(data.name .. " declined your friend request", Color3.fromRGB(255, 100, 100))
+		
+	elseif eventType == "removed" then
+		-- Friend removed you
+		showNotification(data.name .. " removed you as a friend", Color3.fromRGB(255, 100, 100))
+		
+	elseif eventType == "status" then
+		-- Friend online status changed
+		for _, friend in ipairs(friendsList) do
+			if friend.userId == data.userId then
+				friend.online = data.online
+				friend.lastSeen = os.time()
+				break
+			end
+		end
+		
+		refreshFriendList()
+		
+		if data.online then
+			showNotification(data.name .. " is now online", Color3.fromRGB(100, 255, 100))
+		else
+			showNotification(data.name .. " is now offline", Color3.fromRGB(180, 180, 180))
+		end
+		
+	elseif eventType == "sent" then
+		-- Friend request sent successfully
+		showNotification("Friend request sent to " .. data.toName, Color3.fromRGB(100, 200, 255))
+		
+	elseif eventType == "error" then
+		-- Error message
+		showNotification(data or "An error occurred", Color3.fromRGB(255, 100, 100))
+	end
+end)
+
+-- Input handling for opening friend UI
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	
+	-- F6 key to open/close friend UI
+	if input.KeyCode == Enum.KeyCode.F6 then
+		toggleUI(not isUIOpen)
+	end
+end)
+
+-- Initialize
+ErrorHandler:LogDebug(ErrorHandler, "FriendUI loaded successfully")
+
+-- Test: Open UI after delay (remove in production)
+wait(2)
+toggleUI(true)

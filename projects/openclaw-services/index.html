@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent Employees | 24/7 Business Automation</title>
+    <meta name="description" content="Get 4 AI specialists working 24/7 for your business. Research, content, development, and management - all automated.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            text-align: center;
+            background: radial-gradient(circle at center, rgba(218, 165, 32, 0.1) 0%, transparent 70%);
+        }
+        
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #DAA520 0%, #FFF 50%, #DAA520 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hero .subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 400;
+        }
+        
+        .hero .description {
+            font-size: 1.1rem;
+            margin-bottom: 3rem;
+            color: rgba(255, 255, 255, 0.8);
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #DAA520 0%, #B8860B 100%);
+            color: white;
+            padding: 18px 40px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(218, 165, 32, 0.3);
+        }
+        
+        .features {
+            padding: 100px 0;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .features h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 60px;
+            color: #DAA520;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+        
+        .feature-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 40px;
+            border-radius: 12px;
+            border: 1px solid rgba(218, 165, 32, 0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(218, 165, 32, 0.4);
+        }
+        
+        .feature-card h3 {
+            color: #DAA520;
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+        }
+        
+        .pricing {
+            padding: 100px 0;
+            text-align: center;
+        }
+        
+        .pricing h2 {
+            font-size: 2.5rem;
+            margin-bottom: 60px;
+            color: #DAA520;
+        }
+        
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 25px;
+            margin-bottom: 60px;
+        }
+        
+        .price-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 50px 30px;
+            border-radius: 12px;
+            border: 2px solid rgba(218, 165, 32, 0.2);
+            position: relative;
+        }
+        
+        .price-card.featured {
+            border-color: #DAA520;
+            background: rgba(218, 165, 32, 0.1);
+        }
+        
+        .price-card .badge {
+            background: #DAA520;
+            color: black;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .price-card h3 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            color: #DAA520;
+        }
+        
+        .price-card .price {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .price-card ul {
+            list-style: none;
+            text-align: left;
+            margin-bottom: 40px;
+        }
+        
+        .price-card ul li {
+            padding: 8px 0;
+            position: relative;
+            padding-left: 25px;
+        }
+        
+        .price-card ul li::before {
+            content: "✓";
+            color: #DAA520;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            
+            .hero .subtitle {
+                font-size: 1.2rem;
+            }
+            
+            .pricing-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <section class="hero">
+        <div class="container">
+            <h1>AI Agent Employees</h1>
+            <div class="subtitle">24/7 Business Automation That Actually Works</div>
+            <div class="description">
+                Get specialized AI agents working around the clock for your home or business. 
+                Research, content creation, automation, project management - all handled by AI. 
+                From personal assistants to full business teams, starting at just $4,500.
+            </div>
+            <a href="#pricing" class="cta-button">View Packages</a>
+        </div>
+    </section>
+
+    <section class="features">
+        <div class="container">
+            <h2>What You Get</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>🧠 Research Agent</h3>
+                    <p>24/7 market research, competitor analysis, trend monitoring, and data collection. Never miss an opportunity or important industry development.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>✍️ Content Agent</h3>
+                    <p>Automated content creation, social media posts, blog articles, and marketing copy. Maintain consistent brand voice across all channels.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>⚡ Development Agent</h3>
+                    <p>Code generation, website updates, automation scripts, and technical implementations. Turn ideas into reality without hiring developers.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📊 Management Agent</h3>
+                    <p>Project coordination, task tracking, reporting, and business intelligence. Your AI operations manager that never sleeps.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="pricing" id="pricing">
+        <div class="container">
+            <h2>Choose Your Package</h2>
+            <div class="pricing-grid">
+                <div class="price-card">
+                    <h3>Home</h3>
+                    <div class="price">$4,500</div>
+                    <div style="font-size: 0.9rem; color: #DAA520; margin-bottom: 15px;">Personal AI Assistant</div>
+                    <ul>
+                        <li>3 personal AI agents</li>
+                        <li>10+ home-focused skills</li>
+                        <li>Personal dashboard</li>
+                        <li>iPhone/iPad access</li>
+                        <li>1-week setup + training</li>
+                        <li>Family-friendly setup</li>
+                    </ul>
+                    <a href="#contact" class="cta-button">Get Home</a>
+                </div>
+                
+                <div class="price-card">
+                    <h3>Starter</h3>
+                    <div class="price">$7,500</div>
+                    <div style="font-size: 0.9rem; color: #DAA520; margin-bottom: 15px;">Mac Mini Business</div>
+                    <ul>
+                        <li>2-3 simultaneous AI agents</li>
+                        <li>15+ pre-built skills</li>
+                        <li>Business dashboard</li>
+                        <li>Telegram 24/7 access</li>
+                        <li>2-week setup + training</li>
+                        <li>30-day support</li>
+                    </ul>
+                    <a href="#contact" class="cta-button">Get Started</a>
+                </div>
+                
+                <div class="price-card featured">
+                    <div class="badge">Most Popular</div>
+                    <h3>Professional</h3>
+                    <div class="price">$12,500</div>
+                    <div style="font-size: 0.9rem; color: #DAA520; margin-bottom: 15px;">Mac Studio (Standard)</div>
+                    <ul>
+                        <li>4-6 simultaneous AI agents</li>
+                        <li>25+ skills + 5 custom skills</li>
+                        <li>Advanced command center</li>
+                        <li>White-label branding</li>
+                        <li>4-week implementation</li>
+                        <li>90-day support</li>
+                    </ul>
+                    <a href="#contact" class="cta-button">Get Professional</a>
+                </div>
+                
+                <div class="price-card">
+                    <h3>Enterprise</h3>
+                    <div class="price">$25,000</div>
+                    <div style="font-size: 0.9rem; color: #DAA520; margin-bottom: 15px;">Mac Studio (512GB)</div>
+                    <ul>
+                        <li>8+ simultaneous AI agents</li>
+                        <li>40+ skills + unlimited custom</li>
+                        <li>Multi-company deployment</li>
+                        <li>Dedicated support team</li>
+                        <li>6-month support package</li>
+                        <li>Quarterly optimization</li>
+                    </ul>
+                    <a href="#contact" class="cta-button">Contact Sales</a>
+                </div>
+                
+                <div class="price-card">
+                    <h3>NVIDIA Powerhouse</h3>
+                    <div class="price">$35,000</div>
+                    <div style="font-size: 0.9rem; color: #DAA520; margin-bottom: 15px;">DGX Spark</div>
+                    <ul>
+                        <li>Maximum agent concurrency</li>
+                        <li>GPU-accelerated processing</li>
+                        <li>Custom model training</li>
+                        <li>Research-grade performance</li>
+                        <li>1-year enterprise support</li>
+                        <li>Advanced customization</li>
+                    </ul>
+                    <a href="#contact" class="cta-button">Go NVIDIA</a>
+                </div>
+            </div>
+            
+            <div style="margin-top: 60px;">
+                <h3 style="color: #DAA520; margin-bottom: 20px;">Ready to Transform Your Business?</h3>
+                <p style="margin-bottom: 30px; font-size: 1.1rem; opacity: 0.9;">
+                    Join the AI revolution. Get your team of AI employees working 24/7.
+                </p>
+                <a href="mailto:jeremy@kermiclemedia.com?subject=AI%20Agent%20Setup%20Inquiry" class="cta-button">
+                    Schedule Free Consultation
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>

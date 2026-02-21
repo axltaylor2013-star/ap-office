@@ -1,0 +1,3173 @@
+--[[
+	NPCManager.server.lua
+	ServerScriptService
+
+	Spawns all NPCs in the game world as interactive multi-part humanoid models.
+	Each NPC has a full body (torso, head, arms, legs), unique accessories,
+	a BillboardGui nametag, and ClickDetectors on every part.
+	Clicking fires "NPCInteract" RemoteEvent to the client.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Wait for map to finish building (increased for heavier MapSetup scripts)
+task.wait(12)
+
+--------------------------------------------------------------------------------
+-- REMOTE EVENT
+--------------------------------------------------------------------------------
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local NPCInteractEvent = Remotes:WaitForChild("NPCInteract", 10)
+
+--------------------------------------------------------------------------------
+-- HELPERS
+--------------------------------------------------------------------------------
+local function makePart(props)
+	local p = Instance.new("Part")
+	p.Name = props.Name or "Part"
+	p.Shape = props.Shape or Enum.PartType.Block
+	p.Size = props.Size or Vector3.new(1, 1, 1)
+	p.Color = props.Color or Color3.fromRGB(128, 128, 128)
+	p.Anchored = true
+	p.CanCollide = props.CanCollide or false
+	p.CFrame = props.CFrame or CFrame.new(0, 15, 0)
+	p.Transparency = props.Transparency or 0
+	p.Material = props.Material or Enum.Material.SmoothPlastic
+	p.Parent = props.Parent
+	return p
+end
+
+local function weld(part0, part1)
+	local w = Instance.new("WeldConstraint")
+	w.Part0 = part0
+	w.Part1 = part1
+	w.Parent = part0
+end
+
+local function addClickDetector(part, npcName)
+	local cd = Instance.new("ClickDetector")
+	cd.MaxActivationDistance = 25
+	cd.Parent = part
+	cd.MouseClick:Connect(function(player)
+		NPCInteractEvent:FireClient(player, npcName)
+	end)
+end
+
+local function addClickToAll(model, npcName)
+	for _, child in model:GetDescendants() do
+		if child:IsA("BasePart") then
+			addClickDetector(child, npcName)
+		end
+	end
+end
+
+-- Lighten a color slightly for eyeball whites
+local function lighten(c, amount)
+	return Color3.fromRGB(
+		math.min(255, math.floor(c.R * 255 + amount)),
+		math.min(255, math.floor(c.G * 255 + amount)),
+		math.min(255, math.floor(c.B * 255 + amount))
+	)
+end
+
+--------------------------------------------------------------------------------
+-- BODY DIMENSIONS
+--------------------------------------------------------------------------------
+local TORSO_SIZE = Vector3.new(2.4, 3, 1.2)
+local HEAD_RADIUS = 0.9
+local ARM_SIZE = Vector3.new(0.8, 2.8, 0.8)
+local LEG_SIZE = Vector3.new(0.9, 2.8, 0.9)
+local THIN_LIMB_FACTOR = 0.5 -- for skeletal NPCs
+
+--------------------------------------------------------------------------------
+-- FACE BUILDER — gives every NPC eyes and a mouth expression
+-- mood: "happy", "serious", "evil", "spooky", "mystical", "dead"
+--------------------------------------------------------------------------------
+local function buildFace(model, b, mood, opts)
+	opts = opts or {}
+	local headPos = b.headPos
+	if not headPos then
+		warn("[NPCManager] buildFace: headPos is nil, skipping face")
+		return
+	end
+	local trans = b.trans or 0
+	local skinColor = opts.skinColor or Color3.fromRGB(230, 200, 170)
+	local eyeWhite = opts.eyeWhite or lighten(skinColor, 50)
+	local pupilColor = opts.pupilColor or Color3.fromRGB(30, 25, 20)
+	local mouthColor = opts.mouthColor or Color3.fromRGB(50, 30, 20)
+
+	-- skip eyes for blindfolded Oracle
+	if not opts.noEyes then
+		for _, side in {1, -1} do
+			-- eyeball
+			local eye = makePart({
+				Name = side == 1 and "RightEye" or "LeftEye",
+				Shape = Enum.PartType.Ball,
+				Size = Vector3.new(0.28, 0.28, 0.28),
+				Color = eyeWhite,
+				CFrame = CFrame.new(headPos + Vector3.new(side * 0.28, 0.08, -(HEAD_RADIUS * 0.82))),
+				Transparency = trans,
+				Parent = model,
+			})
+			weld(b.head, eye)
+
+			-- pupil
+			local pupil = makePart({
+				Name = side == 1 and "RightPupil" or "LeftPupil",
+				Shape = Enum.PartType.Ball,
+				Size = Vector3.new(0.13, 0.13, 0.13),
+				Color = pupilColor,
+				CFrame = CFrame.new(headPos + Vector3.new(side * 0.28, 0.08, -(HEAD_RADIUS * 0.95))),
+				Transparency = trans,
+				Parent = model,
+			})
+			weld(b.head, pupil)
+		end
+	end
+
+	-- Mouth expression
+	if mood == "happy" then
+		-- two small angled blocks forming a smile
+		for _, side in {1, -1} do
+			local m = makePart({
+				Name = "Mouth" .. (side == 1 and "R" or "L"),
+				Size = Vector3.new(0.2, 0.06, 0.06),
+				Color = mouthColor,
+				CFrame = CFrame.new(headPos + Vector3.new(side * 0.12, -0.22, -(HEAD_RADIUS * 0.88)))
+					* CFrame.Angles(0, 15, math.rad(side * -15)),
+				Transparency = trans,
+				Parent = model,
+			})
+			weld(b.head, m)
+		end
+	elseif mood == "evil" or mood == "spooky" then
+		-- frown: two angled blocks going down
+		for _, side in {1, -1} do
+			local m = makePart({
+				Name = "Mouth" .. (side == 1 and "R" or "L"),
+				Size = Vector3.new(0.2, 0.06, 0.06),
+				Color = mouthColor,
+				CFrame = CFrame.new(headPos + Vector3.new(side * 0.12, -0.25, -(HEAD_RADIUS * 0.88)))
+					* CFrame.Angles(0, 15, math.rad(side * 15)),
+				Transparency = trans,
+				Parent = model,
+			})
+			weld(b.head, m)
+		end
+	elseif mood == "dead" then
+		-- skeletal teeth
+		for i = -2, 2 do
+			local tooth = makePart({
+				Name = "Tooth" .. i,
+				Size = Vector3.new(0.1, 0.12, 0.06),
+				Color = Color3.fromRGB(220, 220, 200),
+				CFrame = CFrame.new(headPos + Vector3.new(i * 0.1, -0.25, -(HEAD_RADIUS * 0.88))),
+				Transparency = trans,
+				Parent = model,
+			})
+			weld(b.head, tooth)
+		end
+	else
+		-- serious: straight line
+		local m = makePart({
+			Name = "Mouth",
+			Size = Vector3.new(0.35, 0.06, 0.06),
+			Color = mouthColor,
+			CFrame = CFrame.new(headPos + Vector3.new(0, -0.24, -(HEAD_RADIUS * 0.88))),
+			Transparency = trans,
+			Parent = model,
+		})
+		weld(b.head, m)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- NPC DEFINITIONS
+--------------------------------------------------------------------------------
+local NPC_DEFS = {
+	{
+		name = "Captain Aldric",
+		role = "Quest Giver",
+		position = Vector3.new(20, 15, 30),
+		skinColor = Color3.fromRGB(210, 170, 130),
+		torsoColor = Color3.fromRGB(25, 40, 100),
+		legColor = Color3.fromRGB(40, 40, 60),
+		armColor = Color3.fromRGB(25, 40, 100),
+	},
+	{
+		name = "Mara the Merchant",
+		role = "General Store",
+		position = Vector3.new(50, 15, 60),
+		skinColor = Color3.fromRGB(210, 170, 130),
+		torsoColor = Color3.fromRGB(240, 210, 50),
+		legColor = Color3.fromRGB(100, 70, 30),
+		armColor = Color3.fromRGB(210, 170, 130),
+	},
+	{
+		name = "Grimnir the Smith",
+		role = "Weapons & Armor",
+		position = Vector3.new(55, 15, 40),
+		skinColor = Color3.fromRGB(190, 150, 110),
+		torsoColor = Color3.fromRGB(60, 60, 60),
+		legColor = Color3.fromRGB(50, 50, 50),
+		armColor = Color3.fromRGB(60, 60, 60),
+		noLeftArm = true,
+	},
+	{
+		name = "Old Bess the Cook",
+		role = "Food & Drink",
+		position = Vector3.new(-10, 15, 20),
+		skinColor = Color3.fromRGB(210, 170, 130),
+		torsoColor = Color3.fromRGB(139, 90, 43),
+		legColor = Color3.fromRGB(100, 70, 40),
+		armColor = Color3.fromRGB(210, 170, 130),
+	},
+	{
+		name = "Brother Elden",
+		role = "Healer & Quests",
+		position = Vector3.new(70, 15, 30),
+		skinColor = Color3.fromRGB(200, 160, 120),
+		torsoColor = Color3.fromRGB(240, 240, 240),
+		legColor = Color3.fromRGB(220, 220, 220),
+		armColor = Color3.fromRGB(240, 240, 240),
+	},
+	{
+		name = "Finnick the Fletcher",
+		role = "Ranged Gear",
+		position = Vector3.new(25, 15, 70),
+		skinColor = Color3.fromRGB(210, 170, 130),
+		torsoColor = Color3.fromRGB(50, 120, 50),
+		legColor = Color3.fromRGB(60, 80, 40),
+		armColor = Color3.fromRGB(50, 120, 50),
+	},
+	{
+		name = "Scout Wren",
+		role = "Quest Giver",
+		position = Vector3.new(45, 15, 40),
+		skinColor = Color3.fromRGB(210, 170, 130),
+		torsoColor = Color3.fromRGB(140, 100, 55),
+		legColor = Color3.fromRGB(100, 75, 40),
+		armColor = Color3.fromRGB(140, 100, 55),
+	},
+	{
+		name = "Fisher Tom",
+		role = "Fishing Supplies",
+		position = Vector3.new(-20, 15, 80),
+		skinColor = Color3.fromRGB(210, 170, 130),
+		torsoColor = Color3.fromRGB(50, 80, 120),
+		legColor = Color3.fromRGB(70, 70, 100),
+		armColor = Color3.fromRGB(50, 80, 120),
+	},
+	{
+		name = "Woodsman Jake",
+		role = "Woodcutting & Ranged",
+		position = Vector3.new(80, 15, 60),
+		skinColor = Color3.fromRGB(200, 160, 120),
+		torsoColor = Color3.fromRGB(100, 80, 50),
+		legColor = Color3.fromRGB(80, 60, 40),
+		armColor = Color3.fromRGB(100, 80, 50),
+	},
+	{
+		name = "Grave Keeper Morath",
+		role = "Quest Giver",
+		position = Vector3.new(-30, 15, -150),
+		skinColor = Color3.fromRGB(160, 140, 120),
+		torsoColor = Color3.fromRGB(50, 50, 50),
+		legColor = Color3.fromRGB(40, 40, 40),
+		armColor = Color3.fromRGB(50, 50, 50),
+	},
+	{
+		name = "Witch Thessaly",
+		role = "Quest Giver",
+		position = Vector3.new(-200, 15, -250),
+		skinColor = Color3.fromRGB(80, 160, 80),
+		torsoColor = Color3.fromRGB(100, 30, 130),
+		legColor = Color3.fromRGB(80, 20, 100),
+		armColor = Color3.fromRGB(80, 160, 80),
+	},
+	{
+		name = "Bandit King Rask",
+		role = "Quest Giver",
+		position = Vector3.new(250, 15, -200),
+		skinColor = Color3.fromRGB(200, 160, 120),
+		torsoColor = Color3.fromRGB(120, 70, 30),
+		legColor = Color3.fromRGB(80, 50, 20),
+		armColor = Color3.fromRGB(120, 70, 30),
+	},
+	{
+		name = "The Oracle",
+		role = "Seer",
+		position = Vector3.new(-150, 15, -100),
+		skinColor = Color3.fromRGB(255, 215, 0),
+		torsoColor = Color3.fromRGB(240, 240, 240),
+		legColor = Color3.fromRGB(220, 220, 240),
+		armColor = Color3.fromRGB(240, 240, 240),
+		floating = true,
+	},
+	{
+		name = "Ghost of Sir Aldren",
+		role = "Spirit",
+		position = Vector3.new(50, 15, -160),
+		skinColor = Color3.fromRGB(120, 170, 240),
+		torsoColor = Color3.fromRGB(100, 150, 220),
+		legColor = Color3.fromRGB(100, 150, 220),
+		armColor = Color3.fromRGB(100, 150, 220),
+		ghost = true,
+	},
+	{
+		name = "Ferryman Charon",
+		role = "Ferryman",
+		position = Vector3.new(-20, 15, -300),
+		skinColor = Color3.fromRGB(200, 200, 180),
+		torsoColor = Color3.fromRGB(20, 20, 20),
+		legColor = Color3.fromRGB(15, 15, 15),
+		armColor = Color3.fromRGB(20, 20, 20),
+		skeletal = true,
+	},
+	{
+		name = "Dragon Priestess Lyra",
+		role = "Quest Giver",
+		position = Vector3.new(0, 15, -350),
+		skinColor = Color3.fromRGB(210, 170, 130),
+		torsoColor = Color3.fromRGB(180, 30, 30),
+		legColor = Color3.fromRGB(180, 30, 30),
+		armColor = Color3.fromRGB(180, 30, 30),
+	},
+
+	-- NEW AREA NPCs (MapSetup5)
+	{
+		name = "Captain Blackbeard",
+		role = "Pirate Merchant",
+		position = Vector3.new(340, 15, -150),
+		skinColor = Color3.fromRGB(190, 150, 110),
+		torsoColor = Color3.fromRGB(139, 15, 0),
+		legColor = Color3.fromRGB(64, 64, 64),
+		armColor = Color3.fromRGB(139, 15, 0),
+	},
+	{
+		name = "Frost Sage Elara",
+		role = "Ice Mage",
+		position = Vector3.new(-350, 15, -250),
+		skinColor = Color3.fromRGB(220, 200, 200),
+		torsoColor = Color3.fromRGB(230, 230, 255),
+		legColor = Color3.fromRGB(200, 200, 240),
+		armColor = Color3.fromRGB(230, 230, 255),
+	},
+	{
+		name = "Priestess Solara",
+		role = "Healer",
+		position = Vector3.new(-250, 15, 275),
+		skinColor = Color3.fromRGB(210, 170, 130),
+		torsoColor = Color3.fromRGB(255, 255, 255),
+		legColor = Color3.fromRGB(255, 215, 0),
+		armColor = Color3.fromRGB(255, 255, 255),
+	},
+	{
+		name = "Archaeologist Rex",
+		role = "Explorer",
+		position = Vector3.new(-25, 15, -400),
+		skinColor = Color3.fromRGB(210, 170, 130),
+		torsoColor = Color3.fromRGB(139, 90, 43),
+		legColor = Color3.fromRGB(101, 67, 33),
+		armColor = Color3.fromRGB(139, 90, 43),
+	},
+}
+
+--------------------------------------------------------------------------------
+-- BUILD HUMANOID BODY
+--------------------------------------------------------------------------------
+local function buildBody(model, def, origin)
+	local trans = 0
+	if def.ghost then trans = 0.5 end
+	local isSkeletal = def.skeletal
+	local torsoSize = TORSO_SIZE
+	local armSize = ARM_SIZE
+	local legSize = LEG_SIZE
+	if isSkeletal then
+		torsoSize = Vector3.new(TORSO_SIZE.X * 0.7, TORSO_SIZE.Y, TORSO_SIZE.Z * 0.6)
+		armSize = Vector3.new(ARM_SIZE.X * THIN_LIMB_FACTOR, ARM_SIZE.Y, ARM_SIZE.Z * THIN_LIMB_FACTOR)
+		legSize = Vector3.new(LEG_SIZE.X * THIN_LIMB_FACTOR, LEG_SIZE.Y, LEG_SIZE.Z * THIN_LIMB_FACTOR)
+	end
+
+	-- Floating offset for Oracle
+	local yOffset = 0
+	if def.floating then yOffset = 1.5 end
+
+	local torsoCenter = origin + Vector3.new(0, legSize.Y + torsoSize.Y / 2 + yOffset, 0)
+	local torsoCF = CFrame.new(torsoCenter)
+
+	-- Morath hunched
+	if def.name == "Grave Keeper Morath" then
+		torsoCF = CFrame.new(torsoCenter) * CFrame.Angles(math.rad(15), 15, 0)
+	end
+
+	-- Aldric military posture — slight lean back
+	if def.name == "Captain Aldric" then
+		torsoCF = CFrame.new(torsoCenter) * CFrame.Angles(math.rad(-5), 15, 0)
+	end
+
+	-- Rask muscular build — slightly wider torso
+	if def.name == "Bandit King Rask" then
+		torsoSize = Vector3.new(torsoSize.X * 1.15, torsoSize.Y, torsoSize.Z * 1.1)
+	end
+
+	-- Morath gaunt torso
+	if def.name == "Grave Keeper Morath" then
+		torsoSize = Vector3.new(torsoSize.X * 0.9, torsoSize.Y, torsoSize.Z * 0.85)
+	end
+
+	local torso = makePart({
+		Name = "Torso",
+		Size = torsoSize,
+		Color = def.torsoColor,
+		CFrame = torsoCF,
+		Transparency = trans,
+		CanCollide = true,
+		Parent = model,
+	})
+	model.PrimaryPart = torso
+
+	-- Head
+	local headDiam = HEAD_RADIUS * 2
+	local headPos = torsoCenter + Vector3.new(0, torsoSize.Y / 2 + HEAD_RADIUS, 0)
+	if def.name == "Grave Keeper Morath" then
+		headPos = headPos + Vector3.new(0, -0.3, -0.4)
+	end
+	local head = makePart({
+		Name = "Head",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(headDiam, headDiam, headDiam),
+		Color = def.skinColor,
+		CFrame = CFrame.new(headPos),
+		Transparency = trans,
+		Parent = model,
+	})
+	weld(torso, head)
+
+	-- Right Arm
+	local raPos = torsoCenter + Vector3.new(torsoSize.X / 2 + armSize.X / 2, (torsoSize.Y - armSize.Y) / 2, 0)
+	local rightArm = makePart({
+		Name = "RightArm",
+		Size = armSize,
+		Color = def.armColor,
+		CFrame = CFrame.new(raPos),
+		Transparency = trans,
+		Parent = model,
+	})
+	weld(torso, rightArm)
+
+	-- Left Arm (skip for Grimnir)
+	local leftArm = nil
+	if not def.noLeftArm then
+		local laPos = torsoCenter + Vector3.new(-(torsoSize.X / 2 + armSize.X / 2), (torsoSize.Y - armSize.Y) / 2, 0)
+		leftArm = makePart({
+			Name = "LeftArm",
+			Size = armSize,
+			Color = def.armColor,
+			CFrame = CFrame.new(laPos),
+			Transparency = trans,
+			Parent = model,
+		})
+		weld(torso, leftArm)
+	end
+
+	-- Right Leg
+	local rlPos = origin + Vector3.new(torsoSize.X / 4, legSize.Y / 2 + yOffset, 0)
+	local rightLeg = makePart({
+		Name = "RightLeg",
+		Size = legSize,
+		Color = def.legColor,
+		CFrame = CFrame.new(rlPos),
+		Transparency = trans,
+		Parent = model,
+	})
+	weld(torso, rightLeg)
+
+	-- Left Leg
+	local llPos = origin + Vector3.new(-torsoSize.X / 4, legSize.Y / 2 + yOffset, 0)
+	local leftLeg = makePart({
+		Name = "LeftLeg",
+		Size = legSize,
+		Color = def.legColor,
+		CFrame = CFrame.new(llPos),
+		Transparency = trans,
+		Parent = model,
+	})
+	weld(torso, leftLeg)
+
+	return {
+		torso = torso,
+		head = head,
+		rightArm = rightArm,
+		leftArm = leftArm,
+		rightLeg = rightLeg,
+		leftLeg = leftLeg,
+		torsoCenter = torsoCenter,
+		headPos = headPos,
+		trans = trans,
+		torsoSize = torsoSize,
+		armSize = armSize,
+		legSize = legSize,
+		yOffset = yOffset,
+	}
+end
+
+--------------------------------------------------------------------------------
+-- ACCESSORY BUILDERS
+--------------------------------------------------------------------------------
+local function buildCaptainAldric(model, def, b)
+	-- FACE: serious military expression
+	buildFace(model, b, "serious", { skinColor = def.skinColor })
+
+	-- SHORT DARK BROWN HAIR — block on top + sides
+	local hairTop = makePart({
+		Name = "HairTop",
+		Size = Vector3.new(HEAD_RADIUS * 1.9, 0.25, HEAD_RADIUS * 1.8),
+		Color = Color3.fromRGB(60, 40, 20),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.75, 0)),
+		Parent = model,
+	})
+	weld(b.head, hairTop)
+	for _, side in {1, -1} do
+		local hairSide = makePart({
+			Name = side == 1 and "HairR" or "HairL",
+			Size = Vector3.new(0.15, 0.5, HEAD_RADIUS * 1.4),
+			Color = Color3.fromRGB(60, 40, 20),
+			CFrame = CFrame.new(b.headPos + Vector3.new(side * (HEAD_RADIUS * 0.8), 0.3, 0)),
+			Parent = model,
+		})
+		weld(b.head, hairSide)
+	end
+
+	-- CAPTAIN'S HAT — flat-top block with brim
+	local hatBrim = makePart({
+		Name = "HatBrim",
+		Size = Vector3.new(HEAD_RADIUS * 2.6, 0.12, HEAD_RADIUS * 2.6),
+		Color = Color3.fromRGB(20, 30, 80),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.85, 0)),
+		Parent = model,
+	})
+	weld(b.head, hatBrim)
+	local hatTop = makePart({
+		Name = "HatTop",
+		Size = Vector3.new(HEAD_RADIUS * 1.8, 0.6, HEAD_RADIUS * 1.6),
+		Color = Color3.fromRGB(20, 30, 80),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS + 0.35, 0)),
+		Parent = model,
+	})
+	weld(b.head, hatTop)
+	-- hat badge
+	local hatBadge = makePart({
+		Name = "HatBadge",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.2, 0.2, 0.2),
+		Color = Color3.fromRGB(230, 200, 50),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS + 0.15, -(HEAD_RADIUS * 0.9))),
+		Parent = model,
+	})
+	weld(b.head, hatBadge)
+
+	-- Blue cape behind torso (existing)
+	local cape = makePart({
+		Name = "Cape",
+		Size = Vector3.new(2, 3.2, 0.15),
+		Color = Color3.fromRGB(30, 60, 160),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, -0.2, b.torsoSize.Z / 2 + 0.1)),
+		Parent = model,
+	})
+	weld(b.torso, cape)
+
+	-- Gold shoulder pads (existing)
+	for _, side in {1, -1} do
+		local pad = makePart({
+			Name = side == 1 and "RightPad" or "LeftPad",
+			Size = Vector3.new(1.2, 0.4, 1.4),
+			Color = Color3.fromRGB(230, 200, 50),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(side * (b.torsoSize.X / 2 + 0.1), b.torsoSize.Y / 2 - 0.2, 0)),
+			Parent = model,
+		})
+		weld(b.torso, pad)
+	end
+
+	-- MEDAL on chest
+	local medal = makePart({
+		Name = "Medal",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.22, 0.22, 0.22),
+		Color = Color3.fromRGB(230, 200, 50),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(-0.4, 0.6, -(b.torsoSize.Z / 2 + 0.08))),
+		Parent = model,
+	})
+	weld(b.torso, medal)
+	-- medal ribbon
+	local ribbon = makePart({
+		Name = "MedalRibbon",
+		Size = Vector3.new(0.15, 0.3, 0.05),
+		Color = Color3.fromRGB(180, 30, 30),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(-0.4, 0.82, -(b.torsoSize.Z / 2 + 0.08))),
+		Parent = model,
+	})
+	weld(b.torso, ribbon)
+
+	-- BELT with buckle
+	local belt = makePart({
+		Name = "Belt",
+		Size = Vector3.new(b.torsoSize.X + 0.1, 0.25, b.torsoSize.Z + 0.1),
+		Color = Color3.fromRGB(60, 40, 20),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, -b.torsoSize.Y / 2 + 0.2, 0)),
+		Parent = model,
+	})
+	weld(b.torso, belt)
+	local buckle = makePart({
+		Name = "Buckle",
+		Size = Vector3.new(0.3, 0.22, 0.08),
+		Color = Color3.fromRGB(230, 200, 50),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, -b.torsoSize.Y / 2 + 0.2, -(b.torsoSize.Z / 2 + 0.1))),
+		Parent = model,
+	})
+	weld(b.torso, buckle)
+
+	-- SWORD on hip
+	local swordBlade = makePart({
+		Name = "SwordBlade",
+		Size = Vector3.new(0.08, 2.2, 0.3),
+		Color = Color3.fromRGB(200, 200, 210),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + 0.2, -b.torsoSize.Y / 2 - 0.5, 0.2))
+			* CFrame.Angles(0, 15, math.rad(10)),
+		Parent = model,
+	})
+	weld(b.torso, swordBlade)
+	local swordHilt = makePart({
+		Name = "SwordHilt",
+		Size = Vector3.new(0.12, 0.35, 0.6),
+		Color = Color3.fromRGB(120, 80, 30),
+		CFrame = CFrame.new(swordBlade.Position + Vector3.new(0, 1.2, 0)),
+		Parent = model,
+	})
+	weld(swordBlade, swordHilt)
+end
+
+local function buildMara(model, def, b)
+	-- FACE: happy shopkeeper
+	buildFace(model, b, "happy", { skinColor = def.skinColor })
+
+	-- BROWN HAIR BUN on back of head
+	local bun = makePart({
+		Name = "HairBun",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.6, 0.6, 0.6),
+		Color = Color3.fromRGB(100, 65, 30),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.4, HEAD_RADIUS * 0.7)),
+		Parent = model,
+	})
+	weld(b.head, bun)
+	-- headband
+	local headband = makePart({
+		Name = "Headband",
+		Size = Vector3.new(HEAD_RADIUS * 2.1, 0.15, HEAD_RADIUS * 2.1),
+		Color = Color3.fromRGB(180, 50, 50),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.5, 0)),
+		Parent = model,
+	})
+	weld(b.head, headband)
+
+	-- EARRINGS — tiny gold balls near head sides
+	for _, side in {1, -1} do
+		local earring = makePart({
+			Name = side == 1 and "EarringR" or "EarringL",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.12, 0.12, 0.12),
+			Color = Color3.fromRGB(230, 200, 50),
+			CFrame = CFrame.new(b.headPos + Vector3.new(side * (HEAD_RADIUS * 0.9), -0.15, 0)),
+			Parent = model,
+		})
+		weld(b.head, earring)
+	end
+
+	-- Apron on front (existing)
+	local apron = makePart({
+		Name = "Apron",
+		Size = Vector3.new(1.8, 2.4, 0.12),
+		Color = Color3.fromRGB(220, 200, 160),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, -0.3, -(b.torsoSize.Z / 2 + 0.1))),
+		Parent = model,
+	})
+	weld(b.torso, apron)
+
+	-- Basket in right hand (existing)
+	local basket = makePart({
+		Name = "Basket",
+		Size = Vector3.new(1.0, 0.8, 0.8),
+		Color = Color3.fromRGB(139, 90, 43),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + b.armSize.X + 0.3, -b.torsoSize.Y / 2 + 0.5, 0)),
+		Parent = model,
+	})
+	weld(b.rightArm, basket)
+
+	-- COIN POUCH on belt
+	local coinPouch = makePart({
+		Name = "CoinPouch",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.3, 0.3, 0.3),
+		Color = Color3.fromRGB(120, 80, 30),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0.5, -b.torsoSize.Y / 2 + 0.1, -(b.torsoSize.Z / 2 + 0.05))),
+		Parent = model,
+	})
+	weld(b.torso, coinPouch)
+
+	-- MARKET STALL — wooden table with displayed items
+	local table1 = makePart({
+		Name = "MarketTable",
+		Size = Vector3.new(4, 0.3, 2.5),
+		Color = Color3.fromRGB(120, 80, 30),
+		CFrame = CFrame.new(def.position + Vector3.new(3.5, 2.0, 0)),
+		Parent = model,
+	})
+	-- table legs
+	for _, lx in {-1.5, 1.5} do
+		for _, lz in {-0.9, 0.9} do
+			local leg = makePart({
+				Name = "TableLeg",
+				Size = Vector3.new(0.2, 2.0, 0.2),
+				Color = Color3.fromRGB(100, 65, 25),
+				CFrame = CFrame.new(def.position + Vector3.new(3.5 + lx, 1.0, lz)),
+				Parent = model,
+			})
+			weld(table1, leg)
+		end
+	end
+	-- displayed items on table
+	local displayColors = {
+		Color3.fromRGB(200, 50, 50),
+		Color3.fromRGB(50, 50, 200),
+		Color3.fromRGB(50, 200, 50),
+		Color3.fromRGB(200, 180, 50),
+	}
+	for i, col in displayColors do
+		local item = makePart({
+			Name = "DisplayItem" .. i,
+			Size = Vector3.new(0.4, 0.4, 0.4),
+			Color = col,
+			CFrame = CFrame.new(def.position + Vector3.new(2.5 + i * 0.7, 2.35, (i % 2 == 0) and 0.3 or -0.3)),
+			Parent = model,
+		})
+		weld(table1, item)
+	end
+end
+
+local function buildGrimnir(model, def, b)
+	-- FACE: serious working man
+	buildFace(model, b, "serious", { skinColor = def.skinColor })
+
+	-- SOOT MARKS on face
+	for _, pos in { Vector3.new(0.3, 0.15, -0.8), Vector3.new(-0.2, -0.1, -0.75), Vector3.new(0.1, 0.3, -0.78) } do
+		local soot = makePart({
+			Name = "SootMark",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.15, 0.15, 0.08),
+			Color = Color3.fromRGB(30, 25, 20),
+			Transparency = 0.4,
+			CFrame = CFrame.new(b.headPos + pos),
+			Parent = model,
+		})
+		weld(b.head, soot)
+	end
+
+	-- LEATHER APRON on front of torso
+	local apron = makePart({
+		Name = "LeatherApron",
+		Size = Vector3.new(b.torsoSize.X * 0.85, b.torsoSize.Y + 0.5, 0.12),
+		Color = Color3.fromRGB(100, 60, 25),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, -0.2, -(b.torsoSize.Z / 2 + 0.08))),
+		Parent = model,
+	})
+	weld(b.torso, apron)
+	-- apron strap
+	local strap = makePart({
+		Name = "ApronStrap",
+		Size = Vector3.new(0.15, 1.2, 0.06),
+		Color = Color3.fromRGB(80, 50, 20),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0.3, b.torsoSize.Y / 2 - 0.3, -(b.torsoSize.Z / 2 + 0.12))),
+		Parent = model,
+	})
+	weld(b.torso, strap)
+
+	-- TONGS where left arm would be (mechanical prosthetic)
+	local tongBase = makePart({
+		Name = "TongBase",
+		Size = Vector3.new(0.2, 1.5, 0.15),
+		Color = Color3.fromRGB(100, 100, 100),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(-(b.torsoSize.X / 2 + 0.3), -0.2, 0)),
+		Parent = model,
+	})
+	weld(b.torso, tongBase)
+	-- tong jaws
+	for _, side in {1, -1} do
+		local jaw = makePart({
+			Name = side == 1 and "TongJawR" or "TongJawL",
+			Size = Vector3.new(0.08, 0.8, 0.1),
+			Color = Color3.fromRGB(110, 110, 110),
+			Material = Enum.Material.Metal,
+			CFrame = CFrame.new(tongBase.Position + Vector3.new(side * 0.1, -1.0, 0))
+				* CFrame.Angles(0, 15, math.rad(side * -8)),
+			Parent = model,
+		})
+		weld(tongBase, jaw)
+	end
+
+	-- Anvil next to him (existing)
+	local anvil = makePart({
+		Name = "Anvil",
+		Size = Vector3.new(2.0, 1.5, 1.5),
+		Color = Color3.fromRGB(80, 80, 80),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(def.position + Vector3.new(-3, 0.75, 0)),
+		Parent = model,
+	})
+	local anvilTop = makePart({
+		Name = "AnvilTop",
+		Size = Vector3.new(2.8, 0.5, 1.8),
+		Color = Color3.fromRGB(90, 90, 90),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(def.position + Vector3.new(-3, 1.75, 0)),
+		Parent = model,
+	})
+	weld(anvil, anvilTop)
+
+	-- Hammer in right hand (existing)
+	local hammerHandle = makePart({
+		Name = "HammerHandle",
+		Size = Vector3.new(0.2, 1.8, 0.2),
+		Color = Color3.fromRGB(120, 80, 30),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + b.armSize.X / 2, -0.5, -0.3)),
+		Parent = model,
+	})
+	weld(b.rightArm, hammerHandle)
+	local hammerHead = makePart({
+		Name = "HammerHead",
+		Size = Vector3.new(0.6, 0.5, 0.4),
+		Color = Color3.fromRGB(100, 100, 100),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(hammerHandle.Position + Vector3.new(0, -1.0, 0)),
+		Parent = model,
+	})
+	weld(hammerHandle, hammerHead)
+end
+
+local function buildOldBess(model, def, b)
+	-- FACE: happy grandma
+	buildFace(model, b, "happy", { skinColor = def.skinColor })
+
+	-- WRINKLE LINES on face sides
+	for _, side in {1, -1} do
+		local wrinkle = makePart({
+			Name = side == 1 and "WrinkleR" or "WrinkleL",
+			Size = Vector3.new(0.04, 0.3, 0.04),
+			Color = Color3.fromRGB(170, 130, 100),
+			CFrame = CFrame.new(b.headPos + Vector3.new(side * 0.45, -0.1, -(HEAD_RADIUS * 0.7))),
+			Parent = model,
+		})
+		weld(b.head, wrinkle)
+	end
+
+	-- Gray hair (existing + extra strands)
+	local hair = makePart({
+		Name = "Hair",
+		Size = Vector3.new(HEAD_RADIUS * 2.2, HEAD_RADIUS * 1.0, HEAD_RADIUS * 2.2),
+		Color = Color3.fromRGB(180, 180, 180),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.3, 0)),
+		Parent = model,
+	})
+	weld(b.head, hair)
+	-- extra gray strands
+	for i = 1, 4 do
+		local strand = makePart({
+			Name = "HairStrand" .. i,
+			Size = Vector3.new(0.1, 0.4, 0.1),
+			Color = Color3.fromRGB(190, 190, 190),
+			CFrame = CFrame.new(b.headPos + Vector3.new(
+				math.cos(i * 1.5) * HEAD_RADIUS * 0.6,
+				HEAD_RADIUS * 0.6,
+				math.sin(i * 1.5) * HEAD_RADIUS * 0.6
+			)),
+			Parent = model,
+		})
+		weld(b.head, strand)
+	end
+
+	-- SHAWL over shoulders
+	local shawl = makePart({
+		Name = "Shawl",
+		Size = Vector3.new(b.torsoSize.X + 0.8, 0.6, b.torsoSize.Z + 0.4),
+		Color = Color3.fromRGB(160, 120, 80),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, b.torsoSize.Y / 2 - 0.1, 0)),
+		Parent = model,
+	})
+	weld(b.torso, shawl)
+
+	-- WOODEN LADLE in right hand
+	local ladleStick = makePart({
+		Name = "LadleStick",
+		Size = Vector3.new(0.12, 2.0, 0.12),
+		Color = Color3.fromRGB(120, 80, 30),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + b.armSize.X / 2 + 0.2, -0.3, 0)),
+		Parent = model,
+	})
+	weld(b.rightArm, ladleStick)
+	local ladleBowl = makePart({
+		Name = "LadleBowl",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.45, 0.25, 0.45),
+		Color = Color3.fromRGB(120, 80, 30),
+		CFrame = CFrame.new(ladleStick.Position + Vector3.new(0, -1.1, 0)),
+		Parent = model,
+	})
+	weld(ladleStick, ladleBowl)
+
+	-- Cooking pot beside her (existing)
+	local pot = makePart({
+		Name = "CookingPot",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(1.5, 1.8, 1.8),
+		Color = Color3.fromRGB(60, 40, 20),
+		CFrame = CFrame.new(def.position + Vector3.new(2.5, 0.75, 0)) * CFrame.Angles(0, 15, math.rad(90)),
+		Parent = model,
+	})
+
+	-- FOOD CART nearby
+	local cartBody = makePart({
+		Name = "FoodCartBody",
+		Size = Vector3.new(2.5, 1.5, 1.8),
+		Color = Color3.fromRGB(100, 65, 25),
+		CFrame = CFrame.new(def.position + Vector3.new(-3, 1.0, 1)),
+		Parent = model,
+	})
+	-- cart wheels
+	for _, side in {1, -1} do
+		local wheel = makePart({
+			Name = "CartWheel",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.2, 0.8, 0.8),
+			Color = Color3.fromRGB(60, 40, 15),
+			CFrame = CFrame.new(def.position + Vector3.new(-3 + side * 1.0, 0.4, 1 + 1.0))
+				* CFrame.Angles(math.rad(90), 15, 0),
+			Parent = model,
+		})
+		weld(cartBody, wheel)
+	end
+end
+
+local function buildBrotherElden(model, def, b)
+	-- FACE: serene/happy
+	buildFace(model, b, "happy", { skinColor = def.skinColor })
+
+	-- White hood (existing)
+	local hood = makePart({
+		Name = "Hood",
+		Size = Vector3.new(HEAD_RADIUS * 2.4, HEAD_RADIUS * 1.6, HEAD_RADIUS * 2.4),
+		Color = Color3.fromRGB(240, 240, 240),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.2, 0)),
+		Parent = model,
+	})
+	weld(b.head, hood)
+
+	-- HALO — thin neon cylinder above head
+	local halo = makePart({
+		Name = "Halo",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.08, 1.6, 1.6),
+		Color = Color3.fromRGB(255, 255, 180),
+		Material = Enum.Material.Neon,
+		Transparency = 0.3,
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS + 0.8, 0))
+			* CFrame.Angles(0, 15, math.rad(90)),
+		Parent = model,
+	})
+	weld(b.head, halo)
+	local haloLight = Instance.new("PointLight")
+	haloLight.Color = Color3.fromRGB(255, 255, 200)
+	haloLight.Brightness = 0.5
+	haloLight.Range = 6
+	haloLight.Parent = halo
+
+	-- Glowing staff in right hand (existing)
+	local staff = makePart({
+		Name = "Staff",
+		Size = Vector3.new(0.25, 5.5, 0.25),
+		Color = Color3.fromRGB(200, 180, 140),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + b.armSize.X / 2 + 0.3, 0.5, 0)),
+		Parent = model,
+	})
+	weld(b.rightArm, staff)
+	local staffOrb = makePart({
+		Name = "StaffOrb",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.6, 0.6, 0.6),
+		Color = Color3.fromRGB(255, 255, 200),
+		CFrame = CFrame.new(staff.Position + Vector3.new(0, 2.8, 0)),
+		Transparency = 0.2,
+		Parent = model,
+	})
+	weld(staff, staffOrb)
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 255, 200)
+	light.Brightness = 2
+	light.Range = 16
+	light.Parent = staffOrb
+
+	-- BOOK in left hand
+	if b.leftArm then
+		local book = makePart({
+			Name = "PrayerBook",
+			Size = Vector3.new(0.6, 0.8, 0.15),
+			Color = Color3.fromRGB(100, 40, 30),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(-(b.torsoSize.X / 2 + b.armSize.X / 2 + 0.1), -b.armSize.Y / 2 + 0.3, -0.2)),
+			Parent = model,
+		})
+		weld(b.leftArm, book)
+		-- gold cross on book cover
+		local cross1 = makePart({
+			Name = "BookCrossV",
+			Size = Vector3.new(0.06, 0.4, 0.05),
+			Color = Color3.fromRGB(230, 200, 50),
+			CFrame = CFrame.new(book.Position + Vector3.new(0, 15, -0.1)),
+			Parent = model,
+		})
+		weld(book, cross1)
+		local cross2 = makePart({
+			Name = "BookCrossH",
+			Size = Vector3.new(0.25, 0.06, 0.05),
+			Color = Color3.fromRGB(230, 200, 50),
+			CFrame = CFrame.new(book.Position + Vector3.new(0, 0.08, -0.1)),
+			Parent = model,
+		})
+		weld(book, cross2)
+	end
+
+	-- PRAYER BEADS — chain of tiny balls from left hand
+	if b.leftArm then
+		for i = 0, 5 do
+			local bead = makePart({
+				Name = "Bead" .. i,
+				Shape = Enum.PartType.Ball,
+				Size = Vector3.new(0.1, 0.1, 0.1),
+				Color = Color3.fromRGB(140, 100, 50),
+				CFrame = CFrame.new(b.torsoCenter + Vector3.new(-(b.torsoSize.X / 2 + b.armSize.X / 2), -b.armSize.Y / 2 - 0.1 - i * 0.15, 0)),
+				Parent = model,
+			})
+			weld(b.leftArm, bead)
+		end
+	end
+
+	-- SANDALS — thin brown blocks on feet
+	for _, legPart in {b.rightLeg, b.leftLeg} do
+		local sandal = makePart({
+			Name = "Sandal",
+			Size = Vector3.new(b.legSize.X + 0.1, 0.1, b.legSize.Z + 0.2),
+			Color = Color3.fromRGB(120, 80, 30),
+			CFrame = CFrame.new(legPart.Position + Vector3.new(0, -b.legSize.Y / 2 + 0.05, 0)),
+			Parent = model,
+		})
+		weld(legPart, sandal)
+	end
+end
+
+local function buildFinnick(model, def, b)
+	-- FACE: happy/friendly ranger
+	buildFace(model, b, "happy", { skinColor = def.skinColor })
+
+	-- MESSY GREEN-BROWN HAIR — multiple small angled blocks
+	local hairColors = { Color3.fromRGB(70, 90, 40), Color3.fromRGB(60, 80, 35), Color3.fromRGB(80, 70, 35) }
+	local hairPositions = {
+		{ Vector3.new(0, 0.8, -0.2), CFrame.Angles(math.rad(-15), 15, math.rad(10)) },
+		{ Vector3.new(0.3, 0.7, 0), CFrame.Angles(math.rad(10), 15, math.rad(20)) },
+		{ Vector3.new(-0.3, 0.75, 0.1), CFrame.Angles(math.rad(5), 15, math.rad(-25)) },
+		{ Vector3.new(0.1, 0.85, 0.2), CFrame.Angles(math.rad(20), 15, math.rad(-5)) },
+		{ Vector3.new(-0.15, 0.82, -0.15), CFrame.Angles(math.rad(-10), 15, math.rad(15)) },
+	}
+	for i, hp in hairPositions do
+		local h = makePart({
+			Name = "Hair" .. i,
+			Size = Vector3.new(0.3, 0.35, 0.25),
+			Color = hairColors[(i % #hairColors) + 1],
+			CFrame = CFrame.new(b.headPos + hp[1]) * hp[2],
+			Parent = model,
+		})
+		weld(b.head, h)
+	end
+
+	-- GREEN HOOD/CAP covering top/back
+	local hood = makePart({
+		Name = "GreenHood",
+		Size = Vector3.new(HEAD_RADIUS * 2.2, HEAD_RADIUS * 0.8, HEAD_RADIUS * 2.4),
+		Color = Color3.fromRGB(40, 90, 35),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.5, HEAD_RADIUS * 0.15)),
+		Parent = model,
+	})
+	weld(b.head, hood)
+
+	-- Quiver on back (existing + more arrows)
+	local quiver = makePart({
+		Name = "Quiver",
+		Size = Vector3.new(0.5, 2.0, 0.4),
+		Color = Color3.fromRGB(100, 70, 30),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0.3, 0.3, b.torsoSize.Z / 2 + 0.25)),
+		Parent = model,
+	})
+	weld(b.torso, quiver)
+
+	-- Arrow tips sticking out (existing + more)
+	for i = 1, 4 do
+		local arrow = makePart({
+			Name = "Arrow" .. i,
+			Size = Vector3.new(0.08, 0.6, 0.08),
+			Color = Color3.fromRGB(180, 180, 180),
+			CFrame = CFrame.new(quiver.Position + Vector3.new((i - 2.5) * 0.12, 1.1 + i * 0.05, 0)),
+			Parent = model,
+		})
+		weld(quiver, arrow)
+		-- feather fletching
+		local fletch = makePart({
+			Name = "Fletch" .. i,
+			Size = Vector3.new(0.06, 0.15, 0.02),
+			Color = Color3.fromRGB(200, 200, 200),
+			CFrame = CFrame.new(arrow.Position + Vector3.new(0, -0.2, 0.05)),
+			Parent = model,
+		})
+		weld(arrow, fletch)
+	end
+
+	-- Bow in left hand (existing)
+	local bow = makePart({
+		Name = "Bow",
+		Size = Vector3.new(0.15, 3.0, 0.6),
+		Color = Color3.fromRGB(120, 80, 30),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(-(b.torsoSize.X / 2 + b.armSize.X / 2 + 0.4), 15, 0)),
+		Parent = model,
+	})
+	weld(b.leftArm, bow)
+
+	-- LEATHER BRACER on right forearm
+	local bracer = makePart({
+		Name = "Bracer",
+		Size = Vector3.new(b.armSize.X + 0.12, 0.8, b.armSize.Z + 0.12),
+		Color = Color3.fromRGB(80, 50, 20),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + b.armSize.X / 2, -0.5, 0)),
+		Parent = model,
+	})
+	weld(b.rightArm, bracer)
+
+	-- BELT WITH POUCHES
+	local belt = makePart({
+		Name = "Belt",
+		Size = Vector3.new(b.torsoSize.X + 0.1, 0.2, b.torsoSize.Z + 0.1),
+		Color = Color3.fromRGB(80, 50, 20),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, -b.torsoSize.Y / 2 + 0.15, 0)),
+		Parent = model,
+	})
+	weld(b.torso, belt)
+	for _, side in {1, -1} do
+		local pouch = makePart({
+			Name = side == 1 and "PouchR" or "PouchL",
+			Size = Vector3.new(0.35, 0.3, 0.25),
+			Color = Color3.fromRGB(90, 60, 25),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(side * (b.torsoSize.X / 2), -b.torsoSize.Y / 2 + 0.15, 0)),
+			Parent = model,
+		})
+		weld(b.torso, pouch)
+	end
+end
+
+local function buildScoutWren(model, def, b)
+	-- FACE: curious/happy explorer
+	buildFace(model, b, "happy", { skinColor = def.skinColor })
+
+	-- SHORT AUBURN HAIR
+	local hairTop = makePart({
+		Name = "HairTop",
+		Size = Vector3.new(HEAD_RADIUS * 2.0, 0.3, HEAD_RADIUS * 1.9),
+		Color = Color3.fromRGB(150, 70, 30),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.7, 0)),
+		Parent = model,
+	})
+	weld(b.head, hairTop)
+	-- hair sides
+	for _, side in {1, -1} do
+		local hs = makePart({
+			Name = "HairSide",
+			Size = Vector3.new(0.12, 0.5, HEAD_RADIUS * 1.2),
+			Color = Color3.fromRGB(150, 70, 30),
+			CFrame = CFrame.new(b.headPos + Vector3.new(side * (HEAD_RADIUS * 0.78), 0.2, 0.1)),
+			Parent = model,
+		})
+		weld(b.head, hs)
+	end
+
+	-- FEATHER in hair — bright colored angled block
+	local feather = makePart({
+		Name = "Feather",
+		Size = Vector3.new(0.08, 0.7, 0.2),
+		Color = Color3.fromRGB(30, 180, 220),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0.4, HEAD_RADIUS + 0.2, 0.1))
+			* CFrame.Angles(0, 15, math.rad(15)),
+		Parent = model,
+	})
+	weld(b.head, feather)
+
+	-- Spyglass in right hand (existing)
+	local spyglass = makePart({
+		Name = "Spyglass",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(2.0, 0.3, 0.3),
+		Color = Color3.fromRGB(170, 130, 60),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + b.armSize.X / 2 + 0.3, 15, 0))
+			* CFrame.Angles(0, 15, math.rad(90)),
+		Parent = model,
+	})
+	weld(b.rightArm, spyglass)
+	local lens = makePart({
+		Name = "Lens",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.1, 0.45, 0.45),
+		Color = Color3.fromRGB(150, 200, 255),
+		Transparency = 0.3,
+		CFrame = CFrame.new(spyglass.Position + Vector3.new(0, 1.0, 0))
+			* CFrame.Angles(0, 15, math.rad(90)),
+		Parent = model,
+	})
+	weld(spyglass, lens)
+
+	-- MAP SCROLL in left hand
+	if b.leftArm then
+		local scroll = makePart({
+			Name = "MapScroll",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(1.0, 0.25, 0.25),
+			Color = Color3.fromRGB(220, 200, 150),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(-(b.torsoSize.X / 2 + b.armSize.X / 2 + 0.2), -b.armSize.Y / 2 + 0.3, 0))
+				* CFrame.Angles(0, 15, math.rad(90)),
+			Parent = model,
+		})
+		weld(b.leftArm, scroll)
+	end
+
+	-- COMPASS on belt
+	local compass = makePart({
+		Name = "Compass",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.08, 0.3, 0.3),
+		Color = Color3.fromRGB(200, 180, 50),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0.4, -b.torsoSize.Y / 2 + 0.15, -(b.torsoSize.Z / 2 + 0.06)))
+			* CFrame.Angles(math.rad(90), 15, 0),
+		Parent = model,
+	})
+	weld(b.torso, compass)
+
+	-- BINOCULARS around neck
+	for _, side in {1, -1} do
+		local bino = makePart({
+			Name = side == 1 and "BinoR" or "BinoL",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.5, 0.22, 0.22),
+			Color = Color3.fromRGB(50, 50, 50),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(side * 0.18, b.torsoSize.Y / 2 - 0.4, -(b.torsoSize.Z / 2 + 0.12)))
+				* CFrame.Angles(math.rad(90), 15, 0),
+			Parent = model,
+		})
+		weld(b.torso, bino)
+	end
+	-- binocular strap
+	local strap = makePart({
+		Name = "BinoStrap",
+		Size = Vector3.new(0.08, 1.0, 0.04),
+		Color = Color3.fromRGB(60, 40, 20),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, b.torsoSize.Y / 2 + 0.1, -(b.torsoSize.Z / 2 + 0.05))),
+		Parent = model,
+	})
+	weld(b.torso, strap)
+end
+
+local function buildMorath(model, def, b)
+	-- FACE: spooky/creepy
+	buildFace(model, b, "spooky", {
+		skinColor = def.skinColor,
+		eyeWhite = Color3.fromRGB(200, 190, 160),
+		pupilColor = Color3.fromRGB(60, 50, 30),
+	})
+
+	-- HOLLOW CHEEKS — darker transparent blocks on face sides
+	for _, side in {1, -1} do
+		local cheek = makePart({
+			Name = side == 1 and "CheekR" or "CheekL",
+			Size = Vector3.new(0.2, 0.35, 0.15),
+			Color = Color3.fromRGB(100, 80, 60),
+			Transparency = 0.4,
+			CFrame = CFrame.new(b.headPos + Vector3.new(side * 0.5, -0.15, -(HEAD_RADIUS * 0.55))),
+			Parent = model,
+		})
+		weld(b.head, cheek)
+	end
+
+	-- Lantern in right hand (existing + slight rotation for sway feel)
+	local lantern = makePart({
+		Name = "Lantern",
+		Size = Vector3.new(0.5, 0.7, 0.5),
+		Color = Color3.fromRGB(120, 100, 40),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + b.armSize.X / 2 + 0.3, -b.armSize.Y / 2, 0))
+			* CFrame.Angles(0, 15, math.rad(8)),
+		Parent = model,
+	})
+	weld(b.rightArm, lantern)
+	local lanternLight = Instance.new("PointLight")
+	lanternLight.Color = Color3.fromRGB(255, 180, 80)
+	lanternLight.Brightness = 0.6
+	lanternLight.Range = 10
+	lanternLight.Parent = lantern
+	-- lantern handle
+	local lHandle = makePart({
+		Name = "LanternHandle",
+		Size = Vector3.new(0.05, 0.4, 0.35),
+		Color = Color3.fromRGB(80, 70, 30),
+		CFrame = CFrame.new(lantern.Position + Vector3.new(0, 0.45, 0)),
+		Parent = model,
+	})
+	weld(lantern, lHandle)
+
+	-- TATTERED CLOAK EDGES — irregular blocks hanging off torso bottom
+	for i = 1, 5 do
+		local tatter = makePart({
+			Name = "CloakTatter" .. i,
+			Size = Vector3.new(0.4 + math.random() * 0.3, 0.5 + math.random() * 0.4, 0.15),
+			Color = Color3.fromRGB(40 + math.random(15), 40 + math.random(15), 40 + math.random(10)),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new((i - 3) * 0.5, -b.torsoSize.Y / 2 - 0.3, 0))
+				* CFrame.Angles(0, 15, math.rad((i - 3) * 5)),
+			Parent = model,
+		})
+		weld(b.torso, tatter)
+	end
+
+	-- SHOVEL nearby
+	local shovelHandle = makePart({
+		Name = "ShovelHandle",
+		Size = Vector3.new(0.15, 4.5, 0.15),
+		Color = Color3.fromRGB(100, 70, 30),
+		CFrame = CFrame.new(def.position + Vector3.new(-2, 2.25, 1))
+			* CFrame.Angles(0, 15, math.rad(10)),
+		Parent = model,
+	})
+	local shovelBlade = makePart({
+		Name = "ShovelBlade",
+		Size = Vector3.new(0.8, 0.9, 0.08),
+		Color = Color3.fromRGB(100, 100, 100),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(def.position + Vector3.new(-2, 0.45, 1)),
+		Parent = model,
+	})
+	weld(shovelHandle, shovelBlade)
+end
+
+local function buildThessaly(model, def, b)
+	-- FACE: evil witch grin
+	buildFace(model, b, "evil", {
+		skinColor = def.skinColor,
+		eyeWhite = Color3.fromRGB(150, 200, 100),
+		pupilColor = Color3.fromRGB(20, 60, 10),
+		mouthColor = Color3.fromRGB(40, 80, 30),
+	})
+
+	-- WARTS on face — tiny bumps
+	local wartPositions = {
+		Vector3.new(0.35, 0.05, -(HEAD_RADIUS * 0.85)),
+		Vector3.new(-0.2, -0.15, -(HEAD_RADIUS * 0.82)),
+		Vector3.new(0.1, 0.25, -(HEAD_RADIUS * 0.88)),
+	}
+	for i, wp in wartPositions do
+		local wart = makePart({
+			Name = "Wart" .. i,
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.1, 0.1, 0.1),
+			Color = Color3.fromRGB(90, 175, 90),
+			CFrame = CFrame.new(b.headPos + wp),
+			Parent = model,
+		})
+		weld(b.head, wart)
+	end
+
+	-- Pointed hat (existing)
+	local hatBrim = makePart({
+		Name = "HatBrim",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.2, 2.8, 2.8),
+		Color = Color3.fromRGB(60, 20, 80),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS + 0.1, 0))
+			* CFrame.Angles(0, 15, math.rad(90)),
+		Parent = model,
+	})
+	weld(b.head, hatBrim)
+	local hatMid = makePart({
+		Name = "HatMid",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(1.5, 1.6, 1.6),
+		Color = Color3.fromRGB(70, 25, 90),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS + 0.95, 0))
+			* CFrame.Angles(0, 15, math.rad(90)),
+		Parent = model,
+	})
+	weld(b.head, hatMid)
+	local hatTip = makePart({
+		Name = "HatTip",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(1.0, 0.6, 0.6),
+		Color = Color3.fromRGB(80, 30, 100),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS + 2.0, 0))
+			* CFrame.Angles(0, 15, math.rad(90)),
+		Parent = model,
+	})
+	weld(b.head, hatTip)
+
+	-- CROOKED WALKING STICK in left hand
+	if b.leftArm then
+		local stick = makePart({
+			Name = "WalkingStick",
+			Size = Vector3.new(0.15, 4.0, 0.15),
+			Color = Color3.fromRGB(80, 50, 25),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(-(b.torsoSize.X / 2 + b.armSize.X / 2 + 0.2), -0.5, 0))
+				* CFrame.Angles(0, 15, math.rad(-5)),
+			Parent = model,
+		})
+		weld(b.leftArm, stick)
+		-- gnarled top
+		local knob = makePart({
+			Name = "StickKnob",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.3, 0.3, 0.3),
+			Color = Color3.fromRGB(70, 45, 20),
+			CFrame = CFrame.new(stick.Position + Vector3.new(0, 2.1, 0)),
+			Parent = model,
+		})
+		weld(stick, knob)
+	end
+
+	-- POTION BOTTLES on belt
+	local potionColors = {
+		Color3.fromRGB(255, 50, 50),
+		Color3.fromRGB(50, 50, 255),
+		Color3.fromRGB(200, 50, 200),
+	}
+	for i, pc in potionColors do
+		local potion = makePart({
+			Name = "Potion" .. i,
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.18, 0.18, 0.18),
+			Color = pc,
+			Material = Enum.Material.Neon,
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new((i - 2) * 0.35, -b.torsoSize.Y / 2 + 0.1, -(b.torsoSize.Z / 2 + 0.1))),
+			Parent = model,
+		})
+		weld(b.torso, potion)
+	end
+
+	-- Cauldron next to her (existing)
+	local cauldron = makePart({
+		Name = "Cauldron",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(1.8, 2.2, 2.2),
+		Color = Color3.fromRGB(30, 30, 30),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(def.position + Vector3.new(3, 0.9, 0)) * CFrame.Angles(0, 15, math.rad(90)),
+		Parent = model,
+	})
+	local brew = makePart({
+		Name = "Brew",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.2, 1.8, 1.8),
+		Color = Color3.fromRGB(50, 200, 50),
+		Transparency = 0.3,
+		CFrame = CFrame.new(def.position + Vector3.new(3, 1.8, 0)) * CFrame.Angles(0, 15, math.rad(90)),
+		Parent = model,
+	})
+	weld(cauldron, brew)
+	local brewLight = Instance.new("PointLight")
+	brewLight.Color = Color3.fromRGB(50, 200, 50)
+	brewLight.Brightness = 0.8
+	brewLight.Range = 8
+	brewLight.Parent = brew
+
+	-- CAT FAMILIAR nearby!
+	local catPos = def.position + Vector3.new(-2, 15, 1.5)
+	-- cat body
+	local catBody = makePart({
+		Name = "CatBody",
+		Size = Vector3.new(0.5, 0.4, 1.0),
+		Color = Color3.fromRGB(25, 25, 30),
+		CFrame = CFrame.new(catPos + Vector3.new(0, 0.5, 0)),
+		Parent = model,
+	})
+	-- cat head
+	local catHead = makePart({
+		Name = "CatHead",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.4, 0.4, 0.4),
+		Color = Color3.fromRGB(25, 25, 30),
+		CFrame = CFrame.new(catPos + Vector3.new(0, 0.65, -0.55)),
+		Parent = model,
+	})
+	weld(catBody, catHead)
+	-- cat ears
+	for _, side in {1, -1} do
+		local ear = makePart({
+			Name = "CatEar",
+			Size = Vector3.new(0.08, 0.15, 0.08),
+			Color = Color3.fromRGB(25, 25, 30),
+			CFrame = CFrame.new(catHead.Position + Vector3.new(side * 0.12, 0.2, 0)),
+			Parent = model,
+		})
+		weld(catHead, ear)
+	end
+	-- cat eyes — green!
+	for _, side in {1, -1} do
+		local catEye = makePart({
+			Name = "CatEye",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.08, 0.08, 0.08),
+			Color = Color3.fromRGB(50, 220, 50),
+			Material = Enum.Material.Neon,
+			CFrame = CFrame.new(catHead.Position + Vector3.new(side * 0.1, 0.03, -0.18)),
+			Parent = model,
+		})
+		weld(catHead, catEye)
+	end
+	-- cat tail
+	local catTail = makePart({
+		Name = "CatTail",
+		Size = Vector3.new(0.08, 0.08, 0.7),
+		Color = Color3.fromRGB(25, 25, 30),
+		CFrame = CFrame.new(catPos + Vector3.new(0, 0.6, 0.7))
+			* CFrame.Angles(math.rad(30), 15, 0),
+		Parent = model,
+	})
+	weld(catBody, catTail)
+end
+
+local function buildRask(model, def, b)
+	-- FACE: evil/menacing
+	buildFace(model, b, "evil", {
+		skinColor = def.skinColor,
+		pupilColor = Color3.fromRGB(40, 20, 10),
+	})
+
+	-- EYE PATCH over left eye
+	local eyePatch = makePart({
+		Name = "EyePatch",
+		Size = Vector3.new(0.35, 0.32, 0.12),
+		Color = Color3.fromRGB(20, 20, 20),
+		CFrame = CFrame.new(b.headPos + Vector3.new(-0.28, 0.08, -(HEAD_RADIUS * 0.85))),
+		Parent = model,
+	})
+	weld(b.head, eyePatch)
+	-- eye patch strap
+	local patchStrap = makePart({
+		Name = "PatchStrap",
+		Size = Vector3.new(HEAD_RADIUS * 2.2, 0.08, 0.04),
+		Color = Color3.fromRGB(20, 20, 20),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, 0.08, 0)),
+		Parent = model,
+	})
+	weld(b.head, patchStrap)
+
+	-- SCAR across face — thin dark red line
+	local scar = makePart({
+		Name = "Scar",
+		Size = Vector3.new(0.06, 0.8, 0.04),
+		Color = Color3.fromRGB(140, 30, 30),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0.2, 15, -(HEAD_RADIUS * 0.9)))
+			* CFrame.Angles(0, 15, math.rad(15)),
+		Parent = model,
+	})
+	weld(b.head, scar)
+
+	-- MOHAWK — tall narrow block, red-tipped
+	local mohawkBase = makePart({
+		Name = "MohawkBase",
+		Size = Vector3.new(0.3, 0.8, HEAD_RADIUS * 1.6),
+		Color = Color3.fromRGB(30, 30, 30),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.7, 0)),
+		Parent = model,
+	})
+	weld(b.head, mohawkBase)
+	local mohawkTip = makePart({
+		Name = "MohawkTip",
+		Size = Vector3.new(0.25, 0.4, HEAD_RADIUS * 1.2),
+		Color = Color3.fromRGB(200, 30, 30),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS + 0.5, 0)),
+		Parent = model,
+	})
+	weld(b.head, mohawkTip)
+
+	-- Bandana on head (existing)
+	local bandana = makePart({
+		Name = "Bandana",
+		Size = Vector3.new(HEAD_RADIUS * 2.3, 0.35, HEAD_RADIUS * 2.3),
+		Color = Color3.fromRGB(200, 30, 30),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.4, 0)),
+		Parent = model,
+	})
+	weld(b.head, bandana)
+
+	-- TROPHY NECKLACE — small bones/teeth around neck
+	for i = 0, 5 do
+		local angle = (i / 6) * math.pi * 2
+		local boneSize = (i % 2 == 0) and Vector3.new(0.08, 0.2, 0.08) or Vector3.new(0.06, 0.15, 0.06)
+		local bone = makePart({
+			Name = "Bone" .. i,
+			Size = boneSize,
+			Color = Color3.fromRGB(220, 210, 190),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(
+				math.cos(angle) * (b.torsoSize.X / 2 + 0.05),
+				b.torsoSize.Y / 2 - 0.15,
+				math.sin(angle) * (b.torsoSize.Z / 2 + 0.05)
+			)),
+			Parent = model,
+		})
+		weld(b.torso, bone)
+	end
+
+	-- Right dagger (existing)
+	local rDagger = makePart({
+		Name = "RightDagger",
+		Size = Vector3.new(0.12, 1.6, 0.05),
+		Color = Color3.fromRGB(200, 200, 210),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + b.armSize.X / 2, -b.armSize.Y / 2 - 0.3, 0)),
+		Parent = model,
+	})
+	weld(b.rightArm, rDagger)
+
+	-- Left dagger (existing)
+	if b.leftArm then
+		local lDagger = makePart({
+			Name = "LeftDagger",
+			Size = Vector3.new(0.12, 1.6, 0.05),
+			Color = Color3.fromRGB(200, 200, 210),
+			Material = Enum.Material.Metal,
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(-(b.torsoSize.X / 2 + b.armSize.X / 2), -b.armSize.Y / 2 - 0.3, 0)),
+			Parent = model,
+		})
+		weld(b.leftArm, lDagger)
+	end
+
+	-- BELT POUCHES
+	local belt = makePart({
+		Name = "Belt",
+		Size = Vector3.new(b.torsoSize.X + 0.15, 0.25, b.torsoSize.Z + 0.1),
+		Color = Color3.fromRGB(60, 40, 15),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, -b.torsoSize.Y / 2 + 0.2, 0)),
+		Parent = model,
+	})
+	weld(b.torso, belt)
+	for _, side in {1, -1} do
+		local pouch = makePart({
+			Name = "BeltPouch",
+			Size = Vector3.new(0.4, 0.35, 0.3),
+			Color = Color3.fromRGB(80, 50, 20),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(side * (b.torsoSize.X / 2 + 0.05), -b.torsoSize.Y / 2 + 0.15, -0.15)),
+			Parent = model,
+		})
+		weld(b.torso, pouch)
+	end
+end
+
+local function buildOracle(model, def, b)
+	-- FACE: mystical — no eyes (blindfolded), serious mouth
+	buildFace(model, b, "serious", {
+		skinColor = def.skinColor,
+		noEyes = true,
+		mouthColor = Color3.fromRGB(180, 150, 0),
+	})
+
+	-- Blindfold across eyes (existing)
+	local blindfold = makePart({
+		Name = "Blindfold",
+		Size = Vector3.new(HEAD_RADIUS * 2.1, 0.3, HEAD_RADIUS * 0.6),
+		Color = Color3.fromRGB(60, 60, 80),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, 15, -(HEAD_RADIUS * 0.7))),
+		Parent = model,
+	})
+	weld(b.head, blindfold)
+
+	-- THIRD EYE GEM on forehead above blindfold
+	local thirdEye = makePart({
+		Name = "ThirdEye",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.25, 0.25, 0.25),
+		Color = Color3.fromRGB(100, 50, 255),
+		Material = Enum.Material.Neon,
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, 0.25, -(HEAD_RADIUS * 0.88))),
+		Parent = model,
+	})
+	weld(b.head, thirdEye)
+	local thirdEyeLight = Instance.new("PointLight")
+	thirdEyeLight.Color = Color3.fromRGB(100, 50, 255)
+	thirdEyeLight.Brightness = 1.0
+	thirdEyeLight.Range = 8
+	thirdEyeLight.Parent = thirdEye
+
+	-- FLOWING ROBE LAYERS below torso — staggered sizes
+	local robeColors = {
+		Color3.fromRGB(235, 235, 240),
+		Color3.fromRGB(225, 225, 235),
+		Color3.fromRGB(215, 215, 230),
+		Color3.fromRGB(200, 200, 220),
+	}
+	for i, rc in robeColors do
+		local layer = makePart({
+			Name = "RobeLayer" .. i,
+			Size = Vector3.new(b.torsoSize.X + 0.2 + i * 0.2, 0.6, b.torsoSize.Z + 0.1 + i * 0.15),
+			Color = rc,
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, -b.torsoSize.Y / 2 - (i - 1) * 0.5, 0)),
+			Parent = model,
+		})
+		weld(b.torso, layer)
+	end
+
+	-- MYSTICAL PARTICLES — neon balls floating around at various positions
+	local particleColors = {
+		Color3.fromRGB(200, 180, 255),
+		Color3.fromRGB(255, 220, 100),
+		Color3.fromRGB(150, 100, 255),
+		Color3.fromRGB(255, 200, 150),
+		Color3.fromRGB(180, 255, 200),
+		Color3.fromRGB(255, 150, 255),
+	}
+	for i, pc in particleColors do
+		local angle = (i / #particleColors) * math.pi * 2
+		local radius = 1.8 + (i % 3) * 0.4
+		local yOff = math.sin(i * 1.3) * 1.5
+		local particle = makePart({
+			Name = "MysticParticle" .. i,
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.15, 0.15, 0.15),
+			Color = pc,
+			Material = Enum.Material.Neon,
+			Transparency = 0.3,
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(
+				math.cos(angle) * radius,
+				yOff,
+				math.sin(angle) * radius
+			)),
+			Parent = model,
+		})
+		weld(b.torso, particle)
+	end
+
+	-- Hide legs behind robe (make them more transparent)
+	b.rightLeg.Transparency = 0.8
+	b.leftLeg.Transparency = 0.8
+end
+
+local function buildGhost(model, def, b)
+	-- FACE: spooky hollow eyes
+	-- Custom hollow eyes — deeper blue, set slightly deeper
+	local trans = b.trans
+	for _, side in {1, -1} do
+		local hollowEye = makePart({
+			Name = side == 1 and "HollowEyeR" or "HollowEyeL",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.3, 0.3, 0.2),
+			Color = Color3.fromRGB(60, 90, 160),
+			CFrame = CFrame.new(b.headPos + Vector3.new(side * 0.28, 0.08, -(HEAD_RADIUS * 0.72))),
+			Transparency = trans + 0.1,
+			Parent = model,
+		})
+		weld(b.head, hollowEye)
+		-- dim glowing pupil
+		local ghostPupil = makePart({
+			Name = "GhostPupil",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.12, 0.12, 0.12),
+			Color = Color3.fromRGB(180, 200, 255),
+			Material = Enum.Material.Neon,
+			CFrame = CFrame.new(b.headPos + Vector3.new(side * 0.28, 0.08, -(HEAD_RADIUS * 0.85))),
+			Transparency = trans + 0.2,
+			Parent = model,
+		})
+		weld(b.head, ghostPupil)
+	end
+	-- ghostly serious mouth
+	local mouth = makePart({
+		Name = "GhostMouth",
+		Size = Vector3.new(0.3, 0.06, 0.06),
+		Color = Color3.fromRGB(60, 90, 160),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, -0.24, -(HEAD_RADIUS * 0.88))),
+		Transparency = trans,
+		Parent = model,
+	})
+	weld(b.head, mouth)
+
+	-- Blue glow from torso (existing)
+	local glow = Instance.new("PointLight")
+	glow.Color = Color3.fromRGB(100, 150, 255)
+	glow.Brightness = 1.5
+	glow.Range = 18
+	glow.Parent = b.torso
+
+	-- TRANSPARENT SWORD in right hand
+	local ghostSword = makePart({
+		Name = "GhostSword",
+		Size = Vector3.new(0.1, 2.8, 0.35),
+		Color = Color3.fromRGB(120, 170, 240),
+		Material = Enum.Material.Neon,
+		Transparency = 0.5,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + b.armSize.X / 2, -0.5, -0.2)),
+		Parent = model,
+	})
+	weld(b.rightArm, ghostSword)
+	local swordHilt = makePart({
+		Name = "GhostSwordHilt",
+		Size = Vector3.new(0.15, 0.3, 0.6),
+		Color = Color3.fromRGB(120, 170, 240),
+		Transparency = 0.5,
+		CFrame = CFrame.new(ghostSword.Position + Vector3.new(0, 1.5, 0)),
+		Parent = model,
+	})
+	weld(ghostSword, swordHilt)
+
+	-- SHIELD in left hand — frame-like blocks, transparent
+	if b.leftArm then
+		-- shield outer frame
+		local shieldPositions = {
+			{ Vector3.new(0, 0.5, 0), Vector3.new(1.0, 0.08, 0.08) },
+			{ Vector3.new(0, -0.5, 0), Vector3.new(1.0, 0.08, 0.08) },
+			{ Vector3.new(-0.5, 15, 0), Vector3.new(0.08, 1.0, 0.08) },
+			{ Vector3.new(0.5, 15, 0), Vector3.new(0.08, 1.0, 0.08) },
+			-- cross
+			{ Vector3.new(0, 15, 0), Vector3.new(0.8, 0.08, 0.08) },
+			{ Vector3.new(0, 15, 0), Vector3.new(0.08, 0.8, 0.08) },
+		}
+		local shieldCenter = b.torsoCenter + Vector3.new(-(b.torsoSize.X / 2 + b.armSize.X + 0.2), 0.2, -0.3)
+		for i, sp in shieldPositions do
+			local frame = makePart({
+				Name = "ShieldFrame" .. i,
+				Size = sp[2],
+				Color = Color3.fromRGB(120, 170, 240),
+				Material = Enum.Material.Neon,
+				Transparency = 0.5,
+				CFrame = CFrame.new(shieldCenter + sp[1]),
+				Parent = model,
+			})
+			weld(b.leftArm, frame)
+		end
+	end
+
+	-- CHAINS on wrists
+	for _, armPart in { b.rightArm, b.leftArm } do
+		if armPart then
+			for i = 0, 2 do
+				local chain = makePart({
+					Name = "Chain" .. i,
+					Size = Vector3.new(0.15, 0.1, 0.15),
+					Color = Color3.fromRGB(100, 100, 110),
+					CFrame = CFrame.new(armPart.Position + Vector3.new(0, -b.armSize.Y / 2 + 0.1 + i * 0.15, 0)),
+					Transparency = trans,
+					Parent = model,
+				})
+				weld(armPart, chain)
+			end
+		end
+	end
+
+	-- GHOSTLY TRAIL — transparent neon blocks behind
+	for i = 1, 4 do
+		local trail = makePart({
+			Name = "GhostTrail" .. i,
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.5 + i * 0.15, 0.5 + i * 0.1, 0.3),
+			Color = Color3.fromRGB(100, 150, 220),
+			Material = Enum.Material.Neon,
+			Transparency = 0.4 + i * 0.1,
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, -0.5 * i, b.torsoSize.Z / 2 + i * 0.5)),
+			Parent = model,
+		})
+		weld(b.torso, trail)
+	end
+end
+
+local function buildCharon(model, def, b)
+	-- FACE: dead skull face
+	-- dark eye sockets
+	for _, side in {1, -1} do
+		local socket = makePart({
+			Name = side == 1 and "EyeSocketR" or "EyeSocketL",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.3, 0.3, 0.2),
+			Color = Color3.fromRGB(10, 10, 10),
+			CFrame = CFrame.new(b.headPos + Vector3.new(side * 0.28, 0.08, -(HEAD_RADIUS * 0.78))),
+			Parent = model,
+		})
+		weld(b.head, socket)
+		-- faint red glow deep inside
+		local innerGlow = makePart({
+			Name = "EyeGlow",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.08, 0.08, 0.08),
+			Color = Color3.fromRGB(200, 50, 30),
+			Material = Enum.Material.Neon,
+			CFrame = CFrame.new(b.headPos + Vector3.new(side * 0.28, 0.08, -(HEAD_RADIUS * 0.65))),
+			Parent = model,
+		})
+		weld(b.head, innerGlow)
+	end
+	-- exposed teeth (dead mouth)
+	buildFace(model, b, "dead", {
+		skinColor = def.skinColor,
+		noEyes = true,
+	})
+
+	-- nose cavity
+	local noseCavity = makePart({
+		Name = "NoseCavity",
+		Size = Vector3.new(0.15, 0.15, 0.08),
+		Color = Color3.fromRGB(15, 15, 15),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, -0.08, -(HEAD_RADIUS * 0.9))),
+		Parent = model,
+	})
+	weld(b.head, noseCavity)
+
+	-- TATTERED HOOD — larger block over head, extending back and down
+	local hood = makePart({
+		Name = "TatteredHood",
+		Size = Vector3.new(HEAD_RADIUS * 2.6, HEAD_RADIUS * 2.0, HEAD_RADIUS * 2.8),
+		Color = Color3.fromRGB(15, 15, 15),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.3, HEAD_RADIUS * 0.3)),
+		Parent = model,
+	})
+	weld(b.head, hood)
+	-- hood drape down back
+	local hoodBack = makePart({
+		Name = "HoodBack",
+		Size = Vector3.new(HEAD_RADIUS * 2.2, 1.5, 0.15),
+		Color = Color3.fromRGB(15, 15, 15),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, -0.5, HEAD_RADIUS + 0.3)),
+		Parent = model,
+	})
+	weld(b.head, hoodBack)
+
+	-- OAR/POLE in right hand
+	local oar = makePart({
+		Name = "Oar",
+		Size = Vector3.new(0.18, 6.0, 0.18),
+		Color = Color3.fromRGB(60, 40, 15),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + b.armSize.X / 2 + 0.2, 1.5, 0)),
+		Parent = model,
+	})
+	weld(b.rightArm, oar)
+	-- oar blade at bottom
+	local oarBlade = makePart({
+		Name = "OarBlade",
+		Size = Vector3.new(0.6, 1.0, 0.08),
+		Color = Color3.fromRGB(50, 35, 12),
+		CFrame = CFrame.new(oar.Position + Vector3.new(0, -3.5, 0)),
+		Parent = model,
+	})
+	weld(oar, oarBlade)
+
+	-- Boat (existing)
+	local boatBase = makePart({
+		Name = "Boat",
+		Size = Vector3.new(8, 0.5, 3),
+		Color = Color3.fromRGB(80, 50, 20),
+		CFrame = CFrame.new(def.position + Vector3.new(5, 0.25, 0)),
+		Parent = model,
+	})
+	local boatLeft = makePart({
+		Name = "BoatLeft",
+		Size = Vector3.new(8, 1.0, 0.3),
+		Color = Color3.fromRGB(70, 45, 18),
+		CFrame = CFrame.new(def.position + Vector3.new(5, 0.75, 1.5)),
+		Parent = model,
+	})
+	weld(boatBase, boatLeft)
+	local boatRight = makePart({
+		Name = "BoatRight",
+		Size = Vector3.new(8, 1.0, 0.3),
+		Color = Color3.fromRGB(70, 45, 18),
+		CFrame = CFrame.new(def.position + Vector3.new(5, 0.75, -1.5)),
+		Parent = model,
+	})
+	weld(boatBase, boatRight)
+
+	-- LANTERN on boat bow
+	local boatLantern = makePart({
+		Name = "BoatLantern",
+		Size = Vector3.new(0.4, 0.5, 0.4),
+		Color = Color3.fromRGB(80, 60, 20),
+		CFrame = CFrame.new(def.position + Vector3.new(8.5, 1.2, 0)),
+		Parent = model,
+	})
+	weld(boatBase, boatLantern)
+	local boatLanternGlow = makePart({
+		Name = "BoatLanternGlow",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.25, 0.25, 0.25),
+		Color = Color3.fromRGB(200, 150, 50),
+		Material = Enum.Material.Neon,
+		Transparency = 0.3,
+		CFrame = CFrame.new(def.position + Vector3.new(8.5, 1.5, 0)),
+		Parent = model,
+	})
+	weld(boatLantern, boatLanternGlow)
+	local bll = Instance.new("PointLight")
+	bll.Color = Color3.fromRGB(200, 150, 50)
+	bll.Brightness = 0.5
+	bll.Range = 8
+	bll.Parent = boatLanternGlow
+
+	-- Skeletal hands (make hands thinner/darker) — small dark blocks at end of arms
+	for _, armPart in { b.rightArm, b.leftArm } do
+		if armPart then
+			local hand = makePart({
+				Name = "SkeletalHand",
+				Size = Vector3.new(b.armSize.X * 0.8, 0.3, b.armSize.Z * 0.6),
+				Color = Color3.fromRGB(160, 160, 140),
+				CFrame = CFrame.new(armPart.Position + Vector3.new(0, -b.armSize.Y / 2 - 0.15, 0)),
+				Parent = model,
+			})
+			weld(armPart, hand)
+			-- finger bones
+			for fi = -1, 1 do
+				local finger = makePart({
+					Name = "Finger",
+					Size = Vector3.new(0.04, 0.25, 0.04),
+					Color = Color3.fromRGB(160, 160, 140),
+					CFrame = CFrame.new(hand.Position + Vector3.new(fi * 0.1, -0.2, 0)),
+					Parent = model,
+				})
+				weld(hand, finger)
+			end
+		end
+	end
+end
+
+local function buildLyra(model, def, b)
+	-- FACE: serious/powerful
+	buildFace(model, b, "serious", { skinColor = def.skinColor })
+
+	-- LONG FLOWING RED HAIR — tall block behind head extending down back
+	local hairMain = makePart({
+		Name = "HairMain",
+		Size = Vector3.new(HEAD_RADIUS * 2.0, 0.3, HEAD_RADIUS * 1.8),
+		Color = Color3.fromRGB(180, 40, 20),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.65, 0)),
+		Parent = model,
+	})
+	weld(b.head, hairMain)
+	-- flowing hair down back
+	local hairBack = makePart({
+		Name = "HairBack",
+		Size = Vector3.new(HEAD_RADIUS * 1.6, 2.5, 0.2),
+		Color = Color3.fromRGB(170, 35, 18),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, -0.8, HEAD_RADIUS * 0.75)),
+		Parent = model,
+	})
+	weld(b.head, hairBack)
+	-- side hair strands
+	for _, side in {1, -1} do
+		local strand = makePart({
+			Name = "HairStrand",
+			Size = Vector3.new(0.15, 1.5, 0.15),
+			Color = Color3.fromRGB(175, 38, 18),
+			CFrame = CFrame.new(b.headPos + Vector3.new(side * (HEAD_RADIUS * 0.75), -0.4, 0)),
+			Parent = model,
+		})
+		weld(b.head, strand)
+	end
+
+	-- Crown/tiara (existing)
+	local crown = makePart({
+		Name = "Crown",
+		Size = Vector3.new(HEAD_RADIUS * 2.0, 0.5, HEAD_RADIUS * 2.0),
+		Color = Color3.fromRGB(230, 200, 50),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS + 0.1, 0)),
+		Parent = model,
+	})
+	weld(b.head, crown)
+	for _, angle in {0, 90, 180, 270} do
+		local rad = math.rad(angle)
+		local gem = makePart({
+			Name = "CrownGem",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.25, 0.25, 0.25),
+			Color = Color3.fromRGB(220, 30, 30),
+			CFrame = CFrame.new(crown.Position + Vector3.new(math.cos(rad) * 0.6, 0.3, math.sin(rad) * 0.6)),
+			Parent = model,
+		})
+		weld(crown, gem)
+	end
+
+	-- DRAGON SCALE PAULDRONS — angular blocks on shoulders
+	for _, side in {1, -1} do
+		local pauldron = makePart({
+			Name = side == 1 and "PauldronR" or "PauldronL",
+			Size = Vector3.new(1.0, 0.5, 1.2),
+			Color = Color3.fromRGB(150, 25, 25),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(side * (b.torsoSize.X / 2 + 0.15), b.torsoSize.Y / 2 - 0.15, 0))
+				* CFrame.Angles(0, 15, math.rad(side * -15)),
+			Parent = model,
+		})
+		weld(b.torso, pauldron)
+		-- scale ridges
+		for j = 1, 3 do
+			local ridge = makePart({
+				Name = "ScaleRidge" .. j,
+				Size = Vector3.new(0.7, 0.08, 0.15),
+				Color = Color3.fromRGB(120, 20, 20),
+				CFrame = CFrame.new(pauldron.Position + Vector3.new(side * 0.05, 0.15 - j * 0.12, -0.3 + j * 0.15)),
+				Parent = model,
+			})
+			weld(pauldron, ridge)
+		end
+	end
+
+	-- Gold trim on torso (existing)
+	local trimFront = makePart({
+		Name = "RobeTrim",
+		Size = Vector3.new(0.2, b.torsoSize.Y, b.torsoSize.Z + 0.05),
+		Color = Color3.fromRGB(230, 200, 50),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, 15, -(b.torsoSize.Z / 2 + 0.05))),
+		Parent = model,
+	})
+	weld(b.torso, trimFront)
+
+	-- DRAGON TOOTH NECKLACE — small white angular blocks around neck
+	for i = 0, 5 do
+		local angle = (i / 6) * math.pi - math.pi / 2
+		local tooth = makePart({
+			Name = "DragonTooth" .. i,
+			Size = Vector3.new(0.1, 0.25, 0.08),
+			Color = Color3.fromRGB(240, 235, 220),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(
+				math.cos(angle) * (b.torsoSize.X / 2 - 0.1),
+				b.torsoSize.Y / 2 - 0.1,
+				math.sin(angle) * (b.torsoSize.Z / 2 + 0.08)
+			)) * CFrame.Angles(0, 15, math.rad((i - 2.5) * 10)),
+			Parent = model,
+		})
+		weld(b.torso, tooth)
+	end
+
+	-- RITUAL DAGGER on belt
+	local dagger = makePart({
+		Name = "RitualDagger",
+		Size = Vector3.new(0.06, 0.8, 0.2),
+		Color = Color3.fromRGB(180, 180, 190),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + 0.15, -b.torsoSize.Y / 2 - 0.1, 0)),
+		Parent = model,
+	})
+	weld(b.torso, dagger)
+
+	-- GLOWING TATTOO MARKS — thin neon red lines on arms
+	for _, armPart in { b.rightArm, b.leftArm } do
+		if armPart then
+			for i = 1, 3 do
+				local tattoo = makePart({
+					Name = "Tattoo" .. i,
+					Size = Vector3.new(b.armSize.X + 0.05, 0.06, b.armSize.Z + 0.05),
+					Color = Color3.fromRGB(255, 50, 20),
+					Material = Enum.Material.Neon,
+					CFrame = CFrame.new(armPart.Position + Vector3.new(0, 0.5 - i * 0.5, 0)),
+					Parent = model,
+				})
+				weld(armPart, tattoo)
+			end
+		end
+	end
+
+	-- FLOWING RED ROBE enhancement — extra fabric layers below torso
+	for i = 1, 3 do
+		local fabric = makePart({
+			Name = "RobeFabric" .. i,
+			Size = Vector3.new(b.torsoSize.X + i * 0.15, 0.5, b.torsoSize.Z + i * 0.1),
+			Color = Color3.fromRGB(180 - i * 15, 30, 30),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, -b.torsoSize.Y / 2 - (i - 1) * 0.4, 0)),
+			Parent = model,
+		})
+		weld(b.torso, fabric)
+	end
+
+	-- Fire particles (existing)
+	local fire = Instance.new("Fire")
+	fire.Size = 3
+	fire.Heat = 5
+	fire.Color = Color3.fromRGB(255, 100, 0)
+	fire.SecondaryColor = Color3.fromRGB(255, 200, 50)
+	fire.Parent = b.torso
+end
+
+--------------------------------------------------------------------------------
+-- BILLBOARD GUI
+--------------------------------------------------------------------------------
+local function addNameTag(model, def, headPos, torsoSize)
+	local bbg = Instance.new("BillboardGui")
+	bbg.Name = "OverheadGui"
+	bbg.Size = UDim2.new(8, 15, 2.2, 0)
+	bbg.StudsOffset = Vector3.new(0, HEAD_RADIUS * 2 + torsoSize.Y / 2 + 2.5, 0)
+	bbg.AlwaysOnTop = true
+	bbg.Adornee = model.PrimaryPart
+	bbg.MaxDistance = 60
+	bbg.Parent = model
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "NameLabel"
+	nameLabel.Size = UDim2.new(1, 15, 0.55, 0)
+	nameLabel.Position = UDim2.new(0, 15, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = def.name
+	nameLabel.TextColor3 = Color3.fromRGB(240, 192, 64)
+	nameLabel.TextScaled = true
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 15, 0)
+	nameLabel.TextStrokeTransparency = 0.3
+	nameLabel.Parent = bbg
+
+	local roleLabel = Instance.new("TextLabel")
+	roleLabel.Name = "RoleLabel"
+	roleLabel.Size = UDim2.new(1, 15, 0.35, 0)
+	roleLabel.Position = UDim2.new(0, 15, 0.6, 0)
+	roleLabel.BackgroundTransparency = 1
+	roleLabel.Text = def.role
+	roleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	roleLabel.TextScaled = true
+	roleLabel.Font = Enum.Font.Gotham
+	roleLabel.TextStrokeColor3 = Color3.fromRGB(0, 15, 0)
+	roleLabel.TextStrokeTransparency = 0.4
+	roleLabel.Parent = bbg
+end
+
+--------------------------------------------------------------------------------
+-- MASTER BUILD FUNCTION
+--------------------------------------------------------------------------------
+local function buildCaptainBlackbeard(model, def, b)
+	-- FACE: serious pirate
+	buildFace(model, b, "serious", { skinColor = def.skinColor })
+
+	-- BLACK BEARD - multiple parts for thick beard
+	local beardMain = makePart({
+		Name = "BeardMain",
+		Size = Vector3.new(HEAD_RADIUS * 1.6, HEAD_RADIUS * 1.2, HEAD_RADIUS * 0.8),
+		Color = Color3.fromRGB(20, 20, 20),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, -HEAD_RADIUS * 0.3, HEAD_RADIUS * 0.4)),
+		Parent = model,
+	})
+	weld(b.head, beardMain)
+	
+	-- Beard strands for bushiness
+	for i = 1, 6 do
+		local angle = (i / 6) * math.pi * 2
+		local strand = makePart({
+			Name = "BeardStrand" .. i,
+			Size = Vector3.new(0.3, HEAD_RADIUS * 0.8, 0.2),
+			Color = Color3.fromRGB(15, 15, 15),
+			CFrame = CFrame.new(b.headPos + Vector3.new(
+				math.cos(angle) * HEAD_RADIUS * 0.6, 
+				-HEAD_RADIUS * 0.5, 
+				HEAD_RADIUS * 0.3 + math.sin(angle) * HEAD_RADIUS * 0.3
+			)),
+			Parent = model,
+		})
+		weld(b.head, strand)
+	end
+
+	-- TRICORN PIRATE HAT
+	local hat = makePart({
+		Name = "TricornHat",
+		Size = Vector3.new(HEAD_RADIUS * 2.2, HEAD_RADIUS * 0.6, HEAD_RADIUS * 2.2),
+		Color = Color3.fromRGB(20, 20, 20),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.8, 0)),
+		Parent = model,
+	})
+	weld(b.head, hat)
+	
+	-- Hat brim (triangular points)
+	for i = 1, 3 do
+		local angle = (i / 3) * math.pi * 2
+		local brim = makePart({
+			Name = "HatBrim" .. i,
+			Size = Vector3.new(HEAD_RADIUS * 0.8, HEAD_RADIUS * 0.3, HEAD_RADIUS * 0.8),
+			Color = Color3.fromRGB(15, 15, 15),
+			CFrame = CFrame.new(b.headPos + Vector3.new(
+				math.cos(angle) * HEAD_RADIUS * 0.9,
+				HEAD_RADIUS * 0.5,
+				math.sin(angle) * HEAD_RADIUS * 0.9
+			)),
+			Parent = model,
+		})
+		weld(hat, brim)
+	end
+	
+	-- Skull and crossbones on hat
+	local skull = makePart({
+		Name = "HatSkull",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(HEAD_RADIUS * 0.6, HEAD_RADIUS * 0.6, HEAD_RADIUS * 0.4),
+		Color = Color3.fromRGB(240, 240, 240),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.9, HEAD_RADIUS * 0.9)),
+		Parent = model,
+	})
+	weld(hat, skull)
+
+	-- EYEPATCH (black part over one eye)
+	local eyepatch = makePart({
+		Name = "Eyepatch",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(HEAD_RADIUS * 0.5, HEAD_RADIUS * 0.3, HEAD_RADIUS * 0.2),
+		Color = Color3.fromRGB(10, 10, 10),
+		CFrame = CFrame.new(b.headPos + Vector3.new(HEAD_RADIUS * 0.3, HEAD_RADIUS * 0.1, HEAD_RADIUS * 0.7)),
+		Parent = model,
+	})
+	weld(b.head, eyepatch)
+	
+	-- Eyepatch strap
+	local strap = makePart({
+		Name = "EyepatchStrap",
+		Size = Vector3.new(0.1, 0.2, HEAD_RADIUS * 2.2),
+		Color = Color3.fromRGB(50, 30, 20),
+		CFrame = CFrame.new(b.headPos),
+		Parent = model,
+	})
+	weld(b.head, strap)
+
+	-- RED PIRATE COAT with gold trim
+	local coat = makePart({
+		Name = "PirateCoat",
+		Size = Vector3.new(b.torsoSize.X + 0.6, b.torsoSize.Y + 0.4, b.torsoSize.Z + 0.3),
+		Color = Color3.fromRGB(139, 15, 0),
+		CFrame = CFrame.new(b.torsoCenter),
+		Parent = model,
+	})
+	weld(b.torso, coat)
+	
+	-- Gold trim on coat
+	local trimFront = makePart({
+		Name = "CoatTrimFront",
+		Size = Vector3.new(0.3, b.torsoSize.Y, 0.1),
+		Color = Color3.fromRGB(255, 215, 0),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, 15, b.torsoSize.Z/2 + 0.2)),
+		Parent = model,
+	})
+	weld(coat, trimFront)
+	
+	-- Coat buttons
+	for i = 1, 5 do
+		local button = makePart({
+			Name = "CoatButton" .. i,
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.2, 0.2, 0.1),
+			Color = Color3.fromRGB(255, 215, 0),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, b.torsoSize.Y/2 - i * 0.6, b.torsoSize.Z/2 + 0.25)),
+			Parent = model,
+		})
+		weld(coat, button)
+	end
+
+	-- CUTLASS in right hand
+	local cutlass = makePart({
+		Name = "PirateCutlass",
+		Size = Vector3.new(0.2, 0.2, 3),
+		Color = Color3.fromRGB(192, 192, 192),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X/2 + ARM_SIZE.X/2 + 0.4, -0.5, 0)),
+		Parent = model,
+	})
+	weld(b.rightArm, cutlass)
+	
+	-- Cutlass handle
+	local handle = makePart({
+		Name = "CutlassHandle",
+		Size = Vector3.new(0.3, 0.3, 0.8),
+		Color = Color3.fromRGB(139, 69, 19),
+		Material = Enum.Material.Wood,
+		CFrame = CFrame.new(cutlass.Position + Vector3.new(0, 15, -1.5)),
+		Parent = model,
+	})
+	weld(cutlass, handle)
+	
+	-- Cutlass guard
+	local guard = makePart({
+		Name = "CutlassGuard",
+		Size = Vector3.new(0.8, 0.1, 0.3),
+		Color = Color3.fromRGB(255, 215, 0),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(cutlass.Position + Vector3.new(0, 15, -1.1)),
+		Parent = model,
+	})
+	weld(cutlass, guard)
+
+	-- PISTOL in left hand
+	local pistol = makePart({
+		Name = "FlintlockPistol",
+		Size = Vector3.new(0.3, 0.3, 1.5),
+		Color = Color3.fromRGB(64, 64, 64),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(-b.torsoSize.X/2 - ARM_SIZE.X/2 - 0.4, -0.3, 0)),
+		Parent = model,
+	})
+	weld(b.leftArm, pistol)
+end
+
+local function buildFrostSageElara(model, def, b)
+	-- FACE: mystical/serious
+	buildFace(model, b, "mystical", { 
+		skinColor = def.skinColor,
+		pupilColor = Color3.fromRGB(100, 200, 255)
+	})
+
+	-- SILVER/WHITE HAIR
+	local hair = makePart({
+		Name = "SilverHair",
+		Size = Vector3.new(HEAD_RADIUS * 2.4, HEAD_RADIUS * 1.2, HEAD_RADIUS * 2.4),
+		Color = Color3.fromRGB(220, 220, 235),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.4, 0)),
+		Parent = model,
+	})
+	weld(b.head, hair)
+	
+	-- Long flowing hair down back
+	local hairBack = makePart({
+		Name = "HairBack",
+		Size = Vector3.new(HEAD_RADIUS * 1.8, b.torsoSize.Y * 1.2, 0.3),
+		Color = Color3.fromRGB(210, 210, 225),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, -b.torsoSize.Y * 0.3, HEAD_RADIUS * 0.8)),
+		Parent = model,
+	})
+	weld(b.head, hairBack)
+
+	-- ICE CROWN/CIRCLET
+	local circlet = makePart({
+		Name = "IceCirclet",
+		Size = Vector3.new(HEAD_RADIUS * 2.2, 0.3, HEAD_RADIUS * 2.2),
+		Color = Color3.fromRGB(173, 216, 230),
+		Material = Enum.Material.Ice,
+		Transparency = 0.2,
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.7, 0)),
+		Parent = model,
+	})
+	weld(b.head, circlet)
+	
+	-- Ice crystals on circlet
+	for i = 1, 6 do
+		local angle = (i / 6) * math.pi * 2
+		local crystal = makePart({
+			Name = "CircletCrystal" .. i,
+			Size = Vector3.new(0.2, 0.8, 0.2),
+			Color = Color3.fromRGB(150, 200, 255),
+			Material = Enum.Material.Neon,
+			Transparency = 0.3,
+			CFrame = CFrame.new(b.headPos + Vector3.new(
+				math.cos(angle) * HEAD_RADIUS * 0.8,
+				HEAD_RADIUS * 1.1,
+				math.sin(angle) * HEAD_RADIUS * 0.8
+			)),
+			Parent = model,
+		})
+		weld(circlet, crystal)
+	end
+
+	-- WHITE/BLUE FROST ROBES with silver trim
+	local robe = makePart({
+		Name = "FrostRobe",
+		Size = Vector3.new(b.torsoSize.X + 0.8, b.torsoSize.Y + 0.6, b.torsoSize.Z + 0.4),
+		Color = Color3.fromRGB(230, 230, 255),
+		CFrame = CFrame.new(b.torsoCenter),
+		Parent = model,
+	})
+	weld(b.torso, robe)
+	
+	-- Robe trim (silver)
+	local robeTrim = makePart({
+		Name = "RobeTrim",
+		Size = Vector3.new(0.2, b.torsoSize.Y + 0.6, b.torsoSize.Z + 0.45),
+		Color = Color3.fromRGB(192, 192, 192),
+		CFrame = CFrame.new(b.torsoCenter),
+		Parent = model,
+	})
+	weld(robe, robeTrim)
+	
+	-- Frost patterns on robe
+	for i = 1, 8 do
+		local pattern = makePart({
+			Name = "FrostPattern" .. i,
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.3, 0.3, 0.1),
+			Color = Color3.fromRGB(200, 230, 255),
+			Material = Enum.Material.Neon,
+			Transparency = 0.4,
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(
+				math.random(-1, 1) * 0.8,
+				math.random(-1, 1) * 1.2,
+				b.torsoSize.Z/2 + 0.25
+			)),
+			Parent = model,
+		})
+		weld(robe, pattern)
+	end
+
+	-- ICE STAFF (blue neon rod)
+	local staff = makePart({
+		Name = "IceStaff",
+		Size = Vector3.new(0.2, 0.2, 5),
+		Color = Color3.fromRGB(100, 150, 200),
+		Material = Enum.Material.Ice,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X/2 + ARM_SIZE.X/2 + 0.3, 1, 0)),
+		Parent = model,
+	})
+	weld(b.rightArm, staff)
+	
+	-- Staff crystal orb
+	local orb = makePart({
+		Name = "StaffOrb",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(1, 1, 1),
+		Color = Color3.fromRGB(150, 200, 255),
+		Material = Enum.Material.Neon,
+		Transparency = 0.2,
+		CFrame = CFrame.new(staff.Position + Vector3.new(0, 15, 2.8)),
+		Parent = model,
+	})
+	weld(staff, orb)
+	
+	-- Ice shards orbiting the orb
+	for i = 1, 4 do
+		local angle = (i / 4) * math.pi * 2
+		local shard = makePart({
+			Name = "OrbShard" .. i,
+			Size = Vector3.new(0.2, 0.6, 0.2),
+			Color = Color3.fromRGB(100, 200, 255),
+			Material = Enum.Material.Neon,
+			Transparency = 0.3,
+			CFrame = CFrame.new(orb.Position + Vector3.new(
+				math.cos(angle) * 1.2,
+				math.sin(angle) * 0.6,
+				0
+			)),
+			Parent = model,
+		})
+		weld(orb, shard)
+	end
+
+	-- FROST AURA around feet
+	local aura = makePart({
+		Name = "FrostAura",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(4, 1, 4),
+		Color = Color3.fromRGB(200, 230, 255),
+		Material = Enum.Material.ForceField,
+		Transparency = 0.7,
+		CanCollide = false,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, -3, 0)),
+		Parent = model,
+	})
+	weld(b.torso, aura)
+	
+	-- Frost sparkles
+	for i = 1, 12 do
+		local sparkle = makePart({
+			Name = "FrostSparkle" .. i,
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.1, 0.1, 0.1),
+			Color = Color3.fromRGB(220, 240, 255),
+			Material = Enum.Material.Neon,
+			Transparency = 0.3,
+			CanCollide = false,
+			CFrame = CFrame.new(aura.Position + Vector3.new(
+				math.cos(i * 0.5) * 2,
+				math.random(-1, 1) * 0.5,
+				math.sin(i * 0.5) * 2
+			)),
+			Parent = model,
+		})
+		weld(aura, sparkle)
+	end
+end
+
+local function buildPriestessSolara(model, def, b)
+	-- FACE: happy/gentle
+	buildFace(model, b, "happy", { skinColor = def.skinColor })
+
+	-- GOLDEN/BLONDE HAIR in elaborate style
+	local hair = makePart({
+		Name = "GoldenHair",
+		Size = Vector3.new(HEAD_RADIUS * 2.2, HEAD_RADIUS * 1.4, HEAD_RADIUS * 2.2),
+		Color = Color3.fromRGB(255, 215, 0),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.5, 0)),
+		Parent = model,
+	})
+	weld(b.head, hair)
+	
+	-- Hair braids
+	for i = 1, 2 do
+		local side = i == 1 and -1 or 1
+		local braid = makePart({
+			Name = "HairBraid" .. i,
+			Size = Vector3.new(0.4, b.torsoSize.Y, 0.4),
+			Color = Color3.fromRGB(240, 200, 0),
+			CFrame = CFrame.new(b.headPos + Vector3.new(side * HEAD_RADIUS * 0.8, -b.torsoSize.Y * 0.3, 0)),
+			Parent = model,
+		})
+		weld(b.head, braid)
+	end
+
+	-- FLOWER CROWN
+	local crownBase = makePart({
+		Name = "FlowerCrownBase",
+		Size = Vector3.new(HEAD_RADIUS * 2.4, 0.3, HEAD_RADIUS * 2.4),
+		Color = Color3.fromRGB(34, 139, 34),
+		Material = Enum.Material.Grass,
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.8, 0)),
+		Parent = model,
+	})
+	weld(b.head, crownBase)
+	
+	-- Flowers on crown (various colors)
+	local flowerColors = {
+		Color3.fromRGB(255, 192, 203), -- pink
+		Color3.fromRGB(255, 255, 0),   -- yellow
+		Color3.fromRGB(255, 165, 0),   -- orange  
+		Color3.fromRGB(138, 43, 226),  -- purple
+		Color3.fromRGB(255, 255, 255)  -- white
+	}
+	for i = 1, 10 do
+		local angle = (i / 10) * math.pi * 2
+		local flower = makePart({
+			Name = "CrownFlower" .. i,
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.4, 0.4, 0.2),
+			Color = flowerColors[math.random(1, #flowerColors)],
+			CFrame = CFrame.new(b.headPos + Vector3.new(
+				math.cos(angle) * HEAD_RADIUS * 0.9,
+				HEAD_RADIUS * 0.9,
+				math.sin(angle) * HEAD_RADIUS * 0.9
+			)),
+			Parent = model,
+		})
+		weld(crownBase, flower)
+	end
+
+	-- WHITE/GOLD ROBES
+	local robe = makePart({
+		Name = "HealerRobe",
+		Size = Vector3.new(b.torsoSize.X + 1, b.torsoSize.Y + 0.8, b.torsoSize.Z + 0.5),
+		Color = Color3.fromRGB(255, 255, 255),
+		CFrame = CFrame.new(b.torsoCenter),
+		Parent = model,
+	})
+	weld(b.torso, robe)
+	
+	-- Gold trim and holy symbols
+	local holySymbol = makePart({
+		Name = "HolySymbol",
+		Size = Vector3.new(0.8, 0.8, 0.1),
+		Color = Color3.fromRGB(255, 215, 0),
+		Material = Enum.Material.Neon,
+		Transparency = 0.2,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, b.torsoSize.Y * 0.2, b.torsoSize.Z/2 + 0.3)),
+		Parent = model,
+	})
+	weld(robe, holySymbol)
+	
+	-- Cross pattern on symbol
+	local crossV = makePart({
+		Name = "CrossVertical",
+		Size = Vector3.new(0.2, 0.8, 0.05),
+		Color = Color3.fromRGB(255, 255, 255),
+		CFrame = CFrame.new(holySymbol.Position + Vector3.new(0, 15, 0.08)),
+		Parent = model,
+	})
+	weld(holySymbol, crossV)
+	
+	local crossH = makePart({
+		Name = "CrossHorizontal", 
+		Size = Vector3.new(0.6, 0.2, 0.05),
+		Color = Color3.fromRGB(255, 255, 255),
+		CFrame = CFrame.new(holySymbol.Position + Vector3.new(0, 15, 0.08)),
+		Parent = model,
+	})
+	weld(holySymbol, crossH)
+
+	-- GLOWING HANDS (neon white)
+	local leftGlow = makePart({
+		Name = "LeftHandGlow",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.8, 0.8, 0.8),
+		Color = Color3.fromRGB(255, 255, 255),
+		Material = Enum.Material.Neon,
+		Transparency = 0.3,
+		CanCollide = false,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(-b.torsoSize.X/2 - ARM_SIZE.X/2 - 0.2, -1.2, 0)),
+		Parent = model,
+	})
+	weld(b.leftArm, leftGlow)
+	
+	local rightGlow = makePart({
+		Name = "RightHandGlow",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.8, 0.8, 0.8),
+		Color = Color3.fromRGB(255, 255, 255),
+		Material = Enum.Material.Neon,
+		Transparency = 0.3,
+		CanCollide = false,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X/2 + ARM_SIZE.X/2 + 0.2, -1.2, 0)),
+		Parent = model,
+	})
+	weld(b.rightArm, rightGlow)
+	
+	-- Healing particles around hands
+	for hand, glow in pairs({leftGlow, rightGlow}) do
+		for i = 1, 6 do
+			local particle = makePart({
+				Name = "HealParticle" .. i,
+				Shape = Enum.PartType.Ball,
+				Size = Vector3.new(0.15, 0.15, 0.15),
+				Color = Color3.fromRGB(255, 255, 0),
+				Material = Enum.Material.Neon,
+				Transparency = 0.4,
+				CanCollide = false,
+				CFrame = CFrame.new(glow.Position + Vector3.new(
+					math.cos(i) * 1.2,
+					math.sin(i) * 1.2,
+					math.cos(i * 0.7) * 0.6
+				)),
+				Parent = model,
+			})
+			weld(glow, particle)
+		end
+	end
+
+	-- PRAYER BOOK in one hand
+	local book = makePart({
+		Name = "PrayerBook",
+		Size = Vector3.new(0.8, 0.2, 1.2),
+		Color = Color3.fromRGB(139, 69, 19),
+		Material = Enum.Material.Wood,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(-b.torsoSize.X/2 - ARM_SIZE.X/2 - 0.3, 0.2, 0)),
+		Parent = model,
+	})
+	weld(b.leftArm, book)
+	
+	-- Book pages
+	local pages = makePart({
+		Name = "BookPages",
+		Size = Vector3.new(0.75, 0.25, 1.15),
+		Color = Color3.fromRGB(255, 248, 220),
+		CFrame = CFrame.new(book.Position + Vector3.new(0, 0.05, 0)),
+		Parent = model,
+	})
+	weld(book, pages)
+end
+
+local function buildArchaeologistRex(model, def, b)
+	-- FACE: serious/determined
+	buildFace(model, b, "serious", { skinColor = def.skinColor })
+
+	-- BROWN HAIR under fedora
+	local hair = makePart({
+		Name = "BrownHair",
+		Size = Vector3.new(HEAD_RADIUS * 2, HEAD_RADIUS * 0.8, HEAD_RADIUS * 2),
+		Color = Color3.fromRGB(101, 67, 33),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.2, 0)),
+		Parent = model,
+	})
+	weld(b.head, hair)
+
+	-- FEDORA HAT
+	local fedoraBase = makePart({
+		Name = "FedoraBase",
+		Size = Vector3.new(HEAD_RADIUS * 1.8, HEAD_RADIUS * 1.2, HEAD_RADIUS * 1.8),
+		Color = Color3.fromRGB(101, 67, 33),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.8, 0)),
+		Parent = model,
+	})
+	weld(b.head, fedoraBase)
+	
+	-- Fedora brim
+	local fedoraBrim = makePart({
+		Name = "FedoraBrim",
+		Size = Vector3.new(HEAD_RADIUS * 2.6, HEAD_RADIUS * 0.2, HEAD_RADIUS * 2.6),
+		Color = Color3.fromRGB(90, 60, 30),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.4, 0)),
+		Parent = model,
+	})
+	weld(fedoraBase, fedoraBrim)
+	
+	-- Hat band
+	local hatBand = makePart({
+		Name = "HatBand",
+		Size = Vector3.new(HEAD_RADIUS * 1.9, HEAD_RADIUS * 0.3, HEAD_RADIUS * 1.9),
+		Color = Color3.fromRGB(64, 64, 64),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.6, 0)),
+		Parent = model,
+	})
+	weld(fedoraBase, hatBand)
+
+	-- GLASSES
+	local glassesFrame = makePart({
+		Name = "GlassesFrame",
+		Size = Vector3.new(HEAD_RADIUS * 1.4, HEAD_RADIUS * 0.6, 0.1),
+		Color = Color3.fromRGB(64, 64, 64),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.1, HEAD_RADIUS * 0.8)),
+		Parent = model,
+	})
+	weld(b.head, glassesFrame)
+	
+	-- Glass lenses
+	for i = 1, 2 do
+		local side = i == 1 and -1 or 1
+		local lens = makePart({
+			Name = "GlassLens" .. i,
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(HEAD_RADIUS * 0.5, HEAD_RADIUS * 0.5, 0.1),
+			Color = Color3.fromRGB(200, 200, 255),
+			Material = Enum.Material.Glass,
+			Transparency = 0.8,
+			CFrame = CFrame.new(b.headPos + Vector3.new(side * HEAD_RADIUS * 0.3, HEAD_RADIUS * 0.1, HEAD_RADIUS * 0.85)),
+			Parent = model,
+		})
+		weld(glassesFrame, lens)
+	end
+
+	-- BROWN ADVENTURER OUTFIT (vest/jacket)
+	local adventureVest = makePart({
+		Name = "AdventurerVest", 
+		Size = Vector3.new(b.torsoSize.X + 0.4, b.torsoSize.Y + 0.2, b.torsoSize.Z + 0.2),
+		Color = Color3.fromRGB(139, 90, 43),
+		Material = Enum.Material.Fabric,
+		CFrame = CFrame.new(b.torsoCenter),
+		Parent = model,
+	})
+	weld(b.torso, adventureVest)
+	
+	-- Vest pockets
+	for i = 1, 4 do
+		local pocketX = (i <= 2) and -0.6 or 0.6
+		local pocketY = (i == 1 or i == 3) and 0.5 or -0.5
+		local pocket = makePart({
+			Name = "VestPocket" .. i,
+			Size = Vector3.new(0.6, 0.5, 0.1),
+			Color = Color3.fromRGB(120, 80, 40),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(pocketX, pocketY, b.torsoSize.Z/2 + 0.15)),
+			Parent = model,
+		})
+		weld(adventureVest, pocket)
+	end
+	
+	-- Utility belt
+	local belt = makePart({
+		Name = "UtilityBelt",
+		Size = Vector3.new(b.torsoSize.X + 0.5, 0.4, b.torsoSize.Z + 0.3),
+		Color = Color3.fromRGB(64, 64, 64),
+		Material = Enum.Material.Leather,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, -b.torsoSize.Y * 0.3, 0)),
+		Parent = model,
+	})
+	weld(b.torso, belt)
+	
+	-- Belt pouches
+	for i = 1, 3 do
+		local pouchX = (i - 2) * 0.8
+		local pouch = makePart({
+			Name = "BeltPouch" .. i,
+			Size = Vector3.new(0.5, 0.6, 0.4),
+			Color = Color3.fromRGB(101, 67, 33),
+			CFrame = CFrame.new(b.torsoCenter + Vector3.new(pouchX, -b.torsoSize.Y * 0.3, b.torsoSize.Z/2 + 0.2)),
+			Parent = model,
+		})
+		weld(belt, pouch)
+	end
+
+	-- WHIP in right hand (thin brown part)
+	local whipHandle = makePart({
+		Name = "WhipHandle",
+		Size = Vector3.new(0.2, 0.2, 1),
+		Color = Color3.fromRGB(139, 69, 19),
+		Material = Enum.Material.Wood,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X/2 + ARM_SIZE.X/2 + 0.3, -0.8, 0)),
+		Parent = model,
+	})
+	weld(b.rightArm, whipHandle)
+	
+	-- Whip cord
+	for i = 1, 8 do
+		local segment = makePart({
+			Name = "WhipSegment" .. i,
+			Size = Vector3.new(0.1, 0.1, 0.6),
+			Color = Color3.fromRGB(101, 67, 33),
+			Material = Enum.Material.Fabric,
+			CFrame = CFrame.new(whipHandle.Position + Vector3.new(
+				math.sin(i * 0.3) * 0.5,
+				-i * 0.3,
+				i * 0.4
+			)),
+			Parent = model,
+		})
+		weld(whipHandle, segment)
+	end
+
+	-- TORCH in left hand
+	local torchHandle = makePart({
+		Name = "TorchHandle",
+		Size = Vector3.new(0.3, 0.3, 2),
+		Color = Color3.fromRGB(139, 69, 19),
+		Material = Enum.Material.Wood,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(-b.torsoSize.X/2 - ARM_SIZE.X/2 - 0.3, 0.5, 0)),
+		Parent = model,
+	})
+	weld(b.leftArm, torchHandle)
+	
+	-- Torch flame
+	local torchFlame = makePart({
+		Name = "TorchFlame",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.6, 1, 0.6),
+		Color = Color3.fromRGB(255, 140, 0),
+		Material = Enum.Material.Neon,
+		Transparency = 0.3,
+		CanCollide = false,
+		CFrame = CFrame.new(torchHandle.Position + Vector3.new(0, 15, 1.5)),
+		Parent = model,
+	})
+	weld(torchHandle, torchFlame)
+	
+	-- Torch light
+	local torchLight = Instance.new("PointLight")
+	torchLight.Color = Color3.fromRGB(255, 140, 0)
+	torchLight.Brightness = 2
+	torchLight.Range = 8
+	torchLight.Parent = torchFlame
+
+	-- SATCHEL across shoulder
+	local satchel = makePart({
+		Name = "Satchel",
+		Size = Vector3.new(1.2, 1.5, 0.8),
+		Color = Color3.fromRGB(101, 67, 33),
+		Material = Enum.Material.Leather,
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(-0.8, 15, -0.8)),
+		Parent = model,
+	})
+	weld(b.torso, satchel)
+	
+	-- Satchel strap
+	local strap = makePart({
+		Name = "SatchelStrap",
+		Size = Vector3.new(0.2, b.torsoSize.Y + 1, 0.1),
+		Color = Color3.fromRGB(80, 50, 25),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0.3, 15, 0)),
+		Parent = model,
+	})
+	weld(b.torso, strap)
+end
+
+local accessoryBuilders = {
+	["Captain Aldric"] = buildCaptainAldric,
+	["Mara the Merchant"] = buildMara,
+	["Grimnir the Smith"] = buildGrimnir,
+	["Old Bess the Cook"] = buildOldBess,
+	["Brother Elden"] = buildBrotherElden,
+	["Finnick the Fletcher"] = buildFinnick,
+	["Scout Wren"] = buildScoutWren,
+	["Grave Keeper Morath"] = buildMorath,
+	["Witch Thessaly"] = buildThessaly,
+	["Bandit King Rask"] = buildRask,
+	["The Oracle"] = buildOracle,
+	["Ghost of Sir Aldren"] = buildGhost,
+	["Ferryman Charon"] = buildCharon,
+	["Dragon Priestess Lyra"] = buildLyra,
+	["Captain Blackbeard"] = buildCaptainBlackbeard,
+	["Frost Sage Elara"] = buildFrostSageElara,
+	["Priestess Solara"] = buildPriestessSolara,
+	["Archaeologist Rex"] = buildArchaeologistRex,
+	["Fisher Tom"] = buildFisherTom,
+	["Woodsman Jake"] = buildWoodsmanJake,
+}
+
+local function buildFisherTom(model, def, b)
+	-- FACE: friendly fisherman
+	buildFace(model, b, "happy", { skinColor = def.skinColor })
+
+	-- FISHING HAT with lure attached
+	local hat = makePart({
+		Name = "FishingHat",
+		Size = Vector3.new(HEAD_RADIUS * 2.4, 0.4, HEAD_RADIUS * 2.4),
+		Color = Color3.fromRGB(120, 100, 70),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.6, 0)),
+		Parent = model,
+	})
+	weld(b.head, hat)
+	-- fishing lure on hat
+	local lure = makePart({
+		Name = "FishingLure",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.15, 0.15, 0.15),
+		Color = Color3.fromRGB(200, 50, 50),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0.4, HEAD_RADIUS + 0.2, 0)),
+		Parent = model,
+	})
+	weld(b.head, lure)
+
+	-- Fishing rod in right hand
+	local rod = makePart({
+		Name = "FishingRod",
+		Size = Vector3.new(0.12, 4.0, 0.12),
+		Color = Color3.fromRGB(120, 80, 30),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + b.armSize.X / 2 + 0.3, 0.5, 0)),
+		Parent = model,
+	})
+	weld(b.rightArm, rod)
+
+	-- Tackle box at feet
+	local tackleBox = makePart({
+		Name = "TackleBox",
+		Size = Vector3.new(1.2, 0.6, 0.8),
+		Color = Color3.fromRGB(80, 80, 100),
+		CFrame = CFrame.new(def.position + Vector3.new(2, 0.3, 1)),
+		Parent = model,
+	})
+
+	-- Net on back
+	local net = makePart({
+		Name = "FishingNet",
+		Size = Vector3.new(0.1, 2.5, 2.0),
+		Color = Color3.fromRGB(150, 130, 100),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(0, 15, b.torsoSize.Z / 2 + 0.2)),
+		Parent = model,
+	})
+	weld(b.torso, net)
+end
+
+local function buildWoodsmanJake(model, def, b)
+	-- FACE: rugged outdoorsman
+	buildFace(model, b, "serious", { skinColor = def.skinColor })
+
+	-- BEARD - brown blocks under chin
+	local beard = makePart({
+		Name = "Beard",
+		Size = Vector3.new(0.8, 0.5, 0.6),
+		Color = Color3.fromRGB(80, 50, 20),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, -HEAD_RADIUS * 0.6, -(HEAD_RADIUS * 0.7))),
+		Parent = model,
+	})
+	weld(b.head, beard)
+
+	-- WOODCUTTER HAT
+	local hat = makePart({
+		Name = "WoodcutterHat",
+		Size = Vector3.new(HEAD_RADIUS * 2.2, 0.5, HEAD_RADIUS * 2.2),
+		Color = Color3.fromRGB(100, 80, 50),
+		CFrame = CFrame.new(b.headPos + Vector3.new(0, HEAD_RADIUS * 0.7, 0)),
+		Parent = model,
+	})
+	weld(b.head, hat)
+
+	-- Axe in right hand
+	local axeHandle = makePart({
+		Name = "AxeHandle",
+		Size = Vector3.new(0.2, 3.5, 0.2),
+		Color = Color3.fromRGB(120, 80, 30),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(b.torsoSize.X / 2 + b.armSize.X / 2 + 0.2, 15, 0)),
+		Parent = model,
+	})
+	weld(b.rightArm, axeHandle)
+	local axeHead = makePart({
+		Name = "AxeHead",
+		Size = Vector3.new(0.8, 0.6, 0.15),
+		Color = Color3.fromRGB(150, 150, 150),
+		Material = Enum.Material.Metal,
+		CFrame = CFrame.new(axeHandle.Position + Vector3.new(0, 1.8, 0)),
+		Parent = model,
+	})
+	weld(axeHandle, axeHead)
+
+	-- Quiver of arrows on back
+	local quiver = makePart({
+		Name = "Quiver",
+		Size = Vector3.new(0.4, 2.0, 0.3),
+		Color = Color3.fromRGB(100, 70, 30),
+		CFrame = CFrame.new(b.torsoCenter + Vector3.new(-0.3, 0.3, b.torsoSize.Z / 2 + 0.2)),
+		Parent = model,
+	})
+	weld(b.torso, quiver)
+
+	-- Arrow tips showing
+	for i = 1, 3 do
+		local arrow = makePart({
+			Name = "Arrow" .. i,
+			Size = Vector3.new(0.06, 0.5, 0.06),
+			Color = Color3.fromRGB(180, 180, 180),
+			CFrame = CFrame.new(quiver.Position + Vector3.new((i - 2) * 0.1, 1.0, 0)),
+			Parent = model,
+		})
+		weld(quiver, arrow)
+	end
+
+	-- Log pile nearby
+	for i = 1, 4 do
+		local log = makePart({
+			Name = "Log" .. i,
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(2.0, 0.5, 0.5),
+			Color = Color3.fromRGB(120, 80, 30),
+			CFrame = CFrame.new(def.position + Vector3.new(-3, 0.25 + i * 0.2, 2)) 
+				* CFrame.Angles(0, 15, math.rad(90)),
+			Parent = model,
+		})
+	end
+end
+
+local function buildNPCModel(def)
+	local model = Instance.new("Model")
+	model.Name = def.name
+
+	-- Build humanoid body
+	local body = buildBody(model, def, def.position)
+
+	-- Build NPC-specific accessories
+	local builder = accessoryBuilders[def.name]
+	if builder then
+		builder(model, def, body)
+	end
+
+	-- Nametag
+	addNameTag(model, def, body.headPos, body.torsoSize)
+
+	-- ClickDetector on ALL parts
+	addClickToAll(model, def.name)
+
+	-- Parent to workspace
+	local npcFolder = workspace:FindFirstChild("NPCs")
+	if not npcFolder then
+		npcFolder = Instance.new("Folder")
+		npcFolder.Name = "NPCs"
+		npcFolder.Parent = workspace
+	end
+	model.Parent = npcFolder
+
+	return model
+end
+
+--------------------------------------------------------------------------------
+-- SPAWN ALL NPCs
+--------------------------------------------------------------------------------
+local spawnedCount = 0
+for _, def in NPC_DEFS do
+	local ok, err = pcall(function()
+		buildNPCModel(def)
+	end)
+	if ok then
+		spawnedCount = spawnedCount + 1
+	else
+		warn("[NPCManager] FAILED to spawn '" .. def.name .. "': " .. tostring(err))
+	end
+end
+
+print("[NPCManager] Spawned " .. spawnedCount .. "/" .. #NPC_DEFS .. " NPCs")

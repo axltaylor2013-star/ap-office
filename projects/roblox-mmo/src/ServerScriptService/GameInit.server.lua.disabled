@@ -1,0 +1,202 @@
+-- GameInit.server.lua
+-- Bootstrap script: handles player join/leave, data loading, auto-save
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local DataManager = require(ReplicatedStorage.Modules.DataManager)
+
+Players.PlayerAdded:Connect(function(player)
+	DataManager:LoadData(player)
+
+	local data = DataManager:GetData(player)
+
+	-- === TEST MODE: Level 30 mid-tier testing ===
+	-- Only give test gear to Jeremy (owner), not all players
+	local JEREMY_USER_ID = 8525420933
+	local TEST_MODE = (player.UserId == JEREMY_USER_ID)
+	if TEST_MODE and data then
+		-- Set all skills to level 30 XP (30^2 * 100 = 90000)
+		local testXP = 90000
+		for skillName, _ in pairs(data.Skills) do
+			data.Skills[skillName] = testXP
+		end
+		-- Iron/Gold equipment (level 30 appropriate)
+		data.Equipment.Weapon = "Gold Sword"
+		data.Equipment.Head = "Bronze Helmet"
+		data.Equipment.Body = "Iron Platebody"
+		data.Equipment.Legs = "Iron Platelegs"
+		data.Equipment.Shield = "Iron Shield"
+		data.Equipment.Weapon = "Voidborn Greatsword"
+		data.Equipment.Head = "Voidborn Visage"
+		data.Equipment.Body = "Voidborn Platebody"
+		data.Equipment.Legs = "Voidborn Platelegs"
+		data.Equipment.Shield = "Voidborn Aegis"
+		data.Equipment.Tool = "Iron Rod"  -- Start with fishing rod equipped
+		data.Equipment.Cape = "Prestige Cape X"
+		data.Prestige = 10
+		-- Mid-tier inventory for testing
+		data.Inventory = {}
+		local testItems = {
+			-- Voidborn set (equipped)
+			"Voidborn Greatsword", "Voidborn Visage", "Voidborn Platebody",
+			"Voidborn Platelegs", "Voidborn Aegis",
+			-- Prestige Cape X
+			"Prestige Cape X",
+			-- Extra gear
+			"Gold Sword", "Iron Sword",
+			"Iron Platebody", "Iron Platelegs",
+			"Bronze Helmet", "Iron Shield", "Gold Shield",
+			-- Ranged gear
+			"Willow Shortbow", "Oak Longbow", "Iron Crossbow",
+			"Iron Arrows", "Iron Arrows", "Iron Arrows",
+			"Iron Bolts", "Iron Bolts",
+			-- Ranger armor
+			"Leather Body", "Leather Chaps", "Studded Body",
+			-- Tools
+			"Iron Pickaxe", "Iron Axe", "Iron Rod",
+			-- Food
+			"Cooked Trout", "Cooked Trout", "Cooked Trout",
+			"Cooked Trout", "Cooked Trout", "Cooked Lobster",
+			-- Some materials
+			"Iron Bar", "Iron Bar", "Gold Ore", "Willow Log",
+		}
+		for _, itemName in ipairs(testItems) do
+			table.insert(data.Inventory, {name = itemName, quantity = 1})
+		end
+		data.Gold = 10000
+		print("[GameInit] JEREMY MODE: Gave " .. player.Name .. " Voidborn gear + Prestige X cape")
+	end
+
+	-- Give starter gear to new players (only if not Jeremy's test mode)
+	if not TEST_MODE and data and #data.Inventory == 0 then
+		-- Basic starter equipment
+		data.Equipment.Weapon = "Copper Sword"
+		data.Equipment.Tool = "Bronze Pickaxe"
+		
+		-- Starter inventory
+		DataManager:AddToInventory(player, "Copper Sword", 1)
+		DataManager:AddToInventory(player, "Bronze Pickaxe", 1)
+		DataManager:AddToInventory(player, "Bronze Axe", 1)
+		DataManager:AddToInventory(player, "Wooden Rod", 1)
+		DataManager:AddToInventory(player, "Cooked Shrimp", 5)
+		DataManager:AddToInventory(player, "Cooked Shrimp", 5)
+		
+		-- Small starting gold
+		data.Gold = 100
+		
+		print("[GameInit] NEW PLAYER: Gave " .. player.Name .. " starter gear")
+	end
+	
+	-- Send initial inventory to client and set spawn
+	player.CharacterAdded:Connect(function(character)
+		-- Set spawn position first (Haven safe zone)
+		local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 10)
+		if humanoidRootPart then
+			-- Teleport to Haven spawn (safe zone)
+			humanoidRootPart.CFrame = CFrame.new(0, 15, 0)
+			print("[GameInit] Spawned " .. player.Name .. " at Haven")
+		end
+		
+		task.wait(1)
+		local data = DataManager:GetData(player)
+		if data and data.Inventory then
+			local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+			local invRemote = Remotes:FindFirstChild("InventoryUpdate")
+			if invRemote and typeof(data.Inventory) == "table" then
+				invRemote:FireClient(player, data.Inventory)
+			else
+				warn("[GameInit] Invalid inventory data for " .. player.Name)
+			end
+			-- Send initial skill levels
+			local xpRemote = Remotes:FindFirstChild("XPUpdate")
+			if xpRemote and data.Skills and typeof(data.Skills) == "table" then
+				local Config = require(ReplicatedStorage.Modules.Config)
+				for skillName, xp in pairs(data.Skills) do
+					if typeof(xp) == "number" and typeof(skillName) == "string" then
+						local level = Config.GetLevelFromXP(xp)
+						xpRemote:FireClient(player, skillName, xp, level)
+					else
+						warn("[GameInit] Invalid skill data: " .. tostring(skillName) .. " = " .. tostring(xp))
+					end
+				end
+			else
+				warn("[GameInit] Invalid skills data for " .. player.Name)
+			end
+			
+			-- Send initial equipment to client for visual equipment
+			local equipRemote = Remotes:FindFirstChild("EquipmentUpdate")
+			if equipRemote and data.Equipment and typeof(data.Equipment) == "table" then
+				equipRemote:FireClient(player, data.Equipment)
+				print("[GameInit] Sent equipment data to " .. player.Name)
+			end
+		end
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	DataManager:SaveData(player)
+	DataManager.PlayerData[player.UserId] = nil
+end)
+
+-- Auto-save every 5 minutes
+task.spawn(function()
+	while true do
+		task.wait(300)
+		for _, player in ipairs(Players:GetPlayers()) do
+			DataManager:SaveData(player)
+		end
+		print("[GameInit] Auto-save complete")
+	end
+end)
+
+game:BindToClose(function()
+	for _, player in ipairs(Players:GetPlayers()) do
+		DataManager:SaveData(player)
+	end
+end)
+
+-- === REMOTE FUNCTIONS FOR SKILL/DATA QUERIES ===
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+
+-- GetSkillData — returns all skill XP and levels
+local getSkillData = Remotes:WaitForChild("GetSkillData", 10)
+
+getSkillData.OnServerInvoke = function(player)
+	local data = DataManager:GetData(player)
+	if not data then return {} end
+	local Config = require(ReplicatedStorage.Modules.Config)
+	local result = {}
+	for skillName, xp in pairs(data.Skills) do
+		local level = Config.GetLevelFromXP(xp)
+		local nextLevelXP = Config.GetXPForLevel(level + 1)
+		result[skillName] = {
+			xp = xp,
+			level = level,
+			nextLevelXP = nextLevelXP,
+		}
+	end
+	return result
+end
+
+-- GetCombatLevel — returns player's combat level
+local getCombatLevel = Remotes:WaitForChild("GetCombatLevel", 10)
+
+getCombatLevel.OnServerInvoke = function(player)
+	return DataManager.GetCombatLevel(player)
+end
+
+-- GetPlayerData — returns full player data (gold, kills, deaths, etc.)
+local getPlayerData = Remotes:WaitForChild("GetPlayerData", 10)
+
+getPlayerData.OnServerInvoke = function(player)
+	local data = DataManager:GetData(player)
+	if not data then return {} end
+	return {
+		Gold = data.Gold or 0,
+		TotalKills = data.TotalKills or 0,
+		TotalDeaths = data.TotalDeaths or 0,
+	}
+end
+
+print("[GameInit] Server initialized!")

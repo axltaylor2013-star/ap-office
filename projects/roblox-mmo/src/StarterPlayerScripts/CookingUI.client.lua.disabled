@@ -1,0 +1,563 @@
+-- CookingUI.client.lua
+-- Client-side cooking interface with error handling
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+-- Wait for dependencies with timeouts
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+
+-- Load ErrorHandler
+local ErrorHandler
+local errorHandlerSuccess, errorHandlerResult = pcall(function()
+	return require(Modules:WaitForChild("ErrorHandler", 5))
+end)
+
+if errorHandlerSuccess then
+	ErrorHandler = errorHandlerResult
+else
+	-- Fallback ErrorHandler
+	ErrorHandler = {
+		LogWarning = function(self, msg) warn(tostring(msg)) end,
+		LogDebug = function(self, msg) warn(tostring(msg)) end
+	}
+end
+
+-- RemoteEvents
+local CookItemEvent = Remotes and Remotes:WaitForChild("CookItem", 5)
+local CookingProgressEvent = Remotes and Remotes:WaitForChild("CookingProgress", 5)
+local CookingCompleteEvent = Remotes and Remotes:WaitForChild("CookingComplete", 5)
+local InventoryUpdateEvent = Remotes and Remotes:WaitForChild("InventoryUpdate", 5)
+
+-- Validate remotes
+if not CookItemEvent then
+	ErrorHandler:LogWarning("Cooking remotes not found")
+	return
+end
+
+-- Load ItemDatabase for cooking recipes
+local ItemDatabase
+local itemDbSuccess, itemDbResult = pcall(function()
+	return require(Modules:WaitForChild("ItemDatabase", 5))
+end)
+
+if itemDbSuccess then
+	ItemDatabase = itemDbResult.Items or {}
+else
+	ErrorHandler:LogWarning("Failed to load ItemDatabase, using fallback")
+	ItemDatabase = {}
+end
+
+-- UI State
+local isCooking = false
+local isUIOpen = false
+local availableRecipes = {}
+local selectedRecipe = nil
+
+-- Cooking configuration
+local COOKING_CONFIG = {
+	-- Raw food to cooked food mapping
+	Recipes = {
+		["shrimp"] = {cooked = "cooked_shrimp", xp = 10, burnLevel = 1},
+		["trout"] = {cooked = "cooked_trout", xp = 20, burnLevel = 15},
+		["salmon"] = {cooked = "cooked_salmon", xp = 25, burnLevel = 25},
+		["lobster"] = {cooked = "cooked_lobster", xp = 40, burnLevel = 40},
+		["swordfish"] = {cooked = "cooked_swordfish", xp = 50, burnLevel = 45},
+		["shark"] = {cooked = "cooked_shark", xp = 80, burnLevel = 70}
+	},
+	
+	-- Base cooking times (seconds)
+	CookingTimes = {
+		shrimp = 3.0,
+		trout = 3.5,
+		salmon = 4.0,
+		lobster = 4.5,
+		swordfish = 5.0,
+		shark = 6.0
+	}
+}
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CookingUI"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Main frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 500, 0, 400)
+mainFrame.Position = UDim2.new(0.5, -250, 0.5, -200)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+mainFrame.BorderColor3 = Color3.fromRGB(60, 60, 70)
+mainFrame.BorderSizePixel = 2
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Name = "Title"
+title.Size = UDim2.new(1, 0, 0, 50)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+title.BorderColor3 = Color3.fromRGB(80, 80, 90)
+title.Text = "COOKING"
+title.TextColor3 = Color3.fromRGB(220, 150, 100) -- Orange/brown for cooking
+title.Font = Enum.Font.GothamBold
+title.TextSize = 24
+title.Parent = mainFrame
+
+-- Close button
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 40, 0, 40)
+closeButton.Position = UDim2.new(1, -45, 0, 5)
+closeButton.BackgroundColor3 = Color3.fromRGB(60, 30, 30)
+closeButton.BorderColor3 = Color3.fromRGB(100, 50, 50)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 20
+closeButton.Parent = mainFrame
+
+closeButton.MouseButton1Click:Connect(function()
+	toggleUI(false)
+end)
+
+-- Recipe list frame
+local recipeFrame = Instance.new("ScrollingFrame")
+recipeFrame.Name = "RecipeFrame"
+recipeFrame.Size = UDim2.new(0.45, -10, 0.8, -60)
+recipeFrame.Position = UDim2.new(0, 10, 0, 60)
+recipeFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+recipeFrame.BorderColor3 = Color3.fromRGB(50, 50, 60)
+recipeFrame.ScrollBarThickness = 8
+recipeFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+recipeFrame.Parent = mainFrame
+
+-- Recipe details frame
+local detailsFrame = Instance.new("Frame")
+detailsFrame.Name = "DetailsFrame"
+detailsFrame.Size = UDim2.new(0.55, -10, 0.8, -60)
+detailsFrame.Position = UDim2.new(0.45, 0, 0, 60)
+detailsFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+detailsFrame.BorderColor3 = Color3.fromRGB(50, 50, 60)
+detailsFrame.Parent = mainFrame
+
+-- Selected recipe title
+local selectedTitle = Instance.new("TextLabel")
+selectedTitle.Name = "SelectedTitle"
+selectedTitle.Size = UDim2.new(1, -20, 0, 40)
+selectedTitle.Position = UDim2.new(0, 10, 0, 10)
+selectedTitle.BackgroundTransparency = 1
+selectedTitle.Text = "Select a Recipe"
+selectedTitle.TextColor3 = Color3.fromRGB(220, 150, 100)
+selectedTitle.Font = Enum.Font.GothamBold
+selectedTitle.TextSize = 20
+selectedTitle.TextXAlignment = Enum.TextXAlignment.Left
+selectedTitle.Parent = detailsFrame
+
+-- Requirements label
+local requirementsLabel = Instance.new("TextLabel")
+requirementsLabel.Name = "RequirementsLabel"
+requirementsLabel.Size = UDim2.new(1, -20, 0, 30)
+requirementsLabel.Position = UDim2.new(0, 10, 0, 60)
+requirementsLabel.BackgroundTransparency = 1
+requirementsLabel.Text = "Requirements:"
+requirementsLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
+requirementsLabel.Font = Enum.Font.Gotham
+requirementsLabel.TextSize = 18
+requirementsLabel.TextXAlignment = Enum.TextXAlignment.Left
+requirementsLabel.Parent = detailsFrame
+
+-- Requirements list
+local requirementsList = Instance.new("TextLabel")
+requirementsList.Name = "RequirementsList"
+requirementsList.Size = UDim2.new(1, -20, 0, 100)
+requirementsList.Position = UDim2.new(0, 10, 0, 95)
+requirementsList.BackgroundTransparency = 1
+requirementsList.Text = ""
+requirementsList.TextColor3 = Color3.fromRGB(200, 200, 220)
+requirementsList.Font = Enum.Font.Gotham
+requirementsList.TextSize = 16
+requirementsList.TextXAlignment = Enum.TextXAlignment.Left
+requirementsList.TextYAlignment = Enum.TextYAlignment.Top
+requirementsList.TextWrapped = true
+requirementsList.Parent = detailsFrame
+
+-- Cook button
+local cookButton = Instance.new("TextButton")
+cookButton.Name = "CookButton"
+cookButton.Size = UDim2.new(1, -20, 0, 50)
+cookButton.Position = UDim2.new(0, 10, 1, -70)
+cookButton.BackgroundColor3 = Color3.fromRGB(80, 40, 20) -- Brown for cooking
+cookButton.BorderColor3 = Color3.fromRGB(120, 60, 30)
+cookButton.Text = "COOK"
+cookButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+cookButton.Font = Enum.Font.GothamBold
+cookButton.TextSize = 22
+cookButton.Parent = detailsFrame
+
+cookButton.MouseButton1Click:Connect(function()
+	if selectedRecipe and not isCooking then
+		startCooking()
+	end
+end)
+
+-- Progress bar
+local progressFrame = Instance.new("Frame")
+progressFrame.Name = "ProgressFrame"
+progressFrame.Size = UDim2.new(1, -20, 0, 30)
+progressFrame.Position = UDim2.new(0, 10, 1, -130)
+progressFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+progressFrame.BorderColor3 = Color3.fromRGB(60, 60, 70)
+progressFrame.Visible = false
+progressFrame.Parent = detailsFrame
+
+local progressBar = Instance.new("Frame")
+progressBar.Name = "ProgressBar"
+progressBar.Size = UDim2.new(0, 0, 1, 0)
+progressBar.Position = UDim2.new(0, 0, 0, 0)
+progressBar.BackgroundColor3 = Color3.fromRGB(220, 120, 50) -- Orange for cooking
+progressBar.BorderSizePixel = 0
+progressBar.Parent = progressFrame
+
+local progressText = Instance.new("TextLabel")
+progressText.Name = "ProgressText"
+progressText.Size = UDim2.new(1, 0, 1, 0)
+progressText.Position = UDim2.new(0, 0, 0, 0)
+progressText.BackgroundTransparency = 1
+progressText.Text = "0%"
+progressText.TextColor3 = Color3.fromRGB(255, 255, 255)
+progressText.Font = Enum.Font.GothamBold
+progressText.TextSize = 18
+progressText.Parent = progressFrame
+
+-- Result message
+local resultMessage = Instance.new("TextLabel")
+resultMessage.Name = "ResultMessage"
+resultMessage.Size = UDim2.new(1, -20, 0, 40)
+resultMessage.Position = UDim2.new(0, 10, 1, -180)
+resultMessage.BackgroundTransparency = 1
+resultMessage.Text = ""
+resultMessage.TextColor3 = Color3.fromRGB(180, 220, 180)
+resultMessage.Font = Enum.Font.GothamBold
+resultMessage.TextSize = 18
+resultMessage.Visible = false
+resultMessage.Parent = detailsFrame
+
+-- Helper: Toggle UI visibility
+local function toggleUI(visible)
+	isUIOpen = visible
+	mainFrame.Visible = visible
+	
+	if visible then
+		-- Load recipes when UI opens
+		loadRecipes()
+	end
+end
+
+-- Helper: Load available cooking recipes
+local function loadRecipes()
+	-- Clear existing recipes
+	for _, child in pairs(recipeFrame:GetChildren()) do
+		if child:IsA("Frame") or child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+	
+	-- Get player's cooking level (would come from server)
+	-- For now, we'll use a placeholder
+	local cookingLevel = 1
+	
+	-- Get player inventory (would come from server)
+	-- For now, we'll assume player has all raw fish
+	local playerInventory = {
+		shrimp = 5,
+		trout = 3,
+		salmon = 2,
+		lobster = 1,
+		swordfish = 0,
+		shark = 0
+	}
+	
+	availableRecipes = {}
+	local yOffset = 0
+	
+	-- Create recipe buttons for each cookable item
+	for rawId, recipe in pairs(COOKING_CONFIG.Recipes) do
+		-- Check if player has the raw item
+		local hasItem = playerInventory[rawId] and playerInventory[rawId] > 0
+		
+		if hasItem then
+			-- Get item data from database
+			local rawItemName = rawId:gsub("^%l", string.upper)
+			local cookedItemName = recipe.cooked:gsub("^%l", string.upper):gsub("_", " ")
+			
+			-- Create recipe button
+			local recipeButton = Instance.new("TextButton")
+			recipeButton.Name = "Recipe_" .. rawId
+			recipeButton.Size = UDim2.new(1, -10, 0, 60)
+			recipeButton.Position = UDim2.new(0, 5, 0, yOffset)
+			recipeButton.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+			recipeButton.BorderColor3 = Color3.fromRGB(70, 70, 80)
+			recipeButton.Text = ""
+			recipeButton.Parent = recipeFrame
+			
+			-- Recipe name
+			local nameLabel = Instance.new("TextLabel")
+			nameLabel.Name = "Name"
+			nameLabel.Size = UDim2.new(0.7, 0, 0.5, 0)
+			nameLabel.Position = UDim2.new(0, 10, 0, 5)
+			nameLabel.BackgroundTransparency = 1
+			nameLabel.Text = cookedItemName
+			nameLabel.TextColor3 = Color3.fromRGB(220, 180, 140)
+			nameLabel.Font = Enum.Font.Gotham
+			nameLabel.TextSize = 18
+			nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+			nameLabel.Parent = recipeButton
+			
+			-- Level requirement
+			local levelLabel = Instance.new("TextLabel")
+			levelLabel.Name = "Level"
+			levelLabel.Size = UDim2.new(0.3, -10, 0.5, 0)
+			levelLabel.Position = UDim2.new(0.7, 0, 0, 5)
+			levelLabel.BackgroundTransparency = 1
+			levelLabel.Text = "Lvl " .. recipe.burnLevel
+			if cookingLevel < recipe.burnLevel then
+				levelLabel.TextColor3 = Color3.fromRGB(255, 100, 100) -- Red if level too low
+			else
+				levelLabel.TextColor3 = Color3.fromRGB(150, 200, 255) -- Blue if OK
+			end
+			levelLabel.Font = Enum.Font.Gotham
+			levelLabel.TextSize = 16
+			levelLabel.TextXAlignment = Enum.TextXAlignment.Right
+			levelLabel.Parent = recipeButton
+			
+			-- XP gain
+			local xpLabel = Instance.new("TextLabel")
+			xpLabel.Name = "XP"
+			xpLabel.Size = UDim2.new(1, -20, 0.5, 0)
+			xpLabel.Position = UDim2.new(0, 10, 0.5, 0)
+			xpLabel.BackgroundTransparency = 1
+			xpLabel.Text = "XP: " .. recipe.xp
+			xpLabel.TextColor3 = Color3.fromRGB(180, 220, 180)
+			xpLabel.Font = Enum.Font.Gotham
+			xpLabel.TextSize = 14
+			xpLabel.TextXAlignment = Enum.TextXAlignment.Left
+			xpLabel.Parent = recipeButton
+			
+			-- Store recipe data
+			availableRecipes[rawId] = {
+				rawId = rawId,
+				cookedId = recipe.cooked,
+				rawName = rawItemName,
+				cookedName = cookedItemName,
+				xp = recipe.xp,
+				burnLevel = recipe.burnLevel,
+				cookingTime = COOKING_CONFIG.CookingTimes[rawId] or 4.0
+			}
+			
+			-- Click handler
+			recipeButton.MouseButton1Click:Connect(function()
+				selectRecipe(rawId)
+			end)
+			
+			yOffset = yOffset + 65
+		end
+	end
+	
+	-- Update canvas size
+	recipeFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+	
+	-- Select first recipe if available
+	for rawId, _ in pairs(availableRecipes) do
+		selectRecipe(rawId)
+		break
+	end
+	
+	if yOffset == 0 then
+		selectedTitle.Text = "No ingredients available"
+		cookButton.Visible = false
+	else
+		cookButton.Visible = true
+	end
+end
+
+-- Helper: Select a recipe
+local function selectRecipe(rawId)
+	local recipe = availableRecipes[rawId]
+	if not recipe then return end
+	
+	selectedRecipe = recipe
+	
+	-- Update selected title
+	selectedTitle.Text = recipe.cookedName
+	
+	-- Update requirements
+	local requirementsText = ""
+	requirementsText = requirementsText .. "• Raw " .. recipe.rawName .. " x1\n"
+	requirementsText = requirementsText .. "• Cooking level " .. recipe.burnLevel .. "\n"
+	requirementsText = requirementsText .. "• Time: " .. recipe.cookingTime .. " seconds\n"
+	requirementsText = requirementsText .. "• XP: " .. recipe.xp .. "\n"
+	
+	-- Burn chance warning
+	local cookingLevel = 1 -- Would get from server
+	if cookingLevel < recipe.burnLevel then
+		requirementsText = requirementsText .. "\n⚠️ HIGH BURN CHANCE (need level " .. recipe.burnLevel .. ")"
+		requirementsList.TextColor3 = Color3.fromRGB(255, 100, 100)
+	elseif cookingLevel < recipe.burnLevel + 10 then
+		requirementsText = requirementsText .. "\n⚠️ Moderate burn chance"
+		requirementsList.TextColor3 = Color3.fromRGB(255, 200, 100)
+	else
+		requirementsText = requirementsText .. "\n✓ Low burn chance"
+		requirementsList.TextColor3 = Color3.fromRGB(100, 255, 100)
+	end
+	
+	requirementsList.Text = requirementsText
+	
+	-- Update cook button
+	cookButton.Text = "COOK " .. recipe.rawName:upper()
+	cookButton.BackgroundColor3 = Color3.fromRGB(80, 40, 20)
+	cookButton.BorderColor3 = Color3.fromRGB(120, 60, 30)
+end
+
+-- Helper: Start cooking
+local function startCooking()
+	if not selectedRecipe or isCooking then return end
+	
+	-- Send cooking request to server
+	CookItemEvent:FireServer(selectedRecipe.rawId)
+	
+	-- Update UI state
+	isCooking = true
+	cookButton.Text = "COOKING..."
+	cookButton.BackgroundColor3 = Color3.fromRGB(80, 80, 40)
+	cookButton.BorderColor3 = Color3.fromRGB(120, 120, 80)
+	
+	-- Show progress bar
+	progressFrame.Visible = true
+	progressBar.Size = UDim2.new(0, 0, 1, 0)
+	progressText.Text = "0%"
+	resultMessage.Visible = false
+	
+	ErrorHandler:LogDebug("Cooking started", {recipe = selectedRecipe.rawId})
+end
+
+-- Helper: Update cooking progress
+local function updateCookingProgress(progress)
+	if not isCooking then return end
+	
+	-- Update progress bar
+	progressBar:TweenSize(UDim2.new(progress, 0, 1, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
+	progressText.Text = string.format("%d%%", math.floor(progress * 100))
+end
+
+-- Helper: Complete cooking
+local function completeCooking(success, message, itemId)
+	isCooking = false
+	
+	if success then
+		cookButton.Text = "SUCCESS!"
+		cookButton.BackgroundColor3 = Color3.fromRGB(40, 100, 40)
+		cookButton.BorderColor3 = Color3.fromRGB(80, 160, 80)
+		
+		-- Show success message
+		resultMessage.Text = "✓ " .. (message or "Cooking successful!")
+		resultMessage.TextColor3 = Color3.fromRGB(100, 255, 100)
+		resultMessage.Visible = true
+		
+		-- Flash progress bar green
+		progressBar.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+		wait(0.5)
+		progressBar.BackgroundColor3 = Color3.fromRGB(220, 120, 50)
+	else
+		cookButton.Text = "FAILED - TRY AGAIN"
+		cookButton.BackgroundColor3 = Color3.fromRGB(100, 40, 40)
+		cookButton.BorderColor3 = Color3.fromRGB(160, 80, 80)
+		
+		-- Show failure message
+		resultMessage.Text = "✗ " .. (message or "Cooking failed!")
+		resultMessage.TextColor3 = Color3.fromRGB(255, 100, 100)
+		resultMessage.Visible = true
+		
+		-- Flash progress bar red
+		progressBar.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+	end
+	
+	-- Hide progress bar after delay
+	wait(1.5)
+	progressFrame.Visible = false
+	resultMessage.Visible = false
+	cookButton.Text = "COOK"
+	cookButton.BackgroundColor3 = Color3.fromRGB(80, 40, 20)
+	cookButton.BorderColor3 = Color3.fromRGB(120, 60, 30)
+	
+	-- Refresh recipes if cooking was successful
+	if success then
+		wait(0.5)
+		loadRecipes()
+	end
+	
+	ErrorHandler:LogDebug("Cooking completed", {success = success, message = message})
+end
+
+-- Remote event handlers
+if CookingProgressEvent then
+	CookingProgressEvent.OnClientEvent:Connect(function(itemId, progress)
+		if selectedRecipe and selectedRecipe.rawId == itemId then
+			updateCookingProgress(progress)
+		end
+	end)
+end
+
+if CookingCompleteEvent then
+	CookingCompleteEvent.OnClientEvent:Connect(function(success, message, itemId)
+		if selectedRecipe and selectedRecipe.rawId == itemId then
+			completeCooking(success, message, itemId)
+		end
+	end)
+end
+
+-- NPC interaction handler (would be triggered by existing NPC system)
+local function onCookingStationInteract()
+	toggleUI(true)
+end
+
+-- Test: Simulate interaction (remove in production)
+local function setupTest()
+	-- Only in studio
+	if not game:GetService("RunService"):IsStudio() then
+		return
+	end
+	
+	-- Create test cooking station
+	local testStation = Instance.new("Part")
+	testStation.Name = "CookingStation"
+	testStation.Size = Vector3.new(4, 2, 4)
+	testStation.Position = Vector3.new(10, 5, 0)
+	testStation.Color = Color3.fromRGB(100, 60, 30)
+	testStation.Material = Enum.Material.Slate
+	testStation.Anchored = true
+	testStation.CanCollide = true
+	testStation.Parent = workspace
+	
+	-- Add click detector
+	local clickDetector = Instance.new("ClickDetector")
+	clickDetector.Parent = testStation
+	clickDetector.MouseClick:Connect(function()
+		toggleUI(true)
+	end)
+	
+	ErrorHandler:LogDebug("Created test cooking station")
+end
+
+-- Initialize
+ErrorHandler:LogDebug("CookingUI loaded successfully")
+
+-- Setup test after delay
+wait(2)
+setupTest()

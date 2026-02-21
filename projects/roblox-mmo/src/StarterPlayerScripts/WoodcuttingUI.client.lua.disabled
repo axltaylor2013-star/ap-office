@@ -1,0 +1,250 @@
+-- WoodcuttingUI.client.lua
+-- Client-side woodcutting interface with progress bar
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+
+-- Wait for dependencies with timeouts
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+
+-- Load ErrorHandler
+local ErrorHandler
+local errorHandlerSuccess, errorHandlerResult = pcall(function()
+	return require(Modules:WaitForChild("ErrorHandler", 5))
+end)
+
+if errorHandlerSuccess then
+	ErrorHandler = errorHandlerResult
+else
+	-- Fallback ErrorHandler
+	ErrorHandler = {
+		LogWarning = function(self, msg) warn(tostring(msg)) end,
+		LogDebug = function(self, msg) warn(tostring(msg)) end
+	}
+end
+
+-- RemoteEvents
+local StartWoodcuttingEvent = Remotes and Remotes:WaitForChild("StartWoodcutting", 5)
+local WoodcuttingProgressEvent = Remotes and Remotes:WaitForChild("WoodcuttingProgress", 5)
+local WoodcuttingCompleteEvent = Remotes and Remotes:WaitForChild("WoodcuttingComplete", 5)
+
+-- Validate remotes
+if not StartWoodcuttingEvent or not WoodcuttingProgressEvent or not WoodcuttingCompleteEvent then
+	ErrorHandler:LogWarning("Woodcutting remotes not found")
+	return
+end
+
+-- UI State
+local isWoodcutting = false
+local currentTree = nil
+local woodcuttingProgress = 0
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "WoodcuttingUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Progress Bar Container
+local progressContainer = Instance.new("Frame")
+progressContainer.Name = "ProgressContainer"
+progressContainer.Size = UDim2.new(0, 300, 0, 60)
+progressContainer.Position = UDim2.new(0.5, -150, 0.7, 0)
+progressContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+progressContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+progressContainer.BackgroundTransparency = 0.3
+progressContainer.BorderSizePixel = 0
+progressContainer.Visible = false
+progressContainer.Parent = screenGui
+
+-- Corner
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = progressContainer
+
+-- Stroke
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(218, 165, 32)
+stroke.Thickness = 2
+stroke.Parent = progressContainer
+
+-- Title
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, 0, 0, 20)
+titleLabel.Position = UDim2.new(0, 0, 0, 5)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "WOODCUTTING"
+titleLabel.TextColor3 = Color3.fromRGB(218, 165, 32)
+titleLabel.TextScaled = true
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextStrokeTransparency = 0.5
+titleLabel.Parent = progressContainer
+
+-- Progress Bar Background
+local progressBackground = Instance.new("Frame")
+progressBackground.Name = "ProgressBackground"
+progressBackground.Size = UDim2.new(0.9, 0, 0, 20)
+progressBackground.Position = UDim2.new(0.05, 0, 0.5, 0)
+progressBackground.AnchorPoint = Vector2.new(0, 0.5)
+progressBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+progressBackground.BorderSizePixel = 0
+progressBackground.Parent = progressContainer
+
+local bgCorner = Instance.new("UICorner")
+bgCorner.CornerRadius = UDim.new(0, 4)
+bgCorner.Parent = progressBackground
+
+-- Progress Bar Fill
+local progressFill = Instance.new("Frame")
+progressFill.Name = "ProgressFill"
+progressFill.Size = UDim2.new(0, 0, 1, 0)
+progressFill.BackgroundColor3 = Color3.fromRGB(218, 165, 32)
+progressFill.BorderSizePixel = 0
+progressFill.Parent = progressBackground
+
+local fillCorner = Instance.new("UICorner")
+fillCorner.CornerRadius = UDim.new(0, 4)
+fillCorner.Parent = progressFill
+
+-- Progress Text
+local progressText = Instance.new("TextLabel")
+progressText.Name = "ProgressText"
+progressText.Size = UDim2.new(1, 0, 0, 20)
+progressText.Position = UDim2.new(0, 0, 0.8, 0)
+progressText.BackgroundTransparency = 1
+progressText.Text = "0%"
+progressText.TextColor3 = Color3.fromRGB(255, 255, 255)
+progressText.TextScaled = true
+progressText.Font = Enum.Font.Gotham
+progressText.TextStrokeTransparency = 0.5
+progressText.Parent = progressContainer
+
+-- Status Text
+local statusText = Instance.new("TextLabel")
+statusText.Name = "StatusText"
+statusText.Size = UDim2.new(1, 0, 0, 20)
+statusText.Position = UDim2.new(0, 0, 0, 30)
+statusText.BackgroundTransparency = 1
+statusText.Text = "Ready"
+statusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+statusText.TextScaled = true
+statusText.Font = Enum.Font.Gotham
+statusText.TextStrokeTransparency = 0.5
+statusText.Parent = progressContainer
+
+-- Function to update progress bar
+local function updateProgressBar(progress, message)
+	woodcuttingProgress = progress
+	progressFill.Size = UDim2.new(progress, 0, 1, 0)
+	progressText.Text = string.format("%d%%", math.floor(progress * 100))
+	statusText.Text = message or "Chopping..."
+	
+	if progress >= 1.0 then
+		progressContainer.Visible = false
+		isWoodcutting = false
+	end
+end
+
+-- Function to start woodcutting
+local function startWoodcutting(treeModel)
+	if isWoodcutting then return end
+	
+	isWoodcutting = true
+	currentTree = treeModel
+	woodcuttingProgress = 0
+	
+	-- Show UI
+	progressContainer.Visible = true
+	updateProgressBar(0, "Starting...")
+	
+	-- Send request to server
+	StartWoodcuttingEvent:FireServer(treeModel)
+end
+
+-- Function to stop woodcutting
+local function stopWoodcutting()
+	isWoodcutting = false
+	currentTree = nil
+	progressContainer.Visible = false
+end
+
+-- Handle tree clicks
+local function onTreeClicked(treeModel)
+	if not treeModel then return end
+	
+	-- Check if it's a tree (contains "Tree" in name)
+	if string.find(treeModel.Name, "Tree") then
+		startWoodcutting(treeModel)
+	end
+end
+
+-- Connect mouse click
+mouse.Button1Down:Connect(function()
+	if not isWoodcutting then
+		local target = mouse.Target
+		if target then
+			local model = target:FindFirstAncestorOfClass("Model")
+			if model then
+				onTreeClicked(model)
+			end
+		end
+	end
+end)
+
+-- Listen for progress updates
+WoodcuttingProgressEvent.OnClientEvent:Connect(function(progress, message)
+	if not isWoodcutting then
+		progressContainer.Visible = true
+		isWoodcutting = true
+	end
+	
+	updateProgressBar(progress, message)
+	
+	if progress <= 0 and message and (string.find(message, "Cancelled") or string.find(message, "required") or string.find(message, "Equip")) then
+		-- Error or cancellation
+		task.delay(2, function()
+			progressContainer.Visible = false
+			isWoodcutting = false
+		end)
+	end
+end)
+
+-- Listen for completion
+WoodcuttingCompleteEvent.OnClientEvent:Connect(function(logName, xp)
+	updateProgressBar(1.0, "Complete! +" .. xp .. " XP")
+	
+	-- Hide after delay
+	task.delay(1.5, function()
+		progressContainer.Visible = false
+		isWoodcutting = false
+		currentTree = nil
+	end)
+end)
+
+-- Cancel if player moves
+local lastPosition = player.Character and player.Character:GetPivot().Position
+RunService.Heartbeat:Connect(function()
+	if isWoodcutting and player.Character then
+		local currentPosition = player.Character:GetPivot().Position
+		if lastPosition and (currentPosition - lastPosition).Magnitude > 5 then
+			stopWoodcutting()
+		end
+		lastPosition = currentPosition
+	end
+end)
+
+-- Clean up on death
+player.CharacterAdded:Connect(function(character)
+	character:WaitForChild("Humanoid").Died:Connect(function()
+		stopWoodcutting()
+	end)
+end)
+
+print("[WoodcuttingUI] Ready!")

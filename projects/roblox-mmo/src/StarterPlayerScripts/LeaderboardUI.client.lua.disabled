@@ -1,0 +1,447 @@
+-- LeaderboardUI.client.lua
+-- Client-side leaderboard interface
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+-- Wait for dependencies with timeouts
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+
+-- Load ErrorHandler
+local ErrorHandler
+local errorHandlerSuccess, errorHandlerResult = pcall(function()
+	return require(Modules:WaitForChild("ErrorHandler", 5))
+end)
+
+if errorHandlerSuccess then
+	ErrorHandler = errorHandlerResult
+else
+	-- Fallback ErrorHandler
+	ErrorHandler = {
+		LogWarning = function(self, msg) warn("[LeaderboardUI] " .. msg) end,
+		LogDebug = function(self, msg) print("[DEBUG] " .. msg) end
+	}
+end
+
+-- RemoteEvents
+local GetLeaderboardFunction = Remotes and Remotes:WaitForChild("GetLeaderboard", 5)
+local LeaderboardUpdateEvent = Remotes and Remotes:WaitForChild("LeaderboardUpdate", 5)
+
+-- Validate remotes
+if not GetLeaderboardFunction or not LeaderboardUpdateEvent then
+	ErrorHandler:LogWarning("Leaderboard remotes not found")
+	return
+end
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "LeaderboardUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Leaderboard Panel
+local panelFrame = Instance.new("Frame")
+panelFrame.Name = "LeaderboardPanel"
+panelFrame.Size = UDim2.new(0, 600, 0, 500)
+panelFrame.Position = UDim2.new(0.5, -300, 0.5, -250)
+panelFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+panelFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+panelFrame.BackgroundTransparency = 0.1
+panelFrame.BorderSizePixel = 0
+panelFrame.Visible = false
+panelFrame.Parent = screenGui
+
+local panelCorner = Instance.new("UICorner")
+panelCorner.CornerRadius = UDim.new(0, 8)
+panelCorner.Parent = panelFrame
+
+local panelStroke = Instance.new("UIStroke")
+panelStroke.Color = Color3.fromRGB(218, 165, 32)
+panelStroke.Thickness = 3
+panelStroke.Parent = panelFrame
+
+-- Title
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, 0, 0, 40)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "LEADERBOARDS"
+titleLabel.TextColor3 = Color3.fromRGB(218, 165, 32)
+titleLabel.TextScaled = true
+titleLabel.Font = Enum.Font.GothamBlack
+titleLabel.Parent = panelFrame
+
+-- Category Tabs
+local tabsFrame = Instance.new("Frame")
+tabsFrame.Name = "CategoryTabs"
+tabsFrame.Size = UDim2.new(1, -20, 0, 30)
+tabsFrame.Position = UDim2.new(0, 10, 0, 45)
+tabsFrame.BackgroundTransparency = 1
+tabsFrame.Parent = panelFrame
+
+local tabsScrollingFrame = Instance.new("ScrollingFrame")
+tabsScrollingFrame.Name = "TabsScrolling"
+tabsScrollingFrame.Size = UDim2.new(1, 0, 1, 0)
+tabsScrollingFrame.BackgroundTransparency = 1
+tabsScrollingFrame.BorderSizePixel = 0
+tabsScrollingFrame.ScrollBarThickness = 0
+tabsScrollingFrame.Parent = tabsFrame
+
+local tabsLayout = Instance.new("UIListLayout")
+tabsLayout.Padding = UDim.new(0, 5)
+tabsLayout.FillDirection = Enum.FillDirection.Horizontal
+tabsLayout.Parent = tabsScrollingFrame
+
+-- Player Info
+local playerInfoFrame = Instance.new("Frame")
+playerInfoFrame.Name = "PlayerInfo"
+playerInfoFrame.Size = UDim2.new(1, -20, 0, 40)
+playerInfoFrame.Position = UDim2.new(0, 10, 0, 85)
+playerInfoFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+playerInfoFrame.BorderSizePixel = 0
+playerInfoFrame.Parent = panelFrame
+
+local playerInfoCorner = Instance.new("UICorner")
+playerInfoCorner.CornerRadius = UDim.new(0, 4)
+playerInfoCorner.Parent = playerInfoFrame
+
+local playerRankText = Instance.new("TextLabel")
+playerRankText.Name = "PlayerRank"
+playerRankText.Size = UDim2.new(0.3, 0, 1, 0)
+playerRankText.BackgroundTransparency = 1
+playerRankText.Text = "Rank: --"
+playerRankText.TextColor3 = Color3.fromRGB(218, 165, 32)
+playerRankText.TextScaled = true
+playerRankText.Font = Enum.Font.GothamBold
+playerRankText.Parent = playerInfoFrame
+
+local playerNameText = Instance.new("TextLabel")
+playerNameText.Name = "PlayerName"
+playerNameText.Size = UDim2.new(0.4, 0, 1, 0)
+playerNameText.Position = UDim2.new(0.3, 0, 0, 0)
+playerNameText.BackgroundTransparency = 1
+playerNameText.Text = player.Name
+playerNameText.TextColor3 = Color3.fromRGB(255, 255, 255)
+playerNameText.TextScaled = true
+playerNameText.Font = Enum.Font.GothamBold
+playerNameText.Parent = playerInfoFrame
+
+local playerValueText = Instance.new("TextLabel")
+playerValueText.Name = "PlayerValue"
+playerValueText.Size = UDim2.new(0.3, 0, 1, 0)
+playerValueText.Position = UDim2.new(0.7, 0, 0, 0)
+playerValueText.BackgroundTransparency = 1
+playerValueText.Text = "Value: --"
+playerValueText.TextColor3 = Color3.fromRGB(255, 255, 255)
+playerValueText.TextScaled = true
+playerValueText.Font = Enum.Font.Gotham
+playerValueText.Parent = playerInfoFrame
+
+-- Leaderboard List
+local listScrollingFrame = Instance.new("ScrollingFrame")
+listScrollingFrame.Name = "LeaderboardList"
+listScrollingFrame.Size = UDim2.new(1, -20, 1, -150)
+listScrollingFrame.Position = UDim2.new(0, 10, 0, 135)
+listScrollingFrame.BackgroundTransparency = 1
+listScrollingFrame.BorderSizePixel = 0
+listScrollingFrame.ScrollBarThickness = 4
+listScrollingFrame.Parent = panelFrame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 5)
+listLayout.Parent = listScrollingFrame
+
+-- Header
+local headerFrame = Instance.new("Frame")
+headerFrame.Name = "Header"
+headerFrame.Size = UDim2.new(1, 0, 0, 30)
+headerFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+headerFrame.BorderSizePixel = 0
+headerFrame.Parent = listScrollingFrame
+
+local headerCorner = Instance.new("UICorner")
+headerCorner.CornerRadius = UDim.new(0, 4)
+headerCorner.Parent = headerFrame
+
+local rankHeader = Instance.new("TextLabel")
+rankHeader.Name = "RankHeader"
+rankHeader.Size = UDim2.new(0.1, 0, 1, 0)
+rankHeader.BackgroundTransparency = 1
+rankHeader.Text = "#"
+rankHeader.TextColor3 = Color3.fromRGB(218, 165, 32)
+rankHeader.TextScaled = true
+rankHeader.Font = Enum.Font.GothamBold
+rankHeader.Parent = headerFrame
+
+local nameHeader = Instance.new("TextLabel")
+nameHeader.Name = "NameHeader"
+nameHeader.Size = UDim2.new(0.5, 0, 1, 0)
+nameHeader.Position = UDim2.new(0.1, 0, 0, 0)
+nameHeader.BackgroundTransparency = 1
+nameHeader.Text = "PLAYER"
+nameHeader.TextColor3 = Color3.fromRGB(218, 165, 32)
+nameHeader.TextScaled = true
+nameHeader.Font = Enum.Font.GothamBold
+nameHeader.Parent = headerFrame
+
+local valueHeader = Instance.new("TextLabel")
+valueHeader.Name = "ValueHeader"
+valueHeader.Size = UDim2.new(0.4, 0, 1, 0)
+valueHeader.Position = UDim2.new(0.6, 0, 0, 0)
+valueHeader.BackgroundTransparency = 1
+valueHeader.Text = "VALUE"
+valueHeader.TextColor3 = Color3.fromRGB(218, 165, 32)
+valueHeader.TextScaled = true
+valueHeader.Font = Enum.Font.GothamBold
+valueHeader.Parent = headerFrame
+
+-- Close Button
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 100, 0, 30)
+closeButton.Position = UDim2.new(0.5, -50, 1, -40)
+closeButton.AnchorPoint = Vector2.new(0.5, 1)
+closeButton.BackgroundColor3 = Color3.fromRGB(65, 130, 175)
+closeButton.Text = "CLOSE"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextScaled = true
+closeButton.Font = Enum.Font.GothamBold
+closeButton.Parent = panelFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 4)
+closeCorner.Parent = closeButton
+
+-- State
+local currentCategory = "Total Level"
+local categories = {}
+local leaderboardData = {}
+
+-- Function to create category tab
+local function createCategoryTab(name)
+	local tab = Instance.new("TextButton")
+	tab.Name = name .. "Tab"
+	tab.Size = UDim2.new(0, 100, 1, 0)
+	tab.BackgroundColor3 = currentCategory == name and Color3.fromRGB(65, 130, 175) or Color3.fromRGB(40, 40, 45)
+	tab.Text = name
+	tab.TextColor3 = Color3.fromRGB(255, 255, 255)
+	tab.TextScaled = true
+	tab.Font = Enum.Font.Gotham
+	
+	local tabCorner = Instance.new("UICorner")
+	tabCorner.CornerRadius = UDim.new(0, 4)
+	tabCorner.Parent = tab
+	
+	tab.MouseButton1Click:Connect(function()
+		currentCategory = name
+		loadLeaderboard()
+	end)
+	
+	return tab
+end
+
+-- Function to create leaderboard entry
+local function createLeaderboardEntry(rank, playerData, category)
+	local entry = Instance.new("Frame")
+	entry.Name = "Entry_" .. tostring(rank)
+	entry.Size = UDim2.new(1, 0, 0, 30)
+	entry.BackgroundColor3 = rank % 2 == 0 and Color3.fromRGB(30, 30, 35) or Color3.fromRGB(35, 35, 40)
+	entry.BorderSizePixel = 0
+	
+	local entryCorner = Instance.new("UICorner")
+	entryCorner.CornerRadius = UDim.new(0, 4)
+	entryCorner.Parent = entry
+	
+	-- Rank
+	local rankLabel = Instance.new("TextLabel")
+	rankLabel.Name = "Rank"
+	rankLabel.Size = UDim2.new(0.1, 0, 1, 0)
+	rankLabel.BackgroundTransparency = 1
+	rankLabel.Text = tostring(rank)
+	rankLabel.TextColor3 = rank <= 3 and Color3.fromRGB(218, 165, 32) or Color3.fromRGB(255, 255, 255)
+	rankLabel.TextScaled = true
+	rankLabel.Font = rank <= 3 and Enum.Font.GothamBlack or Enum.Font.GothamBold
+	rankLabel.Parent = entry
+	
+	-- Player Name
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "Name"
+	nameLabel.Size = UDim2.new(0.5, 0, 1, 0)
+	nameLabel.Position = UDim2.new(0.1, 0, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = playerData.name
+	nameLabel.TextColor3 = playerData.userId == player.UserId and Color3.fromRGB(65, 175, 65) or Color3.fromRGB(255, 255, 255)
+	nameLabel.TextScaled = true
+	nameLabel.Font = playerData.userId == player.UserId and Enum.Font.GothamBlack or Enum.Font.Gotham
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Parent = entry
+	
+	-- Value
+	local valueLabel = Instance.new("TextLabel")
+	valueLabel.Name = "Value"
+	valueLabel.Size = UDim2.new(0.4, 0, 1, 0)
+	valueLabel.Position = UDim2.new(0.6, 0, 0, 0)
+	valueLabel.BackgroundTransparency = 1
+	
+	-- Get value based on category
+	local value = 0
+	if category == "Total Level" then
+		value = playerData.totalLevel
+	elseif category == "Monsters Killed" then
+		value = playerData.monstersKilled
+	elseif category == "Gold" then
+		value = playerData.gold
+	elseif category == "Combat Level" then
+		value = playerData.combatLevel
+	elseif category == "Mining" then
+		value = playerData.mining
+	elseif category == "Woodcutting" then
+		value = playerData.woodcutting
+	elseif category == "Fishing" then
+		value = playerData.fishing
+	elseif category == "Crafting" then
+		value = playerData.crafting
+	elseif category == "Smithing" then
+		value = playerData.smithing
+	elseif category == "Fletching" then
+		value = playerData.fletching
+	elseif category == "Cooking" then
+		value = playerData.cooking
+	end
+	
+	valueLabel.Text = tostring(value)
+	valueLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	valueLabel.TextScaled = true
+	valueLabel.Font = Enum.Font.Gotham
+	valueLabel.Parent = entry
+	
+	return entry
+end
+
+-- Function to load leaderboard
+local function loadLeaderboard()
+	local success, result = pcall(function()
+		return GetLeaderboardFunction:InvokeServer(currentCategory, 50) -- Top 50
+	end)
+	
+	if success and result then
+		leaderboardData = result
+		
+		-- Update player info
+		if result.playerRank and result.playerStats then
+			playerRankText.Text = "Rank: " .. tostring(result.playerRank) .. "/" .. tostring(result.totalPlayers)
+			
+			-- Get player value
+			local playerValue = 0
+			if currentCategory == "Total Level" then
+				playerValue = result.playerStats.totalLevel
+			elseif currentCategory == "Monsters Killed" then
+				playerValue = result.playerStats.monstersKilled
+			elseif currentCategory == "Gold" then
+				playerValue = result.playerStats.gold
+			elseif currentCategory == "Combat Level" then
+				playerValue = result.playerStats.combatLevel
+			elseif currentCategory == "Mining" then
+				playerValue = result.playerStats.mining
+			elseif currentCategory == "Woodcutting" then
+				playerValue = result.playerStats.woodcutting
+			elseif currentCategory == "Fishing" then
+				playerValue = result.playerStats.fishing
+			elseif currentCategory == "Crafting" then
+				playerValue = result.playerStats.crafting
+			elseif currentCategory == "Smithing" then
+				playerValue = result.playerStats.smithing
+			elseif currentCategory == "Fletching" then
+				playerValue = result.playerStats.fletching
+			elseif currentCategory == "Cooking" then
+				playerValue = result.playerStats.cooking
+			end
+			
+			playerValueText.Text = "Value: " .. tostring(playerValue)
+		else
+			playerRankText.Text = "Rank: --"
+			playerValueText.Text = "Value: --"
+		end
+		
+		-- Clear existing entries (except header)
+		for _, child in ipairs(listScrollingFrame:GetChildren()) do
+			if child.Name ~= "Header" then
+				child:Destroy()
+			end
+		end
+		
+		-- Add entries
+		for i, playerData in ipairs(result.data) do
+			local entry = createLeaderboardEntry(i, playerData, currentCategory)
+			entry.Parent = listScrollingFrame
+		end
+		
+		-- Update scrolling frame size
+		listScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, (#result.data + 1) * 35)
+	else
+		ErrorHandler:LogWarning("Failed to load leaderboard: " .. tostring(result))
+	end
+end
+
+-- Function to toggle leaderboard panel
+local function toggleLeaderboardPanel()
+	panelFrame.Visible = not panelFrame.Visible
+	
+	if panelFrame.Visible then
+		-- Load categories if not loaded
+		if #categories == 0 then
+			-- Default categories
+			categories = {
+				"Total Level",
+				"Monsters Killed", 
+				"Gold",
+				"Combat Level",
+				"Mining",
+				"Woodcutting",
+				"Fishing",
+				"Crafting",
+				"Smithing",
+				"Fletching",
+				"Cooking"
+			}
+			
+			-- Create tabs
+			for _, category in ipairs(categories) do
+				local tab = createCategoryTab(category)
+				tab.Parent = tabsScrollingFrame
+			end
+			
+			-- Update tabs scrolling size
+			tabsScrollingFrame.CanvasSize = UDim2.new(0, #categories * 105, 0, 0)
+		end
+		
+		loadLeaderboard()
+	end
+end
+
+-- Listen for leaderboard updates
+LeaderboardUpdateEvent.OnClientEvent:Connect(function(updateData)
+	if panelFrame.Visible then
+		loadLeaderboard()
+	end
+end)
+
+-- Button events
+closeButton.MouseButton1Click:Connect(function()
+	panelFrame.Visible = false
+end)
+
+-- Toggle with key (B key)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	
+	if input.KeyCode == Enum.KeyCode.B then
+		toggleLeaderboardPanel()
+	end
+end)
+
+print("[LeaderboardUI] Ready!")

@@ -1,0 +1,78 @@
+{
+  "snapshots": [
+    {
+      "timestamp": "2026-02-14T12:52:42.283Z",
+      "totalValue": 703.88,
+      "pnl": -51.54,
+      "prices": [
+        {
+          "symbol": "USDC",
+          "price": 0.999965,
+          "change24h": 0.01
+        },
+        {
+          "symbol": "MOLT",
+          "price": 0.00004151,
+          "change24h": -30.1
+        },
+        {
+          "symbol": "UXRP",
+          "price": 1.45,
+          "change24h": 6.38
+        },
+        {
+          "symbol": "CLAWD",
+          "price": 0.00004558,
+          "change24h": -18.42
+        },
+        {
+          "symbol": "RIPS",
+          "price": 0.000004522,
+          "change24h": 2.12
+        },
+        {
+          "symbol": "ETH",
+          "price": 2071.51,
+          "change24h": 5.62
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-02-14T12:53:07.542Z",
+      "totalValue": 703.88,
+      "pnl": -51.54,
+      "prices": [
+        {
+          "symbol": "USDC",
+          "price": 0.999965,
+          "change24h": 0.01
+        },
+        {
+          "symbol": "MOLT",
+          "price": 0.00004151,
+          "change24h": -30.1
+        },
+        {
+          "symbol": "UXRP",
+          "price": 1.45,
+          "change24h": 6.38
+        },
+        {
+          "symbol": "CLAWD",
+          "price": 0.00004558,
+          "change24h": -18.42
+        },
+        {
+          "symbol": "RIPS",
+          "price": 0.000004522,
+          "change24h": 2.12
+        },
+        {
+          "symbol": "ETH",
+          "price": 2071.51,
+          "change24h": 5.62
+        }
+      ]
+    }
+  ]
+}

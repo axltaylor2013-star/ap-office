@@ -1,0 +1,81 @@
+-- UI Monitor - Track and restore missing UI
+print("[UIMonitor] Starting UI watchdog system...")
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui", 5)
+
+-- Track UI elements
+local trackedGuis = {}
+local lastCheck = tick()
+
+-- Simple backup UI that cannot be destroyed
+local function createBackupUI()
+    local backupGui = Instance.new("ScreenGui")
+    backupGui.Name = "BackupUI_" .. tick()
+    backupGui.ResetOnSpawn = false
+    backupGui.Parent = playerGui
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 300, 0, 100)
+    frame.Position = UDim2.new(0, 10, 0, 10)
+    frame.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+    frame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+    frame.BorderSizePixel = 2
+    frame.Parent = backupGui
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "BACKUP UI ACTIVE\nMain UI Failed\nPress R to reset"
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Parent = frame
+    
+    -- Reset on R key
+    UserInputService.InputBegan:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.R then
+            player:Kick("Resetting to fix UI...")
+        end
+    end)
+    
+    print("[UIMonitor] Backup UI created")
+    return backupGui
+end
+
+-- Monitor UI health
+local function checkUIHealth()
+    local now = tick()
+    if now - lastCheck < 2 then return end -- Check every 2 seconds
+    lastCheck = now
+    
+    local statsPanel = playerGui:FindFirstChild("StatsPanelGui")
+    local miniMap = playerGui:FindFirstChild("MiniMapGui")
+    local hotbar = playerGui:FindFirstChild("HotbarGui")
+    
+    local missing = {}
+    if not statsPanel then table.insert(missing, "StatsPanel") end
+    if not miniMap then table.insert(missing, "MiniMap") end
+    if not hotbar then table.insert(missing, "Hotbar") end
+    
+    if #missing > 0 then
+        print("[UIMonitor] MISSING UI: " .. table.concat(missing, ", "))
+        createBackupUI()
+        return
+    end
+    
+    -- Check if they're actually visible when they should be
+    if statsPanel and statsPanel.Enabled == false then
+        print("[UIMonitor] StatsPanel disabled")
+    end
+end
+
+-- DISABLED: UIMonitor was causing lag and false positives
+-- UIs load at different times, so checking every frame created spam + backup UI floods
+-- RunService.Heartbeat:Connect(checkUIHealth)
+
+print("[UIMonitor] Disabled — UIs self-manage now")

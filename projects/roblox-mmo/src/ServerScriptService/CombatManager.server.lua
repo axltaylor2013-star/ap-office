@@ -17,13 +17,13 @@ local function isInWilderness(position)
 	return position.Z < WILDERNESS_Z
 end
 
-local Remotes = ReplicatedStorage:WaitForChild("Remotes")
-local attackRemote = Remotes:WaitForChild("Attack")
-local damageRemote = Remotes:WaitForChild("DamageDealt")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local attackRemote = Remotes:WaitForChild("Attack", 5)
+local damageRemote = Remotes:WaitForChild("DamageDealt", 5)
 
 -- Get player's equipped weapon damage
 local function getPlayerDamage(player)
-	local data = DataManager.GetData(player)
+	local data = DataManager:GetData(player)
 	if not data then return 5 end
 
 	-- Find best weapon in inventory
@@ -31,8 +31,8 @@ local function getPlayerDamage(player)
 	for _, slot in ipairs(data.Inventory) do
 		local item = ItemDB.GetItem(slot.name)
 		if item and item.type == "weapon" then
-			local combatLevel = DataManager.GetSkillLevel(player, "Combat")
-			if combatLevel >= (item.combatReq or 1) then
+			local strLevel = DataManager.GetSkillLevel(player, "Strength")
+			if strLevel >= (item.combatReq or 1) then
 				if item.damage > bestDamage then
 					bestDamage = item.damage
 				end
@@ -40,22 +40,22 @@ local function getPlayerDamage(player)
 		end
 	end
 
-	-- Add combat level bonus
-	local combatLevel = DataManager.GetSkillLevel(player, "Combat")
-	bestDamage = bestDamage + math.floor(combatLevel * 0.5)
+	-- Add strength level bonus
+	local strLevel = DataManager.GetSkillLevel(player, "Strength")
+	bestDamage = bestDamage + math.floor(strLevel * 0.5)
 
 	return bestDamage
 end
 
--- Get player's max health based on combat level
+-- Get player's max health based on defense level
 local function getPlayerMaxHealth(player)
-	local combatLevel = DataManager.GetSkillLevel(player, "Combat")
-	return Config.BaseHealth + (combatLevel * Config.HealthPerCombatLevel)
+	local defLevel = DataManager.GetSkillLevel(player, "Defense")
+	return Config.BaseHealth + (defLevel * Config.HealthPerCombatLevel)
 end
 
 -- Set up player health on spawn
 local function setupPlayerHealth(player, character)
-	local humanoid = character:WaitForChild("Humanoid")
+	local humanoid = character:WaitForChild("Humanoid", 5)
 	local maxHP = getPlayerMaxHealth(player)
 	humanoid.MaxHealth = maxHP
 	humanoid.Health = maxHP
@@ -83,9 +83,9 @@ attackRemote.OnServerEvent:Connect(function(attacker, targetPlayer)
 	local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
 	if not attackerRoot or not targetRoot then return end
 
-	-- Range check (must be within 10 studs)
+	-- Range check (must be within 14 studs)
 	local distance = (attackerRoot.Position - targetRoot.Position).Magnitude
-	if distance > 10 then return end
+	if distance > 14 then return end
 
 	-- PvP zone check — both must be in wilderness
 	if not isInWilderness(attackerRoot.Position) or not isInWilderness(targetRoot.Position) then
@@ -121,9 +121,10 @@ attackRemote.OnServerEvent:Connect(function(attacker, targetPlayer)
 
 	targetHumanoid:TakeDamage(damage)
 
-	-- Award combat XP to attacker
+	-- Award XP: Strength for attacking, Defense for taking hits
 	local xpGain = math.floor(damage * 1.5)
-	DataManager.AddSkillXP(attacker, "Combat", xpGain)
+	DataManager.AddSkillXP(attacker, "Strength", xpGain)
+	DataManager.AddSkillXP(targetPlayer, "Defense", math.floor(damage * 0.8))
 
 	-- Notify both players
 	damageRemote:FireClient(attacker, "dealt", damage, targetPlayer.Name)
@@ -133,7 +134,7 @@ attackRemote.OnServerEvent:Connect(function(attacker, targetPlayer)
 end)
 
 -- === EAT FOOD (healing) ===
-local eatRemote = Remotes:WaitForChild("EatFood")
+local eatRemote = Remotes:WaitForChild("EatFood", 5)
 
 eatRemote.OnServerEvent:Connect(function(player, itemName)
 	local item = ItemDB.GetItem(itemName)
@@ -157,7 +158,7 @@ eatRemote.OnServerEvent:Connect(function(player, itemName)
 	-- Update inventory
 	local invRemote = ReplicatedStorage.Remotes:FindFirstChild("InventoryUpdate")
 	if invRemote then
-		local data = DataManager.GetData(player)
+		local data = DataManager:GetData(player)
 		invRemote:FireClient(player, data.Inventory)
 	end
 
