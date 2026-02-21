@@ -24,6 +24,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 /* Overdue Alert */
 .overdue-alert{background:linear-gradient(90deg,#7f1d1d,#991b1b);color:#fecaca;padding:14px 32px;font-size:.9rem;font-weight:600;display:none;align-items:center;gap:10px;animation:alertPulse 2s infinite}
 @keyframes alertPulse{0%,100%{opacity:1}50%{opacity:.85}}
+@keyframes slideIn{0%{transform:translateX(100%);opacity:0}100%{transform:translateX(0);opacity:1}}
 
 /* KPIs */
 .grid{padding:24px 32px;display:grid;gap:20px}
@@ -229,6 +230,16 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 <script>
 let invoices=[];
 
+// Utility function to clear all invoice data (for Jeremy's use)
+function clearAllInvoices(){
+  if(confirm('Are you sure you want to delete ALL invoices? This cannot be undone!')){
+    invoices = [];
+    localStorage.removeItem('kermicle-invoices');
+    render();
+    alert('All invoices cleared successfully!');
+  }
+}
+
 function loadData(){
   fetch('invoices.json?_='+Date.now()).then(r=>r.json()).then(d=>{
     invoices=d.invoices||[];
@@ -241,13 +252,17 @@ function loadData(){
     save();
     render();
   }).catch(()=>{
+    // Load from localStorage only if JSON file fails
     const s=localStorage.getItem('kermicle-invoices');
     if(s)try{invoices=JSON.parse(s)}catch(e){invoices=[]}
     render();
   });
 }
 
-function save(){localStorage.setItem('kermicle-invoices',JSON.stringify(invoices))}
+function save(){
+  localStorage.setItem('kermicle-invoices',JSON.stringify(invoices));
+  console.log('Invoices saved to localStorage:', invoices.length, 'invoices');
+}
 function fmt(n){return'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function fmtDate(d){if(!d)return'—';const dt=new Date(d+'T00:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
 function today(){return new Date().toISOString().slice(0,10)}
@@ -376,6 +391,16 @@ function saveInvoice(){
     dateIssued:today(),dateDue:due,status:'draft'
   });
   save();render();closeCreateModal();
+  // Show success notification
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position:fixed;top:20px;right:20px;background:#4ade80;color:#000;
+    padding:12px 20px;border-radius:8px;font-weight:700;z-index:10000;
+    box-shadow:0 4px 12px rgba(0,0,0,0.3);animation:slideIn 0.3s ease-out;
+  `;
+  notification.textContent = `Invoice INV-${String(num).padStart(3,'0')} created and saved!`;
+  document.body.appendChild(notification);
+  setTimeout(() => notification.remove(), 3000);
   // Reset form
   ['fClient','fEmail','fService','fNotes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fTax').value='0';
